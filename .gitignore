@@ -1,0 +1,23 @@
+# ===== Global =====
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Logs & temp
+*.log
+*.tmp
+*.temp
+
+# Build artifacts (global safety net)
+**/bin/
+**/obj/
+
+# Node (global safety net)
+**/node_modules/

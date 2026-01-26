@@ -1,0 +1,6 @@
+@MemoRecipe.Api_HostAddress = http://localhost:5131
+
+GET {{MemoRecipe.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
