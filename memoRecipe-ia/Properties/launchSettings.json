@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "memorecipe_ia": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7072",
+      "launchBrowser": false
+    }
+  }
+}

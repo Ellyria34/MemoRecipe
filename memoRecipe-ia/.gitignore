@@ -1,0 +1,65 @@
+#   .NET / C# BUILD OUTPUTS
+bin/
+obj/
+out/
+*.exe
+*.dll
+*.pdb
+*.mdb
+
+#   USER / IDE FILES          
+*.user
+*.suo
+*.userprefs
+*.csproj.user
+*.rsuser
+*.orig
+
+# Visual Studio Code
+.vscode/
+
+# JetBrains Rider
+.idea/
+
+#   CONFIG & SECRETS          
+local.settings.json
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.json
+
+# Azure Functions internal
+AzureWebJobsStorage*
+**/testhost.json
+
+#   CACHE / TEMP FILES        
+*.cache
+*.nuget
+packages/
+*.db
+*.db-shm
+*.db-wal
+
+
+#   LOGS & DIAGNOSTICS       
+*.log
+logs/
+
+
+#   AZURE FUNCTIONS SPECIFIC  
+.azurefunctions/
+*.funcpack
+worker.config.json
+
+#   OS FILES                  
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
