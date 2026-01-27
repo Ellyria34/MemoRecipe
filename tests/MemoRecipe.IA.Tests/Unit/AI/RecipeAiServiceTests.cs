@@ -1,4 +1,6 @@
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using MemoRecipeIA.Application.Interfaces;
 using MemoRecipeIA.Infrastructure.AI;
 using Xunit;
@@ -30,8 +32,10 @@ namespace MemoRecipe.IA.Tests.Unit.AI
             """;
 
             var fakeClient = new FakeChatCompletionClient(fakeJsonResponse);
+            var logger = NullLogger<RecipeAiService>.Instance;
 
-            var service = new RecipeAiService(fakeClient);
+            var service = new RecipeAiService(fakeClient, logger);
+    
 
             // Act
             var result = await service.ParseAsync(ocrText);

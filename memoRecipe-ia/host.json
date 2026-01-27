@@ -1,12 +1,18 @@
 {
-    "version": "2.0",
-    "logging": {
-        "applicationInsights": {
-            "samplingSettings": {
-                "isEnabled": true,
-                "excludedTypes": "Request"
-            },
-            "enableLiveMetricsFilters": true
-        }
+  "version": "2.0",
+  "logging": {
+    "logLevel": {
+      "Default": "Information",
+      "Function": "Information",
+      "Host.Results": "Information",
+      "MemoRecipeIA": "Information"
+    },
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": true,
+        "excludedTypes": "Request"
+      },
+      "enableLiveMetricsFilters": true
     }
+  }
 }

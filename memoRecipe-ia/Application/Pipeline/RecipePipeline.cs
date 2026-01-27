@@ -1,5 +1,6 @@
 using MemoRecipeIA.Application.Dtos;
 using MemoRecipeIA.Application.Interfaces;
+using MemoRecipeIA.Application;
 
 namespace MemoRecipeIA.Application.Pipeline
 {
@@ -29,7 +30,13 @@ namespace MemoRecipeIA.Application.Pipeline
             {
                 Title = parsed.Title,
                 Ingredients = parsed.Ingredients
-                    .Select(i => $"{i.Quantity} {i.Name}".Trim())
+                    .Select(i =>
+                    {
+                        var quantity = OcrQuantityNormalizer.Normalize(i.Quantity);
+                        return string.IsNullOrWhiteSpace(quantity)
+                            ? i.Name
+                            : $"{quantity} {i.Name}";
+                    })
                     .ToList(),
                 Steps = parsed.Steps
             };
