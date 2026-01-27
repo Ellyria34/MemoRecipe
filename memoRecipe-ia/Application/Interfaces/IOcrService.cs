@@ -1,4 +1,4 @@
-namespace memorecipe_ia.Infrastructure.OCR;
+namespace MemoRecipeIA.Application.Interfaces;
 
 public interface IOcrService
 {

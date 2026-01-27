@@ -1,0 +1,13 @@
+{
+  "title": "Cheesecake maison",
+  "servings": 8,
+  "ingredients": [
+    { "name": "biscuits", "quantity": "225 g" },
+    { "name": "beurre", "quantity": "100 g" }
+  ],
+  "steps": [
+    "Mélanger les biscuits avec le beurre.",
+    "Verser dans un moule et tasser.",
+    "Laisser reposer au frais."
+  ]
+}

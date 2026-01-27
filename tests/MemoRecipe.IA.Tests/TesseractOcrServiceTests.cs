@@ -1,7 +1,7 @@
 using System.IO;
 using System.Threading.Tasks;
 using Xunit;
-using memorecipe_ia.Infrastructure.OCR;
+using MemoRecipeIA.Infrastructure.OCR;
 
 namespace MemoRecipe.IA.Tests.Integration.OCR
 {

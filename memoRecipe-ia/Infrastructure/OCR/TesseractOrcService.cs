@@ -1,7 +1,7 @@
 using MemoRecipeIA.Application.Interfaces;
 using Tesseract;
 
-namespace memorecipe_ia.Infrastructure.OCR
+namespace MemoRecipeIA.Infrastructure.OCR
 {
     public class TesseractOcrService : IOcrService
     {
