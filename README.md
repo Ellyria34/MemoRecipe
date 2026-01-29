@@ -3,53 +3,59 @@
 MemoRecipe is a personal project focused on building a clean, testable, and controlled pipeline for extracting structured recipes from images, combining local OCR and AI-based parsing.
 
 The project deliberately emphasizes:
-- application-controlled decision making (the app decides, not the LLM),
+
 - clear separation of responsibilities (OCR, AI, domain logic),
 - deterministic and testable behavior, even when using a Large Language Model.
+- long-term maintainability rather than quick AI prototyping
+
+AI is treated as a data source, never as the source of truth.
 
 
-## Project Goal
+## roject Vision
 
-Starting from a recipe image (photo, magazine scan, handwritten note):
+MemoRecipe allows users to:
+- manage a personal cookbook,
+- create and edit structured recipes,
+- import recipes from photos or scans (magazines, handwritten notes),
+- correct and improve AI-extracted recipes,
+- adapt recipes over time (portions, corrections, variants),
+- access their data across devices (web & mobile).
 
-1. Extract raw text using OCR
-2. Convert noisy OCR output into a structured recipe
-3. Ensure that:
-    - no data is invented
-    - all corrections are deterministic and traceable
-    - the system remains testable without relying on a real LLM
-
+The system is designed so that human validation and domain rules always prevail over AI output.
 
 ## Global Architecture
 
-The project is organized as a monorepo, with the current focus on the AI backend:`
+The project is organized as a monorepo, composed of three clearly separated layers:
 
 ```
 MemoRecipe/
-├─ memoRecipe-ia/          # Azure Functions (.NET 8, isolated)
-│  ├─ Application/
-│  │  ├─ Dtos/
-│  │  ├─ Interfaces/
-│  │  ├─ Pipeline/
-│  │  └─ OcrQuantityNormalizer.cs
-│  ├─ Infrastructure/
-│  │  ├─ OCR/
-│  │  └─ AI/
-│  ├─ Functions/
-│  └─ Program.cs
-│
-├─ tests/
-│  ├─ Assets/              # Test images
-│  └─ MemoRecipe.IA.Tests/ # Unit tests
-│
+├─ memoRecipe-ia/           # Azure Functions – OCR & AI processing
+├─ memorecipe-api/          # ASP.NET API – domain, security, persistence
+├─ App/                     # Frontends
+│  ├─ MemoRecipe.Web        # Blazor Web
+│  └─ MemoRecipe.Mobile     # .NET MAUI
 └─ README.md
 ```
 
+## Responsibilities
+
+```
+| Layer               | Responsibility                                       |
+| ------------------- | ---------------------------------------------------- |
+| **Frontend**        | UX, forms, navigation, user interactions             |
+| **API**             | Domain logic, authentication, persistence, decisions |
+| **Azure Functions** | OCR, AI parsing, deterministic preprocessing         |
+```
+Frontends never communicate directly with Azure Functions.
+
+
+## AI & OCR Subsystem (memoRecipe-ia)
 
 ### Processing Pipeline
 
-The pipeline is explicit and linear:
+The OCR and AI pipeline is explicit and linear:
 
+```
 Image
   ↓
 Local OCR (Tesseract)
@@ -63,12 +69,15 @@ Structured DTO
 Deterministic domain post-processing
   ↓
 Final RecipeDto
+```
 
-
-## Key principle
+### Key principle
 
 The LLM is never the source of truth.
-It proposes a structure, but all domain corrections are applied afterwards, in code.
+It proposes a structure, but 
+- all domain corrections are applied afterwards, in code.
+- all transformations are deterministic
+- every step is testable
 
 
 ### OCR
@@ -93,9 +102,9 @@ Strict rules enforced in the prompt:
 The prompt is built as a strict contract, not a suggestion.
 
 
-### Domain Post-Processing (Core Concept)
+### Deterministic Post-Processing
 
-Some errors are neither OCR issues nor LLM hallucinations, but domain-specific problems.
+Some errors are domain-specific, not AI hallucinations.
 
 Examples:
 - [15g → 115g
@@ -112,15 +121,40 @@ Characteristics:
 No domain logic is delegated to the LLM.
 
 
-### Testing Strategy
+## Backend API (memorecipe-api)
+
+The API is built with ASP.NET (.NET 10) and follows Clean Architecture:
+- Domain → entities and core business concepts
+- Application → services, DTOs, mappings
+- Infrastructure → EF Core, PostgreSQL, migrations
+- Api → controllers, authentication, configuration
+
+Key features:
+- JWT authentication
+- PostgreSQL persistence (code-first)
+- Swagger documentation
+- Secure API-first design (Web & Mobile clients)
+
+The API remains the single source of truth.
+
+
+## Frontend (Planned)
+
+Two frontends will consume the same API:
+- Blazor Web for browser-based usage
+- .NET MAUI for native mobile applications
+
+Both share the same DTOs and contracts, ensuring consistency across platforms.
+
+## Testing Strategy
 
 The project is strongly test-oriented:
-- Unit tests for AI parsing (using fake LLMs)
-- Unit tests for quantity normalization
-- OCR-related tests
-- No test depends on a real network call
+- unit tests for AI parsing (fake LLMs)
+- unit tests for deterministic post-processing
+- OCR integration tests
+- no test depends on a real network call
 
-Goal: being able to change the prompt, the model, or the AI provider without breaking domain behavior.
+Goal: allow changing the prompt, model, or AI provider without breaking domain behavior.
 
 
 ### Running Locally
@@ -148,24 +182,36 @@ curl.exe -X POST http://localhost:7071/api/ExtractOcrFunction -F "file=@C:\Sarah
 ## Project Philosophy
 
 This project is not about:
-- “using AI quickly”
-- hiding domain logic inside prompts
-- blindly trusting LLM output
+- “using AI quickly”,
+- hiding domain logic inside prompts,
+- blindly trusting LLM output.
 
-It aims to show that:
-- an LLM can be treated as a component, not a brain
-- application code must keep control
-- AI-assisted systems can remain robust, testable, and explainable
+It demonstrates that:
+- AI can be treated as a component, not a brain,
+- applications must keep control,
+- AI-assisted systems can remain robust, testable, and explainable.
+
 
 ## Current Status
 
-- Local OCR implemented and tested
-- Contract-based AI parsing in place
-- End-to-end pipeline wired
-- Deterministic domain post-processing implemented
-- Tests passing
+### Implemented
 
-Planned (not yet implemented):
-- richer domain model
-- persistence layer
-- improved user feedback
+- Local OCR pipeline
+- Contract-based AI parsing
+- Deterministic post-processing
+- Azure Functions integration
+- Backend API with auth & persistence
+- Database schema & migrations
+
+### In Progress
+
+- OCR data stabilization
+- Recipe CRUD endpoints
+- Linking OCR extractions to recipes
+
+### Planned
+
+- Blazor Web frontend
+- MAUI mobile application
+- Recipe versioning
+- Advanced user feedback loops
