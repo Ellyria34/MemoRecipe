@@ -1,3 +1,6 @@
+# ===== Journal de bord (local uniquement) =====
+journal/
+
 # ===== Secrets =====
 appsettings.Development.json
 appsettings.*.local.json
