@@ -18,20 +18,21 @@ public class Recipe
     public Guid UserId { get; set; }
     // Navigation property to User (optional when not loaded by EF)
     public User? User { get; set; }
-
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public int Servings { get; set; }
-    public int PrepTimeMinutes { get; set; }
-    public int CookTimeMinutes { get; set; }
+    public int? Servings { get; set; }
+    public int? PrepTimeMinutes { get; set; }
+    public int? CookTimeMinutes { get; set; }
 
     // Computed property, not stored in DB
-    public int TotalTimeMinutes => PrepTimeMinutes + CookTimeMinutes;
-    public DifficultyLevel Difficulty { get; set; } = DifficultyLevel.Easy;
+    public int? TotalTimeMinutes => (PrepTimeMinutes.HasValue || CookTimeMinutes.HasValue)
+    ? (PrepTimeMinutes ?? 0) + (CookTimeMinutes ?? 0)
+    : null;
+
+    public DifficultyLevel? Difficulty { get; set; }
 
     // Public or private recipe
     public bool IsPublic { get; set; } = true;
-
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
