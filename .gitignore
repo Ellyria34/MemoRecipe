@@ -1,3 +1,9 @@
+# ===== Secrets =====
+appsettings.Development.json
+appsettings.*.local.json
+*.env
+.env
+
 # ===== Global =====
 
 # OS
