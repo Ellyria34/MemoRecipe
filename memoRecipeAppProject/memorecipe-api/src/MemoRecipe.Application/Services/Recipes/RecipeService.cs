@@ -17,9 +17,13 @@ public class RecipeService : IRecipeService
         _mapper = mapper;
     }
 
-    public async Task<RecipeDto?> GetByIdAsync(Guid id)
+    public async Task<RecipeDto?> GetByIdAsync(Guid id, Guid userId)
     {
         var recipe = await _repository.GetByIdAsync(id);
+        if(recipe == null || (recipe.UserId != userId && !recipe.IsPublic)) 
+        {
+            return null;
+        }
         return _mapper.Map<RecipeDto>(recipe);
     }
 
@@ -54,10 +58,11 @@ public class RecipeService : IRecipeService
         return _mapper.Map<RecipeDto>(recipeCreated);
     }
 
-    public async Task<RecipeDto?> UpdateAsync(Guid id, RecipeUpdateDto dto)
+    public async Task<RecipeDto?> UpdateAsync(Guid id, RecipeUpdateDto dto, Guid userId)
     {
+
         var recipe = await _repository.GetByIdAsync(id);
-        if (recipe == null) 
+        if (recipe == null || recipe.UserId != userId) 
         {
             return null;
         }
@@ -88,10 +93,10 @@ public class RecipeService : IRecipeService
         return _mapper.Map<RecipeDto>(recipe);
     }
 
-    public async Task<bool> DeleteAsync(Guid id)
+    public async Task<bool> DeleteAsync(Guid id, Guid userId)
     {
         var recipe = await _repository.GetByIdAsync(id);
-        if(recipe == null) 
+        if(recipe == null || recipe.UserId != userId) 
         {
             return false;
         }
