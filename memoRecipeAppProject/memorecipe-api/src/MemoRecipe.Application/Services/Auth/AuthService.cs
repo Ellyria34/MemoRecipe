@@ -1,22 +1,20 @@
 using System.Security.Claims;
-using Microsoft.EntityFrameworkCore;
 using MemoRecipe.Application.DTOs.Auth;
-using MemoRecipe.Infrastructure.Database;
-using MemoRecipe.Domain.Entities.Users; 
+using MemoRecipe.Application.Repositories;
+using MemoRecipe.Domain.Entities.Users;
 using AutoMapper;
 
 namespace MemoRecipe.Application.Services.Auth;
 
 public class AuthService : IAuthService
 {
-    private readonly MemoRecipeDbContext _db;
+    private readonly IUserRepository _userRepository;
     private readonly IMapper _mapper;
     private readonly IJwtService _jwtService;
 
-
-    public AuthService(MemoRecipeDbContext db, IMapper mapper, IJwtService jwtService)
+    public AuthService(IUserRepository userRepository, IMapper mapper, IJwtService jwtService)
     {
-        _db = db;
+        _userRepository = userRepository;
         _mapper = mapper;
         _jwtService = jwtService;
     }
@@ -24,7 +22,7 @@ public class AuthService : IAuthService
     public async Task<AuthUserDto?> RegisterAsync(RegisterDto dto)
     {
         // Vérifier email déjà utilisé ?
-        if (await _db.Users.AnyAsync(u => u.Email == dto.Email))
+        if (await _userRepository.EmailExistsAsync(dto.Email))
             return null;
 
         // Hash du mot de passe
@@ -41,8 +39,8 @@ public class AuthService : IAuthService
             UpdatedAt = DateTime.UtcNow
         };
 
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync();
+        await _userRepository.AddAsync(user);
+        await _userRepository.SaveChangesAsync();
 
         return new AuthUserDto
         {
@@ -54,7 +52,7 @@ public class AuthService : IAuthService
 
     public async Task<string?> LoginAsync(string email, string password)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        var user = await _userRepository.GetByEmailAsync(email);
         if (user == null)
             return null;
 
@@ -72,7 +70,7 @@ public class AuthService : IAuthService
 
         var userGuid = Guid.Parse(userId);
 
-        var entity = await _db.Users.FirstOrDefaultAsync(u => u.Id == userGuid);
+        var entity = await _userRepository.GetByIdAsync(userGuid);
         if (entity == null)
             return null;
 

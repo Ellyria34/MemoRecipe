@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MemoRecipe.Domain\MemoRecipe.Domain.csproj" />
+    <ProjectReference Include="..\MemoRecipe.Application\MemoRecipe.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -29,7 +29,7 @@ public class RecipeService : IRecipeService
 
     public async Task<List<RecipeDto>> GetAllByUserAsync(Guid userId)
     {
-        var recipes = await _repository.GetAllByUserAsync(userId);
+        var recipes = await _repository.GetAllByUserIdAsync(userId);
         return _mapper.Map<List<RecipeDto>>(recipes);
     }
 
