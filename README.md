@@ -200,17 +200,21 @@ It demonstrates that:
 - Contract-based AI parsing
 - Deterministic post-processing
 - Azure Functions integration
-- Backend API with auth & persistence
+- Backend API with JWT auth & persistence
 - Database schema & migrations
+- Recipe CRUD endpoints (GET, POST, PUT, DELETE) with authorization
+- Repository Pattern (IRecipeRepository, IUserRepository)
+- Unit tests for RecipeService (13 tests, FakeRepository pattern)
 
 ### In Progress
 
 - OCR data stabilization
-- Recipe CRUD endpoints
 - Linking OCR extractions to recipes
 
 ### Planned
 
+- Input validation (FluentValidation)
+- Global error handling middleware
 - Blazor Web frontend
 - MAUI mobile application
 - Recipe versioning

@@ -38,45 +38,45 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Choix** : Garder la structure actuelle `memoRecipeAppProject/memorecipe-api/src/...` meme si `memorecipe-api` est un niveau de dossier redondant.
 - **Pourquoi** : Le gain est cosmetique. Restructurer casserait les chemins dans .sln, .csproj, migrations, docker-compose. On applique YAGNI : on restructure quand c'est bloquant, pas pour du cosmetique.
 
+### DEC-007 : Repository Pattern pour tous les agregats (Recipe + User)
+- **Date** : Mars 2026
+- **Choix** : `IRecipeRepository` et `IUserRepository` dans Application, implementations dans Infrastructure.
+- **Pourquoi** : DIP (Dependency Inversion Principle) — Application definit le contrat, Infrastructure l'implemente. Permet les tests unitaires avec FakeRepository sans base de donnees. Corrige la reference circulaire Application ↔ Infrastructure.
+- **Consequence** : Architecture propre : Api → Application ← Infrastructure → Domain.
+
+### DEC-008 : Verification IsPublic dans GetByIdAsync
+- **Date** : Mars 2026
+- **Choix** : Un user ne peut voir la recette d'un autre que si elle est publique (`IsPublic = true`).
+- **Pourquoi** : Securite par defaut. `[Authorize]` verifie seulement l'authentification ("qui es-tu ?"), pas l'autorisation ("as-tu le droit ?"). La logique metier vit dans le service (SRP).
+- **Consequence** : `GetByIdAsync` prend un `userId` en parametre pour evaluer les droits d'acces.
+
+### DEC-009 : Tests unitaires avec FakeRepository
+- **Date** : Mars 2026
+- **Choix** : Implémenter `IRecipeRepository` avec une `List<Recipe>` en memoire pour les tests.
+- **Pourquoi** : Tests deterministes, rapides (< 1s), sans base de donnees, sans Docker. Meme pattern que `FakeRecipeAiService` dans les tests IA.
+- **Consequence** : Les tests unitaires ne testent pas la persistance (c'est voulu). Les tests d'integration avec vraie DB sont une dette a traiter.
+
 ---
 
 ## Inconsistances identifiees (a corriger)
 
-### INC-001 : AuthService depend directement de MemoRecipeDbContext [SEVERITE: MOYENNE]
-- **Fichier** : `MemoRecipe.Application/Services/Auth/AuthService.cs`
-- **Probleme** : La couche Application reference directement la couche Infrastructure (DbContext). En Clean Architecture stricte, Application ne devrait pas connaitre Infrastructure.
-- **Impact** : Couplage fort. Si on change d'ORM ou de base de donnees, il faut modifier les services metier.
-- **Solution possible** : Introduire des interfaces Repository dans Application (ex: `IUserRepository`) implementees dans Infrastructure. Le service ne connaitrait que l'interface.
-- **Quand corriger** : Lors de la feature 1.1 (Recipe CRUD), decider du pattern (Repository vs DbContext direct) et l'appliquer de maniere coherente.
+### INC-001 : ~~AuthService depend directement de MemoRecipeDbContext~~ [RESOLUE]
+- **Resolution** : `IUserRepository` cree dans Application, `UserRepository` implemente dans Infrastructure. `AuthService` utilise desormais `IUserRepository`. La reference circulaire Application → Infrastructure a ete supprimee. Architecture propre : Api → Application ← Infrastructure. Commit `refactor(arch): fix circular dependency between Application and Infrastructure`.
 
 ### INC-002 : ~~Classe LoginRequest morte dans AuthController~~ [RESOLUE]
 - **Resolution** : Classe supprimee. Commit `fix: remove dead code and unused UserController endpoint`.
 
-### INC-003 : RecipeDto incomplet par rapport a l'entite [SEVERITE: MOYENNE]
-- **Fichier** : `MemoRecipe.Application/DTOs/Recipes/RecipeDto.cs`
-- **Probleme** : Il manque des proprietes qui existent sur l'entite Recipe :
-  - `PrepTimeMinutes` (seul `TotalTimeMinutes` est expose)
-  - `CookTimeMinutes`
-  - `Difficulty` (enum)
-  - `IsPublic`
-  - `CreatedAt` / `UpdatedAt`
-  - `UserId`
-- **Impact** : Le front ne pourra pas afficher ces informations. L'update DTO a ces champs mais pas le read DTO.
-- **Solution** : Ajouter les proprietes manquantes dans `RecipeDto`.
+### INC-003 : ~~RecipeDto incomplet par rapport a l'entite~~ [RESOLUE]
+- **Resolution** : `RecipeDto` complete avec toutes les proprietes manquantes : `PrepTimeMinutes`, `CookTimeMinutes`, `Difficulty`, `IsPublic`, `CreatedAt`, `UpdatedAt`, `UserId`.
 
-### INC-004 : RecipeCreateDto manque le champ Difficulty [SEVERITE: FAIBLE]
-- **Fichier** : `MemoRecipe.Application/DTOs/Recipes/RecipeCreateDto.cs`
-- **Probleme** : L'entite Recipe a un champ `Difficulty` (enum Easy/Medium/Hard) mais le DTO de creation ne le propose pas. La valeur sera toujours `Easy` par defaut.
-- **Solution** : Ajouter `DifficultyLevel Difficulty` au DTO (ou decider que Easy est toujours le defaut a la creation).
+### INC-004 : ~~RecipeCreateDto manque le champ Difficulty~~ [RESOLUE]
+- **Resolution** : `DifficultyLevel? Difficulty` ajoute dans `RecipeCreateDto` et `RecipeUpdateDto`. Nullable par choix delibere : ne pas renseigner la difficulte ne signifie pas "Facile".
 
 ### INC-005 : ~~UserController sans [Authorize]~~ [RESOLUE]
 - **Resolution** : Endpoint supprime (YAGNI + surface d'attaque minimale). `GET /auth/me` couvre le besoin. Un endpoint public avec `PublicUserDto` sera cree si necessaire (ex: afficher l'auteur d'une recette). Commit `fix: remove dead code and unused UserController endpoint`.
 
-### INC-006 : RecipeProfile mapping Categories potentiellement incomplet [SEVERITE: FAIBLE]
-- **Fichier** : `MemoRecipe.Application/Mappings/Profiles/RecipeProfile.cs` (ligne 29)
-- **Probleme** : Le mapping `src.RecipeCategories` vers `List<CategoryDto>` fonctionne grace au mapping dans CategoryProfile, mais necessite que `RecipeCategory.Category` soit charge en Eager Loading (.Include). Si oublie dans le service, les noms de categories seront vides.
-- **Impact** : Pas un bug aujourd'hui (pas de service Recipe), mais piege a retenir lors de l'implementation.
-- **Action** : S'assurer d'utiliser `.Include(r => r.RecipeCategories).ThenInclude(rc => rc.Category)` dans le RecipeService.
+### INC-006 : ~~RecipeProfile mapping Categories potentiellement incomplet~~ [RESOLUE]
+- **Resolution** : `RecipeRepository` utilise `.Include(r => r.RecipeCategories).ThenInclude(rc => rc.Category)` sur toutes les requetes. Les categories sont toujours chargees en Eager Loading.
 
 ---
 
@@ -99,11 +99,9 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Detail** : Cle JWT et mot de passe DB en dur dans `appsettings.json`
 - **Priorite** : A traiter en feature 2.4 (Secrets Management)
 
-### DEBT-005 : Pas de tests cote API
-- **Impact** : Haute (qualite, regression)
-- **Priorite** : A traiter en Phase 5
+### DEBT-005 : ~~Pas de tests cote API~~ [RESOLUE PARTIELLEMENT]
+- **Resolution** : Projet `MemoRecipe.Application.Tests` cree avec 13 tests unitaires couvrant `RecipeService` (GetById, GetAll, Create, Update, Delete). Pattern FakeRepository utilise pour des tests deterministes sans base de donnees.
+- **Restant** : Tests d'integration (avec vraie DB) et tests des autres services (Auth) a ajouter.
 
-### DEBT-006 : Pattern d'acces aux donnees non uniforme
-- **Impact** : Moyenne (coherence)
-- **Detail** : Les services utilisent directement DbContext. A decider si on introduit le pattern Repository ou si on garde DbContext comme "Repository suffisant" (voir INC-001).
-- **Priorite** : A trancher lors de la feature 1.1
+### DEBT-006 : ~~Pattern d'acces aux donnees non uniforme~~ [RESOLUE]
+- **Resolution** : Repository Pattern adopte uniformement. `IRecipeRepository` + `IUserRepository` dans Application, implementations dans Infrastructure. Plus aucun service n'accede directement a `MemoRecipeDbContext`.
