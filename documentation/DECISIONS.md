@@ -49,10 +49,8 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Solution possible** : Introduire des interfaces Repository dans Application (ex: `IUserRepository`) implementees dans Infrastructure. Le service ne connaitrait que l'interface.
 - **Quand corriger** : Lors de la feature 1.1 (Recipe CRUD), decider du pattern (Repository vs DbContext direct) et l'appliquer de maniere coherente.
 
-### INC-002 : Classe LoginRequest morte dans AuthController [SEVERITE: FAIBLE]
-- **Fichier** : `MemoRecipe.Api/Controllers/AuthController.cs` (lignes 59-63)
-- **Probleme** : Une classe `LoginRequest` est declaree en bas du fichier mais n'est jamais utilisee (c'est `LoginDto` qui est utilise). Code mort = confusion.
-- **Solution** : Supprimer la classe `LoginRequest`.
+### INC-002 : ~~Classe LoginRequest morte dans AuthController~~ [RESOLUE]
+- **Resolution** : Classe supprimee. Commit `fix: remove dead code and unused UserController endpoint`.
 
 ### INC-003 : RecipeDto incomplet par rapport a l'entite [SEVERITE: MOYENNE]
 - **Fichier** : `MemoRecipe.Application/DTOs/Recipes/RecipeDto.cs`
@@ -71,11 +69,8 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Probleme** : L'entite Recipe a un champ `Difficulty` (enum Easy/Medium/Hard) mais le DTO de creation ne le propose pas. La valeur sera toujours `Easy` par defaut.
 - **Solution** : Ajouter `DifficultyLevel Difficulty` au DTO (ou decider que Easy est toujours le defaut a la creation).
 
-### INC-005 : UserController sans [Authorize] [SEVERITE: HAUTE]
-- **Fichier** : `MemoRecipe.Api/Controllers/UserController.cs`
-- **Probleme** : L'endpoint `GET /api/users/{id}` est accessible sans authentification. N'importe qui peut consulter les infos d'un utilisateur par son ID.
-- **Impact** : Faille de securite. Exposition de donnees personnelles.
-- **Solution** : Ajouter `[Authorize]` sur le controller ou l'action. Evaluer si cet endpoint est meme necessaire (le endpoint `GET /auth/me` existe deja).
+### INC-005 : ~~UserController sans [Authorize]~~ [RESOLUE]
+- **Resolution** : Endpoint supprime (YAGNI + surface d'attaque minimale). `GET /auth/me` couvre le besoin. Un endpoint public avec `PublicUserDto` sera cree si necessaire (ex: afficher l'auteur d'une recette). Commit `fix: remove dead code and unused UserController endpoint`.
 
 ### INC-006 : RecipeProfile mapping Categories potentiellement incomplet [SEVERITE: FAIBLE]
 - **Fichier** : `MemoRecipe.Application/Mappings/Profiles/RecipeProfile.cs` (ligne 29)
