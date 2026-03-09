@@ -94,10 +94,9 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Impact** : Moyenne (stack traces exposees en dev, erreurs 500 non formattees)
 - **Priorite** : A traiter en feature 1.4 (Error Middleware)
 
-### DEBT-004 : Secrets en clair dans appsettings.json
-- **Impact** : Haute (securite)
-- **Detail** : Cle JWT et mot de passe DB en dur dans `appsettings.json`
-- **Priorite** : A traiter en feature 2.4 (Secrets Management)
+### DEBT-004 : ~~Secrets en clair dans appsettings.json~~ [RESOLUE PARTIELLEMENT]
+- **Resolution** : `appsettings.Development.json` cree pour les secrets locaux, ajoute au `.gitignore`. `appsettings.json` ne contient plus que des placeholders explicites (`CHANGE_ME_USE_APPSETTINGS_DEVELOPMENT_JSON`).
+- **Restant** : En production, utiliser Azure Key Vault ou variables d'environnement. A traiter en feature 2.4 (Secrets Management).
 
 ### DEBT-005 : ~~Pas de tests cote API~~ [RESOLUE PARTIELLEMENT]
 - **Resolution** : Projet `MemoRecipe.Application.Tests` cree avec 13 tests unitaires couvrant `RecipeService` (GetById, GetAll, Create, Update, Delete). Pattern FakeRepository utilise pour des tests deterministes sans base de donnees.
