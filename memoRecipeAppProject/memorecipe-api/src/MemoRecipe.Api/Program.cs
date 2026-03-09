@@ -1,6 +1,5 @@
 using MemoRecipe.Infrastructure.Database;
 using Microsoft.EntityFrameworkCore;
-using MemoRecipe.Application.Services.Users;
 using MemoRecipe.Application.Services.Auth;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -79,7 +78,6 @@ builder.Services.AddSwaggerGen(options =>
 // Application services (dependency injection)
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IUserService, UserService>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(UserProfile).Assembly);
