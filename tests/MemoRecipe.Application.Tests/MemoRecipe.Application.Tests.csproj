@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="12.0.1" />
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -19,13 +20,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\memoRecipe-ia\memorecipe-ia.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="Assets\**\*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <ProjectReference Include="..\..\memoRecipeAppProject\memorecipe-api\src\MemoRecipe.Application\MemoRecipe.Application.csproj" />
+    <ProjectReference Include="..\..\memoRecipeAppProject\memorecipe-api\src\MemoRecipe.Domain\MemoRecipe.Domain.csproj" />
   </ItemGroup>
 
 </Project>
