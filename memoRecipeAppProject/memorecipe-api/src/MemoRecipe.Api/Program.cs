@@ -9,6 +9,9 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using MemoRecipe.Application.Mappings.Profiles;
 using MemoRecipe.Api.Middleware;
+using FluentValidation;
+using MemoRecipe.Application.Validators;
+using MemoRecipe.Application.DTOs.Recipes;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +21,8 @@ builder.Services.AddDbContext<MemoRecipeDbContext>(options =>
 // Add services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddScoped<IValidator<RecipeCreateDto>, RecipeCreateDtoValidator>();
+builder.Services.AddScoped<IValidator<RecipeUpdateDto>, RecipeUpdateDtoValidator>();
 
 //Authentication service
 builder.Services.AddAuthentication(options =>

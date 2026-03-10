@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MemoRecipe.Application.Services.Recipes;
 using MemoRecipe.Application.DTOs.Recipes;
+using FluentValidation;
 
 namespace MemoRecipe.Api.Controllers;
 
@@ -11,10 +12,14 @@ namespace MemoRecipe.Api.Controllers;
 public class RecipeController : ControllerBase
 {
     private readonly IRecipeService _recipeService ;
+    private readonly IValidator<RecipeCreateDto> _createDtovalidator;
+    private readonly IValidator<RecipeUpdateDto> _updateDtovalidator;
 
-    public RecipeController(IRecipeService recipeService)
+    public RecipeController(IRecipeService recipeService, IValidator<RecipeCreateDto> createDtovalidator, IValidator<RecipeUpdateDto> updateDtovalidator)
     {
-        _recipeService  = recipeService;
+        _recipeService = recipeService;
+        _createDtovalidator  = createDtovalidator;
+        _updateDtovalidator = updateDtovalidator;
     }
 
     [HttpGet("{id}")]
@@ -43,6 +48,10 @@ public class RecipeController : ControllerBase
     {
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
 
+        var validation = await _createDtovalidator.ValidateAsync(dto);
+        if (!validation.IsValid)
+            return BadRequest(validation.Errors);
+        
         var recipeDto = await _recipeService.CreateAsync(dto, userId);
 
         return CreatedAtAction(nameof(GetRecipeById), new { id = recipeDto.Id }, recipeDto);
@@ -52,6 +61,11 @@ public class RecipeController : ControllerBase
     public async Task<IActionResult> UpdateRecipe(Guid id, RecipeUpdateDto dto)
     {
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+
+        var validation = await _updateDtovalidator.ValidateAsync(dto);
+        if (!validation.IsValid)
+            return BadRequest(validation.Errors);
+
         var recipeDto = await _recipeService.UpdateAsync(id, dto, userId);
         if (recipeDto == null)
         {
