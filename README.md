@@ -11,7 +11,7 @@ The project deliberately emphasizes:
 AI is treated as a data source, never as the source of truth.
 
 
-## roject Vision
+## Project Vision
 
 MemoRecipe allows users to:
 - manage a personal cookbook,
@@ -160,7 +160,8 @@ Goal: allow changing the prompt, model, or AI provider without breaking domain b
 ### Running Locally
 
 Prerequisites :
-- .NET 8 (LTS)
+- .NET 10 (API & Frontend)
+- .NET 8 (Azure Functions)
 - Azure Functions Core Tools
 - Local Tesseract installation
 
@@ -205,17 +206,21 @@ It demonstrates that:
 - Recipe CRUD endpoints (GET, POST, PUT, DELETE) with authorization
 - Repository Pattern (IRecipeRepository, IUserRepository)
 - Unit tests for RecipeService (13 tests, FakeRepository pattern)
+- Input validation with FluentValidation (4 validators, 71 unit tests)
+- Global error handling middleware (ExceptionMiddleware)
+- Blazor Web frontend setup (Blazor WASM .NET 10 + MudBlazor)
 
 ### In Progress
 
 - OCR data stabilization
 - Linking OCR extractions to recipes
+- Frontend UI development
 
 ### Planned
 
-- Input validation (FluentValidation)
-- Global error handling middleware
-- Blazor Web frontend
 - MAUI mobile application
 - Recipe versioning
 - Advanced user feedback loops
+- CI/CD pipeline
+- RGPD compliance
+- Advanced security (rate limiting, CORS)

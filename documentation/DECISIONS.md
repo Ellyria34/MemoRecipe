@@ -50,6 +50,24 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Pourquoi** : Securite par defaut. `[Authorize]` verifie seulement l'authentification ("qui es-tu ?"), pas l'autorisation ("as-tu le droit ?"). La logique metier vit dans le service (SRP).
 - **Consequence** : `GetByIdAsync` prend un `userId` en parametre pour evaluer les droits d'acces.
 
+### DEC-011 : FluentValidation plutot que Data Annotations
+- **Date** : Mars 2026
+- **Choix** : FluentValidation pour valider les DTOs (RecipeCreate, RecipeUpdate, Register, Login)
+- **Pourquoi** : Regles dans une classe separee (SRP — le DTO reste un DTO). Testable unitairement avec `TestValidate`. Messages personnalisables. Validations conditionnelles avec `.When(...)` pour le partial update.
+- **Consequence** : Validation dans les controllers avant appel aux services. 71 tests unitaires couvrent tous les validators.
+
+### DEC-012 : Global Exception Middleware
+- **Date** : Mars 2026
+- **Choix** : Middleware custom (`ExceptionMiddleware`) plutot que le handler par defaut d'ASP.NET
+- **Pourquoi** : Controle total sur la reponse d'erreur. Le client recoit toujours un message generique (`An unexpected error occurred.`), jamais de stack trace. Les logs serveur recoivent l'exception complete via `ILogger`.
+- **Consequence** : Enregistre en premier dans le pipeline (`app.UseMiddleware<ExceptionMiddleware>()`). Principe "fail safely".
+
+### DEC-010 : MudBlazor comme librairie UI pour Blazor
+- **Date** : Mars 2026
+- **Choix** : MudBlazor plutot que Bootstrap ou Tailwind
+- **Pourquoi** : Composants natifs Blazor (C#, pas du HTML+classes CSS). Theme centralise, responsive integre, zero JS a ecrire. Lib la plus utilisee dans l'ecosysteme Blazor.
+- **Risque** : Dependance a une lib tierce. Mitige par Clean Architecture — seule la couche Web utilise MudBlazor, Domain/Application restent independants.
+
 ### DEC-009 : Tests unitaires avec FakeRepository
 - **Date** : Mars 2026
 - **Choix** : Implémenter `IRecipeRepository` avec une `List<Recipe>` en memoire pour les tests.
@@ -86,13 +104,11 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Impact** : Faible (cosmetique)
 - **Priorite** : Basse
 
-### DEBT-002 : Pas de validation d'entree sur les endpoints
-- **Impact** : Haute (securite + UX)
-- **Priorite** : A traiter en feature 1.3 (FluentValidation)
+### DEBT-002 : ~~Pas de validation d'entree sur les endpoints~~ [RESOLUE]
+- **Resolution** : FluentValidation integre pour RecipeCreateDto, RecipeUpdateDto, RegisterDto, LoginDto. 4 validators, 71 tests unitaires. Validation dans les controllers avant appel aux services.
 
-### DEBT-003 : Pas de gestion d'erreur globale
-- **Impact** : Moyenne (stack traces exposees en dev, erreurs 500 non formattees)
-- **Priorite** : A traiter en feature 1.4 (Error Middleware)
+### DEBT-003 : ~~Pas de gestion d'erreur globale~~ [RESOLUE]
+- **Resolution** : `ExceptionMiddleware` ajouté. Client recoit un message generique, logs serveur recoivent la stack trace complete.
 
 ### DEBT-004 : ~~Secrets en clair dans appsettings.json~~ [RESOLUE PARTIELLEMENT]
 - **Resolution** : `appsettings.Development.json` cree pour les secrets locaux, ajoute au `.gitignore`. `appsettings.json` ne contient plus que des placeholders explicites (`CHANGE_ME_USE_APPSETTINGS_DEVELOPMENT_JSON`).
