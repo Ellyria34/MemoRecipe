@@ -12,6 +12,7 @@ using MemoRecipe.Api.Middleware;
 using FluentValidation;
 using MemoRecipe.Application.Validators;
 using MemoRecipe.Application.DTOs.Recipes;
+using MemoRecipe.Application.DTOs.Auth;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,6 +24,8 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddScoped<IValidator<RecipeCreateDto>, RecipeCreateDtoValidator>();
 builder.Services.AddScoped<IValidator<RecipeUpdateDto>, RecipeUpdateDtoValidator>();
+builder.Services.AddScoped<IValidator<LoginDto>, LoginDtoValidator>();
+builder.Services.AddScoped<IValidator<RegisterDto>, RegisterDtoValidator>();
 
 //Authentication service
 builder.Services.AddAuthentication(options =>

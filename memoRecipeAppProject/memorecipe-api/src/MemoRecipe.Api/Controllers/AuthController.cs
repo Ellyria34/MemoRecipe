@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MemoRecipe.Application.Services.Auth;
 using MemoRecipe.Application.DTOs.Auth;
-namespace MemoRecipe.Api.Controllers;
+using FluentValidation;
 
+
+namespace MemoRecipe.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -11,16 +13,28 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly IJwtService _jwtService;
+    private readonly IValidator<RegisterDto> _registerDtoValidator;
+    private readonly IValidator<LoginDto> _loginDtoValidator;
 
-    public AuthController(IAuthService authService, IJwtService jwtService)
+
+    public AuthController(IAuthService authService, IJwtService jwtService, IValidator<RegisterDto> registerDtoValidator, IValidator<LoginDto> loginDtoValidator)
     {
         _authService = authService;
         _jwtService = jwtService;
+        _registerDtoValidator = registerDtoValidator;
+        _loginDtoValidator = loginDtoValidator;
     }
 
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterDto dto)
     {
+
+        var validation = await _registerDtoValidator.ValidateAsync(dto);
+                if (!validation.IsValid)
+                {
+                    return BadRequest(validation.Errors);            
+                }
+
         var user = await _authService.RegisterAsync(dto);
 
         if (user == null)
@@ -34,6 +48,13 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
+        
+        var validation = await _loginDtoValidator.ValidateAsync(dto);
+        if (!validation.IsValid)
+        {
+            return BadRequest(validation.Errors);            
+        }
+        
         var token = await _authService.LoginAsync(dto.Email, dto.Password);
 
         if (token == null)
@@ -41,7 +62,6 @@ public class AuthController : ControllerBase
 
         return Ok(new { token });
     }
-
 
     // GET/auth/user → if token is present and valid, returns user info
     [Authorize]

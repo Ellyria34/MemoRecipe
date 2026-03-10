@@ -12,14 +12,14 @@ namespace MemoRecipe.Api.Controllers;
 public class RecipeController : ControllerBase
 {
     private readonly IRecipeService _recipeService ;
-    private readonly IValidator<RecipeCreateDto> _createDtovalidator;
-    private readonly IValidator<RecipeUpdateDto> _updateDtovalidator;
+    private readonly IValidator<RecipeCreateDto> _createDtoValidator;
+    private readonly IValidator<RecipeUpdateDto> _updateDtoValidator;
 
-    public RecipeController(IRecipeService recipeService, IValidator<RecipeCreateDto> createDtovalidator, IValidator<RecipeUpdateDto> updateDtovalidator)
+    public RecipeController(IRecipeService recipeService, IValidator<RecipeCreateDto> createDtoValidator, IValidator<RecipeUpdateDto> updateDtoValidator)
     {
         _recipeService = recipeService;
-        _createDtovalidator  = createDtovalidator;
-        _updateDtovalidator = updateDtovalidator;
+        _createDtoValidator  = createDtoValidator;
+        _updateDtoValidator = updateDtoValidator;
     }
 
     [HttpGet("{id}")]
@@ -48,9 +48,11 @@ public class RecipeController : ControllerBase
     {
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
 
-        var validation = await _createDtovalidator.ValidateAsync(dto);
+        var validation = await _createDtoValidator.ValidateAsync(dto);
         if (!validation.IsValid)
-            return BadRequest(validation.Errors);
+        {
+            return BadRequest(validation.Errors);            
+        }
         
         var recipeDto = await _recipeService.CreateAsync(dto, userId);
 
@@ -62,9 +64,11 @@ public class RecipeController : ControllerBase
     {
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
 
-        var validation = await _updateDtovalidator.ValidateAsync(dto);
+        var validation = await _updateDtoValidator.ValidateAsync(dto);
         if (!validation.IsValid)
-            return BadRequest(validation.Errors);
+        {
+            return BadRequest(validation.Errors);            
+        }
 
         var recipeDto = await _recipeService.UpdateAsync(id, dto, userId);
         if (recipeDto == null)
