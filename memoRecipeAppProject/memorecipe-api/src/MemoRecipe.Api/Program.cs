@@ -13,19 +13,22 @@ using FluentValidation;
 using MemoRecipe.Application.Validators;
 using MemoRecipe.Application.DTOs.Recipes;
 using MemoRecipe.Application.DTOs.Auth;
+using System.Runtime.InteropServices;
 
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:5110")
+            .AllowAnyHeader()
+            .AllowAnyMethod();    
+    });
+});
+
 builder.Services.AddDbContext<MemoRecipeDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-    
-// Add services
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddScoped<IValidator<RecipeCreateDto>, RecipeCreateDtoValidator>();
-builder.Services.AddScoped<IValidator<RecipeUpdateDto>, RecipeUpdateDtoValidator>();
-builder.Services.AddScoped<IValidator<LoginDto>, LoginDtoValidator>();
-builder.Services.AddScoped<IValidator<RegisterDto>, RegisterDtoValidator>();
 
 //Authentication service
 builder.Services.AddAuthentication(options =>
@@ -88,16 +91,24 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // Application services (dependency injection)
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRecipeRepository, RecipeRepository>();
 builder.Services.AddScoped<IRecipeService, RecipeService>();
+builder.Services.AddScoped<IValidator<RecipeCreateDto>, RecipeCreateDtoValidator>();
+builder.Services.AddScoped<IValidator<RecipeUpdateDto>, RecipeUpdateDtoValidator>();
+builder.Services.AddScoped<IValidator<LoginDto>, LoginDtoValidator>();
+builder.Services.AddScoped<IValidator<RegisterDto>, RegisterDtoValidator>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(UserProfile).Assembly);
 
 var app = builder.Build();
+
+app.UseCors("AllowFrontend");
 
 // Configure
 if (app.Environment.IsDevelopment())
