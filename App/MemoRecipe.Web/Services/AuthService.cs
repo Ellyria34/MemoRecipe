@@ -43,5 +43,4 @@ public class AuthService : IAuthService
         var token = await GetTokenAsync();
         return string.IsNullOrEmpty(token) ? false : true;
     }
-
 }

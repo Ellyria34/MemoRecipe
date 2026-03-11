@@ -1,5 +1,8 @@
 @page "/login"
 
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
 <MudContainer MaxWidth = "MaxWidth.ExtraSmall">
     <MudPaper Elevation="3" Class="pa-8 mt-8">
         <div class="d-flex justify-center mb-4">
@@ -15,21 +18,37 @@
             Label="Email" 
             Variant="Variant.Outlined" 
             InputType="InputType.Email" 
-            Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email"
+            Adornment="Adornment.Start" 
+            AdornmentIcon="@Icons.Material.Filled.Email"
             Class="mb-4" 
+            @bind-Value ="_email"
         />
 
         <MudTextField 
             T="string" 
             Label="Mot de passe" 
             Variant="Variant.Outlined"
-            InputType="InputType.Password"
-            Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Lock"
+            InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+            Adornment="Adornment.End" 
+            AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+            OnAdornmentClick="() => _showPassword = !_showPassword"
             Class="mb-6" 
+            @bind-Value ="_password"
         />
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mb-4">
-        Se connecter
+        @if(!string.IsNullOrEmpty(_errorMessage))
+        {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
+        }
+
+        <MudButton 
+            Variant="Variant.Filled" 
+            Color="Color.Primary" 
+            FullWidth="true" 
+            Class="mb-4"
+            OnClick="HandleLogin"
+        >
+            Se connecter
         </MudButton>
 
         <MudText Align="Align.Center">
@@ -40,3 +59,22 @@
     </MudPaper>
 
 </MudContainer>
+
+@code 
+{
+    string _email = string.Empty;
+    string _password = string.Empty; 
+    bool _showPassword = false;
+    string _errorMessage = string.Empty;
+
+   private async Task HandleLogin()
+    {
+        var result = await AuthService.LoginAsync(_email, _password);
+        if(!result)
+        {
+            _errorMessage = "Email ou mot de passe incorrect";
+            return;
+        }
+        Navigation.NavigateTo("/");
+    }
+}
