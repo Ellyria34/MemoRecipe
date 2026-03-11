@@ -1,5 +1,17 @@
 ﻿@page "/"
 
-<MudText Typo="Typo.h3">MemoRecipe</MudText>
-<MudText Typo="Typo.body1">MudBlazor fonctionne !</MudText>
-<MudButton Variant="Variant.Filled" Color="Color.Primary">Mon premier bouton</MudButton>
+<MudContainer MaxWidth = "MaxWidth.ExtraSmall">
+    <MudPaper Elevation="3" Class="pa-8 mt-8">
+        <div class="d-flex justify-center mb-4">
+            <MudImage Src="logo.png" Alt="MemoRecipe" Width="90" />
+        </div>
+        <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true">Home page</MudText>
+        <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-6">page en cours de développement!!! Test du theme</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mb-6">primary</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mb-6"> outliderprimary</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" Class="mb-6">error</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" Class="mb-6">secondary</MudButton>
+
+        <MudText Typo="Typo.body2" Align="Align.Center" GutterBottom="true" Color="Color.Primary">Home page</MudText>
+    </MudPaper>
+</MudContainer>

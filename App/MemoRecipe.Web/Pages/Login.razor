@@ -1,0 +1,42 @@
+@page "/login"
+
+<MudContainer MaxWidth = "MaxWidth.ExtraSmall">
+    <MudPaper Elevation="3" Class="pa-8 mt-8">
+        <div class="d-flex justify-center mb-4">
+            <MudImage Src="logo.png" Alt="MemoRecipe" Width="90" />
+        </div>
+
+        <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true">Se connecter</MudText>
+        
+        <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-6">Bienvenue ! Connectez-vous pour retrouver vos recettes</MudText>
+        
+        <MudTextField 
+            T="string" 
+            Label="Email" 
+            Variant="Variant.Outlined" 
+            InputType="InputType.Email" 
+            Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email"
+            Class="mb-4" 
+        />
+
+        <MudTextField 
+            T="string" 
+            Label="Mot de passe" 
+            Variant="Variant.Outlined"
+            InputType="InputType.Password"
+            Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Lock"
+            Class="mb-6" 
+        />
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mb-4">
+        Se connecter
+        </MudButton>
+
+        <MudText Align="Align.Center">
+            Pas encore de compte ? 
+            <MudLink Href="/register">S'inscrire</MudLink>
+        </MudText>
+
+    </MudPaper>
+
+</MudContainer>
