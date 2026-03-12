@@ -11,6 +11,16 @@ public class FakeAuthService : IAuthService
         }
         else return Task.FromResult(false);
     }
+
+    public Task<bool> RegisterAsync(string email , string userName, string password)
+    {
+        if(string.IsNullOrEmpty(email)|| string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(password))
+        {
+            return Task.FromResult(false);
+        }
+        _isAuthenticated = true;
+        return Task.FromResult(true);
+    }
     public Task LogoutAsync()
     {            
         _isAuthenticated = false;

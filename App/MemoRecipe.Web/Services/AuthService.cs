@@ -27,6 +27,21 @@ public class AuthService : IAuthService
         return true;
     }
 
+    public async Task<bool> RegisterAsync(string email, string userName, string password)
+    {
+        var response = await _httpClient.PostAsJsonAsync("api/auth/register", new { email, userName, password });
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            return false;
+        }
+        
+        var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var token = result.GetProperty("token").GetString();
+        await _localStorageService.SetItemAsync("authToken", token!);
+        return true;
+    }
+
 
     public async Task LogoutAsync()
     {

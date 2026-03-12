@@ -1,11 +1,167 @@
 @page "/Register"
 
-<MudContainer MaxWidth = "MaxWidth.ExtraSmall">
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall">
     <MudPaper Elevation="3" Class="pa-8 mt-8">
         <div class="d-flex justify-center mb-4">
             <MudImage Src="logo.png" Alt="MemoRecipe" Width="90" />
         </div>
         <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true">S'enregistrer</MudText>
-        <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-6">page en cours de développement!!!</MudText>
+        <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-6">
+            Vous n'avez pas encore de compte ! Créez le pour accéder à votre espace personnel
+        </MudText>
+
+        <MudForm @bind-IsValid="_isValid">
+            <MudTextField
+                T="string"
+                Label="Email"
+                Variant="Variant.Outlined"
+                InputType="InputType.Email"
+                Adornment="Adornment.Start"
+                AdornmentIcon="@Icons.Material.Filled.Email"
+                Class="mb-4"
+                @bind-Value="_email"
+                Required="true"
+                Validation="@((string v) => ValidateEmail(v))"
+            />
+
+            <MudTextField
+                T="string"
+                Label="Nom d'utilisateur"
+                Variant="Variant.Outlined"
+                InputType="InputType.Text"
+                Adornment="Adornment.Start"
+                AdornmentIcon="@Icons.Material.Filled.Person"
+                Class="mb-4"
+                @bind-Value="_userName"
+                Required="true"
+                Validation="@((string v) => ValidateUserName(v))"
+            />
+
+            <MudTextField
+                T="string"
+                Label="Mot de passe"
+                Variant="Variant.Outlined"
+                InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                Adornment="Adornment.End"
+                AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                OnAdornmentClick="() => _showPassword = !_showPassword"
+                Class="mb-4"
+                @bind-Value="_password"
+                Immediate="true"
+                Required="true"
+                Validation="@((string v) => ValidatePassword(v))"
+            />
+
+            <MudTextField
+                T="string"
+                Label="Confirmer le mot de passe"
+                Variant="Variant.Outlined"
+                InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                Adornment="Adornment.End"
+                AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                OnAdornmentClick="() => _showPassword = !_showPassword"
+                Class="mb-6"
+                @bind-Value="_passwordConfirmation"
+                Required="true"
+                Validation="@((string v) => ValidatePasswordConfirmation(v))"
+            />
+        </MudForm>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
+        }
+
+        <MudButton
+            Variant="Variant.Filled"
+            Color="Color.Primary"
+            FullWidth="true"
+            Class="mb-4"
+            OnClick="HandleRegister"
+            Disabled="@(!_isValid)"        
+        >
+            S'inscrire
+        </MudButton>
+
+        <MudText Align="Align.Center">
+            Déjà un compte ?
+            <MudLink Href="/login">Se connecter</MudLink>
+        </MudText>
     </MudPaper>
 </MudContainer>
+
+@code {
+    string _email = string.Empty;
+    string _userName = string.Empty;
+    string _password = string.Empty;
+    string _passwordConfirmation = string.Empty;
+    bool _showPassword = false;
+    string _errorMessage = string.Empty;
+    bool _isValid = false;
+
+    private string? ValidateEmail(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return "L'email est obligatoire";
+        if (!System.Text.RegularExpressions.Regex.IsMatch(value, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+            return "L'adresse mail n'est pas valide.";
+        return null;
+    }
+
+    private string? ValidateUserName(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return "Le nom d'utilisateur est obligatoire";
+        if (value.Length < 3)
+            return "Le nom d'utilisateur doit faire au moins 3 caractères";
+        if (value.Length > 50)
+            return "Le nom d'utilisateur ne doit pas dépasser 50 caractères";
+        return null;
+    }
+
+    private string? ValidatePassword(string value)
+    {
+        if (string.IsNullOrEmpty(value)) 
+            return "Le mot de passe est obligatoire";
+        
+        var manque = new List<string>();
+        if (value.Length < 8) manque.Add("8 caractères minimum");
+        if (value.Length > 100) manque.Add("100 caractères maximum");
+        if (!System.Text.RegularExpressions.Regex.IsMatch(value, @"[A-Z]")) manque.Add("une majuscule");
+        if (!System.Text.RegularExpressions.Regex.IsMatch(value, @"[a-z]")) manque.Add("une minuscule");
+        if (!System.Text.RegularExpressions.Regex.IsMatch(value, @"[0-9]")) manque.Add("un chiffre");
+        if (!System.Text.RegularExpressions.Regex.IsMatch(value, @"[^a-zA-Z0-9]")) manque.Add("un caractère spécial");
+        
+        return manque.Any() ? "Le mot de passe doit contenir : " + string.Join(", ", manque) : null;
+    }
+
+    private string? ValidatePasswordConfirmation(string value)
+    {
+        if (_password != _passwordConfirmation)
+            return "Les deux mots de passe ne sont pas identiques";
+        return null;
+    }
+
+    private async Task HandleRegister()
+    {
+        _errorMessage = string.Empty;
+
+        try
+        {
+            var result = await AuthService.RegisterAsync(_email, _userName, _password);
+            if(!result)
+            {
+                _errorMessage = "L'enregistrement n'a pas fonctionné, veuillez retenter";
+                return;
+            }
+            Navigation.NavigateTo("/login");
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Une erreur est survenue lors de l'inscription";
+        }
+    }
+}
