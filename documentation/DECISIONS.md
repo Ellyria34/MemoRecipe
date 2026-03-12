@@ -68,6 +68,19 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Pourquoi** : Composants natifs Blazor (C#, pas du HTML+classes CSS). Theme centralise, responsive integre, zero JS a ecrire. Lib la plus utilisee dans l'ecosysteme Blazor.
 - **Risque** : Dependance a une lib tierce. Mitige par Clean Architecture — seule la couche Web utilise MudBlazor, Domain/Application restent independants.
 
+### DEC-013 : FakeAuthService pour le developpement frontend
+- **Date** : Mars 2026
+- **Choix** : Implementer `IAuthService` avec une version fake (`FakeAuthService`) pour le developpement frontend sans API.
+- **Pourquoi** : Permet de developper et tester toute l'UX sans avoir besoin de l'API, de la base de donnees ou de Docker. Une seule ligne a changer dans `Program.cs` pour switcher. Meme pattern que `FakeRecipeAiService` cote IA.
+- **Consequence** : `FakeAuthService` n'est jamais deploye en production. Il est remplace par `AuthService` (HTTP) des que l'API est disponible.
+
+### DEC-014 : Migration localStorage → cookies HttpOnly pour les tokens JWT
+- **Date** : Mars 2026
+- **Choix** : Abandonner `localStorage` pour stocker les tokens JWT, migrer vers des cookies `HttpOnly + Secure + SameSite=Strict`.
+- **Pourquoi** : `localStorage` est accessible en clair via les DevTools du navigateur et lisible par JavaScript → vulnerable aux attaques XSS. Un cookie `HttpOnly` ne peut pas etre lu par JavaScript — le navigateur l'envoie uniquement directement au serveur.
+- **Impact** : Backend — `Login` et `Register` posent un cookie au lieu de retourner `{ token }`. Frontend — `AuthService` n'a plus besoin de `ILocalStorageService`, plus de gestion manuelle du token.
+- **Etat** : A implementer dans `refactor/auth-httponly-cookies`. `AuthService` actuel utilise encore `localStorage` (dette technique temporaire).
+
 ### DEC-009 : Tests unitaires avec FakeRepository
 - **Date** : Mars 2026
 - **Choix** : Implémenter `IRecipeRepository` avec une `List<Recipe>` en memoire pour les tests.
@@ -103,6 +116,16 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 ### DEBT-001 : Structure de dossiers redondante (voir DEC-006)
 - **Impact** : Faible (cosmetique)
 - **Priorite** : Basse
+
+### DEBT-002 : AuthService utilise localStorage pour les tokens JWT
+- **Impact** : Securite — vulnerable XSS
+- **Priorite** : Haute
+- **Plan** : Refactorisation vers cookies HttpOnly dans `refactor/auth-httponly-cookies` (voir DEC-014)
+
+### DEBT-003 : Register controller retourne Ok(user) au lieu de Ok(new { token })
+- **Impact** : Bug runtime — le frontend attend `{ token }` mais le backend retourne l'objet user
+- **Priorite** : Haute (bloquant pour le flux register reel)
+- **Plan** : Corriger en meme temps que DEBT-002 — avec les cookies HttpOnly, le controller ne retourne plus de token du tout
 
 ### DEBT-002 : ~~Pas de validation d'entree sur les endpoints~~ [RESOLUE]
 - **Resolution** : FluentValidation integre pour RecipeCreateDto, RecipeUpdateDto, RegisterDto, LoginDto. 4 validators, 71 tests unitaires. Validation dans les controllers avant appel aux services.
