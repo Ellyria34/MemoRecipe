@@ -19,7 +19,7 @@ public class AuthService : IAuthService
         _jwtService = jwtService;
     }
 
-    public async Task<AuthUserDto?> RegisterAsync(RegisterDto dto)
+    public async Task<string?> RegisterAsync(RegisterDto dto)
     {
         // Vérifier email déjà utilisé ?
         if (await _userRepository.EmailExistsAsync(dto.Email))
@@ -42,12 +42,7 @@ public class AuthService : IAuthService
         await _userRepository.AddAsync(user);
         await _userRepository.SaveChangesAsync();
 
-        return new AuthUserDto
-        {
-            Id = user.Id,
-            Email = user.Email,
-            Username = user.Username
-        };
+        return _jwtService.GenerateToken(user);
     }
 
     public async Task<string?> LoginAsync(string email, string password)

@@ -14,6 +14,7 @@ using MemoRecipe.Application.Validators;
 using MemoRecipe.Application.DTOs.Recipes;
 using MemoRecipe.Application.DTOs.Auth;
 using System.Runtime.InteropServices;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,7 +24,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins("http://localhost:5110")
             .AllowAnyHeader()
-            .AllowAnyMethod();    
+            .AllowAnyMethod()
+            .AllowCredentials();   
     });
 });
 
@@ -52,6 +54,15 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(jwtSettings["Secret"]!)
         )
+    };
+    
+    options.Events = new JwtBearerEvents
+    {
+         OnMessageReceived = context =>
+        {
+            context.Token = context.Request.Cookies["authCookie"];
+            return Task.CompletedTask;
+        }
     };
 });
 

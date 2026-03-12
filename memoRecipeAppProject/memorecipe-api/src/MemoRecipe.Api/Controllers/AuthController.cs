@@ -35,12 +35,20 @@ public class AuthController : ControllerBase
                     return BadRequest(validation.Errors);            
                 }
 
-        var user = await _authService.RegisterAsync(dto);
+        var token = await _authService.RegisterAsync(dto);
 
-        if (user == null)
+        if (token == null)
             return BadRequest("Email already exists.");
 
-        return Ok(user);
+        Response.Cookies.Append("authCookie", token, new CookieOptions
+        {
+            HttpOnly = true, 
+            Secure = true, 
+            SameSite = SameSiteMode.Strict, 
+            Expires = DateTimeOffset.UtcNow.AddHours(1)
+        });
+
+        return Ok();
     }
 
     // LOGIN - retourne un token
@@ -60,7 +68,23 @@ public class AuthController : ControllerBase
         if (token == null)
             return Unauthorized(new { message = "Invalid email or password" });
 
-        return Ok(new { token });
+        Response.Cookies.Append("authCookie", token, new CookieOptions
+        {
+            HttpOnly = true, 
+            Secure = true, 
+            SameSite = SameSiteMode.Strict, 
+            Expires = DateTimeOffset.UtcNow.AddHours(1)
+        });
+
+        return Ok();
+    }
+
+    [HttpPost("logout")]
+    [AllowAnonymous]
+    public IActionResult Logout()
+    {
+        Response.Cookies.Delete("authCookie");
+        return Ok();
     }
 
     // GET/auth/user → if token is present and valid, returns user info
