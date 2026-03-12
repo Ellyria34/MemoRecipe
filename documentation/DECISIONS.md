@@ -79,7 +79,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Choix** : Abandonner `localStorage` pour stocker les tokens JWT, migrer vers des cookies `HttpOnly + Secure + SameSite=Strict`.
 - **Pourquoi** : `localStorage` est accessible en clair via les DevTools du navigateur et lisible par JavaScript → vulnerable aux attaques XSS. Un cookie `HttpOnly` ne peut pas etre lu par JavaScript — le navigateur l'envoie uniquement directement au serveur.
 - **Impact** : Backend — `Login` et `Register` posent un cookie au lieu de retourner `{ token }`. Frontend — `AuthService` n'a plus besoin de `ILocalStorageService`, plus de gestion manuelle du token.
-- **Etat** : A implementer dans `refactor/auth-httponly-cookies`. `AuthService` actuel utilise encore `localStorage` (dette technique temporaire).
+- **Etat** : DONE — branche `feature/auth-frontend`. Backend pose le cookie, frontend utilise `CookieHandler` + `IHttpClientFactory`. DEBT-002 et DEBT-003 resolus.
 
 ### DEC-009 : Tests unitaires avec FakeRepository
 - **Date** : Mars 2026
@@ -117,15 +117,11 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Impact** : Faible (cosmetique)
 - **Priorite** : Basse
 
-### DEBT-002 : AuthService utilise localStorage pour les tokens JWT
-- **Impact** : Securite — vulnerable XSS
-- **Priorite** : Haute
-- **Plan** : Refactorisation vers cookies HttpOnly dans `refactor/auth-httponly-cookies` (voir DEC-014)
+### DEBT-002 : ~~AuthService utilise localStorage pour les tokens JWT~~ [RESOLUE]
+- **Resolution** : Migration vers cookies HttpOnly (DEC-014). `LocalStorageService` supprime. `AuthService` utilise desormais `IHttpClientFactory` + `CookieHandler`. Le token n'est plus jamais accessible en JavaScript.
 
-### DEBT-003 : Register controller retourne Ok(user) au lieu de Ok(new { token })
-- **Impact** : Bug runtime — le frontend attend `{ token }` mais le backend retourne l'objet user
-- **Priorite** : Haute (bloquant pour le flux register reel)
-- **Plan** : Corriger en meme temps que DEBT-002 — avec les cookies HttpOnly, le controller ne retourne plus de token du tout
+### DEBT-003 : ~~Register controller retourne Ok(user) au lieu de Ok(new { token })~~ [RESOLUE]
+- **Resolution** : `Register` pose un cookie `authCookie` et retourne `Ok()`. Plus de token expose dans la reponse. Corrige en meme temps que DEBT-002.
 
 ### DEBT-002 : ~~Pas de validation d'entree sur les endpoints~~ [RESOLUE]
 - **Resolution** : FluentValidation integre pour RecipeCreateDto, RecipeUpdateDto, RegisterDto, LoginDto. 4 validators, 71 tests unitaires. Validation dans les controllers avant appel aux services.

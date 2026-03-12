@@ -65,8 +65,10 @@ dotnet test
 
 > **Frontend without API:** swap `AuthService` for `FakeAuthService` in `Program.cs` to develop the UI without running the API or Docker.
 
+> **Auth cookies:** JWT tokens are stored in `HttpOnly` cookies (never in `localStorage`). The `CookieHandler` ensures `credentials: include` is sent on every cross-origin request.
+
 ## Current Status
 
-The pipeline architecture is in place — prompt engineering and AI parsing layer are functional. The main remaining challenge is Tesseract OCR output quality on real-world images (low-quality scans, handwritten notes): noisy OCR text directly impacts downstream parsing accuracy and still needs stabilization. The full backend is done: JWT authentication, recipe CRUD with authorization, FluentValidation (4 validators, 71 unit tests), and global exception handling. The Blazor frontend covers Login and Register pages with inline form validation. A `FakeAuthService` pattern allows frontend development independently of the API.
+The pipeline architecture is in place — prompt engineering and AI parsing layer are functional. The main remaining challenge is Tesseract OCR output quality on real-world images (low-quality scans, handwritten notes): noisy OCR text directly impacts downstream parsing accuracy and still needs stabilization. The full backend is done: JWT authentication via HttpOnly cookies, recipe CRUD with authorization, FluentValidation (4 validators, 71 unit tests), and global exception handling. The Blazor frontend covers Login and Register pages with inline form validation, wired to the real API with cookie-based auth.
 
-The project is still in progress, but the foundations are in place. Next steps are stabilizing OCR output quality, completing the recipe pages, migrating auth token storage from `localStorage` to `HttpOnly` cookies, and eventually the MAUI mobile client and CI/CD pipeline.
+The project is still in progress, but the foundations are in place. Next steps are stabilizing OCR output quality, completing the recipe pages, and eventually the MAUI mobile client and CI/CD pipeline.
