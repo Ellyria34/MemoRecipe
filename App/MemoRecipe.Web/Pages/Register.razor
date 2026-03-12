@@ -148,6 +148,7 @@
     private async Task HandleRegister()
     {
         _errorMessage = string.Empty;
+        bool success = false;
 
         try
         {
@@ -157,11 +158,15 @@
                 _errorMessage = "L'enregistrement n'a pas fonctionné, veuillez retenter";
                 return;
             }
-            Navigation.NavigateTo("/login");
+            success = true;
         }
         catch (Exception)
         {
             _errorMessage = "Une erreur est survenue lors de l'inscription";
+        }
+        if(success)
+        {
+            Navigation.NavigateTo("/login");
         }
     }
 }

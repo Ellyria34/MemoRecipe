@@ -42,8 +42,9 @@ public class AuthController : ControllerBase
 
         Response.Cookies.Append("authCookie", token, new CookieOptions
         {
-            HttpOnly = true, 
-            Secure = true, 
+            HttpOnly = true,
+            // TODO : set Secure = true in production (HTTPS required)
+            Secure = false, 
             SameSite = SameSiteMode.Strict, 
             Expires = DateTimeOffset.UtcNow.AddHours(1)
         });
@@ -70,8 +71,9 @@ public class AuthController : ControllerBase
 
         Response.Cookies.Append("authCookie", token, new CookieOptions
         {
-            HttpOnly = true, 
-            Secure = true, 
+            HttpOnly = true,
+            // TODO : set Secure = true in production (HTTPS required)
+            Secure = false, 
             SameSite = SameSiteMode.Strict, 
             Expires = DateTimeOffset.UtcNow.AddHours(1)
         });

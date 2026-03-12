@@ -1,16 +1,15 @@
 using System.Text.Json;
 using System.Net.Http.Json;
+using System.Net.Http;
 
 namespace MemoRecipe.Web.Services;
 public class AuthService : IAuthService
 {
     private readonly HttpClient _httpClient;
-    private readonly ILocalStorageService _localStorageService;
 
-    public AuthService(HttpClient httpClient, ILocalStorageService localStorageService)
+    public AuthService(IHttpClientFactory httpClientFactory)
     {
-        _httpClient = httpClient;
-        _localStorageService = localStorageService;
+        _httpClient = httpClientFactory.CreateClient("MemoRecipe");
     }
     public async Task<bool> LoginAsync(string email, string password)
     {
@@ -20,10 +19,6 @@ public class AuthService : IAuthService
         {
             return false;
         }
-        
-        var result = await response.Content.ReadFromJsonAsync<JsonElement>();
-        var token = result.GetProperty("token").GetString();
-        await _localStorageService.SetItemAsync("authToken", token!);
         return true;
     }
 
@@ -36,26 +31,25 @@ public class AuthService : IAuthService
             return false;
         }
         
-        var result = await response.Content.ReadFromJsonAsync<JsonElement>();
-        var token = result.GetProperty("token").GetString();
-        await _localStorageService.SetItemAsync("authToken", token!);
         return true;
     }
 
 
     public async Task LogoutAsync()
     {
-        await _localStorageService.RemoveItemAsync("authToken");
+        await _httpClient.PostAsync("api/auth/logout", null);
     }
 
-    public async Task<string?> GetTokenAsync()
-    {
-        return await _localStorageService.GetItemAsync("authToken");
-    }
 
     public async Task<bool> IsAuthenticatedAsync()
     {
-        var token = await GetTokenAsync();
-        return string.IsNullOrEmpty(token) ? false : true;
+        var response = await _httpClient.GetAsync("api/auth/me");
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return false;
+        }
+
+        return true;
     }
 }
