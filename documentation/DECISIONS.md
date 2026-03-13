@@ -81,6 +81,13 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Impact** : Backend — `Login` et `Register` posent un cookie au lieu de retourner `{ token }`. Frontend — `AuthService` n'a plus besoin de `ILocalStorageService`, plus de gestion manuelle du token.
 - **Etat** : DONE — branche `feature/auth-frontend`. Backend pose le cookie, frontend utilise `CookieHandler` + `IHttpClientFactory`. DEBT-002 et DEBT-003 resolus.
 
+### DEC-015 : Routes protegees avec CookieAuthStateProvider
+- **Date** : Mars 2026
+- **Choix** : `AuthenticationStateProvider` custom qui appelle `api/auth/me` pour verifier l'auth, avec cache en memoire.
+- **Pourquoi** : Avec les cookies HttpOnly, le frontend ne peut pas lire le token. Le seul moyen de savoir si l'utilisateur est connecte est de demander au serveur. Le cache evite de refaire l'appel API a chaque navigation entre pages.
+- **Impact** : `App.razor` utilise `CascadingAuthenticationState` + `AuthorizeRouteView`. Les pages protegees utilisent `@attribute [Authorize]`. Les pages publiques (`/login`, `/register`) restent accessibles sans auth. `RedirectToLogin` redirige vers `/login` si non authentifie.
+- **Etat** : DONE — branche `feature/protected-routes`.
+
 ### DEC-009 : Tests unitaires avec FakeRepository
 - **Date** : Mars 2026
 - **Choix** : Implémenter `IRecipeRepository` avec une `List<Recipe>` en memoire pour les tests.
