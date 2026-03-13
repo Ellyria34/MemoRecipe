@@ -103,6 +103,18 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 
 ---
 
+## A investiguer
+
+### INV-001 : Appel api/auth/me retourne 401 sur les pages publiques
+- **Constat** : Le CookieAuthStateProvider appelle systematiquement api/auth/me au chargement de l'app, meme sur /login et /register. Retourne 401 si pas de cookie → visible en console (erreur rouge).
+- **Impact** : Aucun impact fonctionnel. Cosmétique (erreur visible en console DevTools).
+- **Options a evaluer** :
+  1. Ignorer — pattern standard des SPAs, pas visible par l'utilisateur
+  2. Flag localStorage non-sensible (isLoggedIn true/false) pour eviter l'appel quand pas connecte
+- **Etat** : A EVALUER
+
+---
+
 ## Inconsistances identifiees (a corriger)
 
 ### INC-001 : ~~AuthService depend directement de MemoRecipeDbContext~~ [RESOLUE]
