@@ -3,6 +3,11 @@
 <MudThemeProvider Theme="_theme" />
 <MudPopoverProvider />
 <MudLayout>
+    <AuthorizeView>
+        <Authorized>
+            <NavBar />
+        </Authorized>
+    </AuthorizeView>
     <MudMainContent>
         @Body
     </MudMainContent>
