@@ -5,13 +5,18 @@
 <MudAppBar Elevation="1">
         <img src="logo.png" alt="MemoRecipe" style="height:60px;" />
         <MudSpacer />
-        <MudIconButton
-            Title="Se déconnecter"
-            aria-label="Se déconnecter"
-            Icon="@Icons.Material.Filled.Logout"
-            Color="Color.Primary"
-            @onclick="LogOut"
-        />
+            <MudTooltip
+                Text="Se déconnecter"
+                Color="Color.Primary"
+                Arrow="true"
+            >
+                <MudIconButton
+                    aria-label="Se déconnecter"
+                    Icon="@Icons.Material.Filled.Logout"
+                    Color="Color.Primary"
+                    @onclick="LogOut"
+                />
+            </MudTooltip>
 </MudAppBar>
 
 @code
