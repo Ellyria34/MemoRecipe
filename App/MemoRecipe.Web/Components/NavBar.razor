@@ -1,8 +1,23 @@
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
 <MudAppBar Elevation="1">
         <img src="logo.png" alt="MemoRecipe" style="height:60px;" />
         <MudSpacer />
         <MudIconButton
             Icon="@Icons.Material.Filled.Logout"
             Color="Color.Primary"
+            onclick="LogOut"
         />
 </MudAppBar>
+
+@code
+{
+    private async Task LogOut()
+    {
+        await AuthService.LogoutAsync();
+        ((CookieAuthStateProvider)AuthStateProvider).NotifyAuthChanged();
+        Navigation.NavigateTo("/login");
+    }
+}
