@@ -50,6 +50,18 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Pourquoi** : Securite par defaut. `[Authorize]` verifie seulement l'authentification ("qui es-tu ?"), pas l'autorisation ("as-tu le droit ?"). La logique metier vit dans le service (SRP).
 - **Consequence** : `GetByIdAsync` prend un `userId` en parametre pour evaluer les droits d'acces.
 
+### DEC-009 : Tests unitaires avec FakeRepository
+- **Date** : Mars 2026
+- **Choix** : Implémenter `IRecipeRepository` avec une `List<Recipe>` en memoire pour les tests.
+- **Pourquoi** : Tests deterministes, rapides (< 1s), sans base de donnees, sans Docker. Meme pattern que `FakeRecipeAiService` dans les tests IA.
+- **Consequence** : Les tests unitaires ne testent pas la persistance (c'est voulu). Les tests d'integration avec vraie DB sont une dette a traiter.
+
+### DEC-010 : MudBlazor comme librairie UI pour Blazor
+- **Date** : Mars 2026
+- **Choix** : MudBlazor plutot que Bootstrap ou Tailwind
+- **Pourquoi** : Composants natifs Blazor (C#, pas du HTML+classes CSS). Theme centralise, responsive integre, zero JS a ecrire. Lib la plus utilisee dans l'ecosysteme Blazor.
+- **Risque** : Dependance a une lib tierce. Mitige par Clean Architecture — seule la couche Web utilise MudBlazor, Domain/Application restent independants.
+
 ### DEC-011 : FluentValidation plutot que Data Annotations
 - **Date** : Mars 2026
 - **Choix** : FluentValidation pour valider les DTOs (RecipeCreate, RecipeUpdate, Register, Login)
@@ -61,12 +73,6 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Choix** : Middleware custom (`ExceptionMiddleware`) plutot que le handler par defaut d'ASP.NET
 - **Pourquoi** : Controle total sur la reponse d'erreur. Le client recoit toujours un message generique (`An unexpected error occurred.`), jamais de stack trace. Les logs serveur recoivent l'exception complete via `ILogger`.
 - **Consequence** : Enregistre en premier dans le pipeline (`app.UseMiddleware<ExceptionMiddleware>()`). Principe "fail safely".
-
-### DEC-010 : MudBlazor comme librairie UI pour Blazor
-- **Date** : Mars 2026
-- **Choix** : MudBlazor plutot que Bootstrap ou Tailwind
-- **Pourquoi** : Composants natifs Blazor (C#, pas du HTML+classes CSS). Theme centralise, responsive integre, zero JS a ecrire. Lib la plus utilisee dans l'ecosysteme Blazor.
-- **Risque** : Dependance a une lib tierce. Mitige par Clean Architecture — seule la couche Web utilise MudBlazor, Domain/Application restent independants.
 
 ### DEC-013 : FakeAuthService pour le developpement frontend
 - **Date** : Mars 2026
@@ -87,12 +93,6 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Pourquoi** : Avec les cookies HttpOnly, le frontend ne peut pas lire le token. Le seul moyen de savoir si l'utilisateur est connecte est de demander au serveur. Le cache evite de refaire l'appel API a chaque navigation entre pages.
 - **Impact** : `App.razor` utilise `CascadingAuthenticationState` + `AuthorizeRouteView`. Les pages protegees utilisent `@attribute [Authorize]`. Les pages publiques (`/login`, `/register`) restent accessibles sans auth. `RedirectToLogin` redirige vers `/login` si non authentifie.
 - **Etat** : DONE — branche `feature/protected-routes`.
-
-### DEC-009 : Tests unitaires avec FakeRepository
-- **Date** : Mars 2026
-- **Choix** : Implémenter `IRecipeRepository` avec une `List<Recipe>` en memoire pour les tests.
-- **Pourquoi** : Tests deterministes, rapides (< 1s), sans base de donnees, sans Docker. Meme pattern que `FakeRecipeAiService` dans les tests IA.
-- **Consequence** : Les tests unitaires ne testent pas la persistance (c'est voulu). Les tests d'integration avec vraie DB sont une dette a traiter.
 
 ---
 
