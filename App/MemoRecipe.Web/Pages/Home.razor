@@ -1,4 +1,6 @@
 ﻿@page "/"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
 
 <MudContainer MaxWidth = "MaxWidth.ExtraSmall">
     <MudPaper Elevation="3" Class="pa-8 mt-8">

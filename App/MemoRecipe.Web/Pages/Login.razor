@@ -1,5 +1,5 @@
 @page "/login"
-
+@inject AuthenticationStateProvider AuthStateProvider
 @inject IAuthService AuthService
 @inject NavigationManager Navigation
 
@@ -75,6 +75,7 @@
             _errorMessage = "Email ou mot de passe incorrect";
             return;
         }
+        ((CookieAuthStateProvider)AuthStateProvider).NotifyAuthChanged();
         Navigation.NavigateTo("/");
     }
 }
