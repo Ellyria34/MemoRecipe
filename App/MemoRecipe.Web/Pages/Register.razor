@@ -7,7 +7,7 @@
 <MudContainer MaxWidth="MaxWidth.ExtraSmall">
     <MudPaper Elevation="3" Class="pa-4 mt-8">
         <div class="d-flex justify-center">
-            <MudImage Src="logo.png" Alt="MemoRecipe" Width="150" />
+            <MudImage Src="logo.svg" Alt="MemoRecipe" Width="150" />
         </div>
         <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true">S'enregistrer</MudText>
         <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-6">
@@ -43,6 +43,7 @@
 
             <MudTextField
                 T="string"
+                ShrinkLabel="true" 
                 Label="Mot de passe"
                 Variant="Variant.Outlined"
                 InputType="@(_showPassword ? InputType.Text : InputType.Password)"
@@ -58,6 +59,7 @@
 
             <MudTextField
                 T="string"
+                ShrinkLabel="true" 
                 Label="Confirmer le mot de passe"
                 Variant="Variant.Outlined"
                 InputType="@(_showPassword ? InputType.Text : InputType.Password)"
@@ -82,7 +84,6 @@
             FullWidth="true"
             Class="mb-4"
             OnClick="HandleRegister"
-            Disabled="@(!_isValid)"        
         >
             S'inscrire
         </MudButton>
@@ -141,6 +142,8 @@
 
     private string? ValidatePasswordConfirmation(string value)
     {
+        if (string.IsNullOrEmpty(value))
+            return "La confirmation du mot de passe est obligatoire";
         if (_password != _passwordConfirmation)
             return "Les deux mots de passe ne sont pas identiques";
         return null;
@@ -150,6 +153,7 @@
     {
         _errorMessage = string.Empty;
         bool success = false;
+        if (!_isValid) return;
 
         try
         {

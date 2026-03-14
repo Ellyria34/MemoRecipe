@@ -8,35 +8,42 @@
 <MudContainer MaxWidth = "MaxWidth.ExtraSmall">
     <MudPaper Elevation="3" Class="pa-8 mt-8">
         <div class="d-flex justify-center mb-4">
-            <MudImage Src="logo.png" Alt="MemoRecipe" Width="150" />
+            <MudImage Src="logo.svg" Alt="MemoRecipe" Width="150" />
         </div>
 
         <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true">Se connecter</MudText>
         
         <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-6">Bienvenue ! Connectez-vous pour retrouver vos recettes</MudText>
         
-        <MudTextField 
-            T="string" 
-            Label="Email" 
-            Variant="Variant.Outlined" 
-            InputType="InputType.Email" 
-            Adornment="Adornment.Start" 
-            AdornmentIcon="@Icons.Material.Filled.Email"
-            Class="mb-4" 
-            @bind-Value ="_email"
-        />
+        <MudForm @bind-IsValid="_isValid">
+            <MudTextField 
+                T="string" 
+                Label="Email" 
+                Variant="Variant.Outlined" 
+                InputType="InputType.Email" 
+                Adornment="Adornment.Start" 
+                AdornmentIcon="@Icons.Material.Filled.Email"
+                Class="mb-4"
+                @bind-Value ="_email"
+                Validation="@((string v) => ValidateEmail(v))"
+                Required="true"
+            />
 
-        <MudTextField 
-            T="string" 
-            Label="Mot de passe" 
-            Variant="Variant.Outlined"
-            InputType="@(_showPassword ? InputType.Text : InputType.Password)"
-            Adornment="Adornment.End" 
-            AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
-            OnAdornmentClick="() => _showPassword = !_showPassword"
-            Class="mb-6" 
-            @bind-Value ="_password"
-        />
+            <MudTextField 
+                T="string"
+                ShrinkLabel="true"  
+                Label="Mot de passe" 
+                Variant="Variant.Outlined"
+                InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                Adornment="Adornment.End" 
+                AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                OnAdornmentClick="() => _showPassword = !_showPassword"
+                Class="mb-6" 
+                @bind-Value ="_password"
+                Validation="@((string v) => ValidatePassword(v))"
+                Required="true"
+            />
+        </MudForm>
 
         @if(!string.IsNullOrEmpty(_errorMessage))
         {
@@ -68,9 +75,29 @@
     string _password = string.Empty; 
     bool _showPassword = false;
     string _errorMessage = string.Empty;
+    bool _isValid = false;
+
+    private string? ValidateEmail(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return "L'email est obligatoire";
+        }
+        return null;
+    }
+
+    private string? ValidatePassword(string value)
+    {
+        if (string.IsNullOrEmpty(value)) 
+        {
+            return "Le mot de passe est obligatoire";
+        }
+        return null;
+    }
 
    private async Task HandleLogin()
     {
+        if (!_isValid) return;
         var result = await AuthService.LoginAsync(_email, _password);
         if(!result)
         {
