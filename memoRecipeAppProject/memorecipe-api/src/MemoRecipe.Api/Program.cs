@@ -15,6 +15,9 @@ using MemoRecipe.Application.DTOs.Recipes;
 using MemoRecipe.Application.DTOs.Auth;
 using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using MemoRecipe.Infrastructure.ExternalServices;
+using MemoRecipe.Application.Services.OcrScan;
+
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -113,6 +116,7 @@ builder.Services.AddScoped<IValidator<RecipeCreateDto>, RecipeCreateDtoValidator
 builder.Services.AddScoped<IValidator<RecipeUpdateDto>, RecipeUpdateDtoValidator>();
 builder.Services.AddScoped<IValidator<LoginDto>, LoginDtoValidator>();
 builder.Services.AddScoped<IValidator<RegisterDto>, RegisterDtoValidator>();
+builder.Services.AddHttpClient<IOcrScanService, OcrScanService>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(UserProfile).Assembly);

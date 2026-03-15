@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MemoRecipe.Application.Services.Recipes;
 using MemoRecipe.Application.DTOs.Recipes;
 using FluentValidation;
+using MemoRecipe.Application.Services.OcrScan;
 
 namespace MemoRecipe.Api.Controllers;
 
@@ -14,12 +15,18 @@ public class RecipeController : ControllerBase
     private readonly IRecipeService _recipeService ;
     private readonly IValidator<RecipeCreateDto> _createDtoValidator;
     private readonly IValidator<RecipeUpdateDto> _updateDtoValidator;
+    private readonly IOcrScanService _ocrScanService;
 
-    public RecipeController(IRecipeService recipeService, IValidator<RecipeCreateDto> createDtoValidator, IValidator<RecipeUpdateDto> updateDtoValidator)
+    public RecipeController(
+        IRecipeService recipeService, 
+        IValidator<RecipeCreateDto> createDtoValidator, 
+        IValidator<RecipeUpdateDto> updateDtoValidator,
+        IOcrScanService ocrScanService)
     {
         _recipeService = recipeService;
         _createDtoValidator  = createDtoValidator;
         _updateDtoValidator = updateDtoValidator;
+        _ocrScanService = ocrScanService;
     }
 
     [HttpGet("{id}")]
@@ -88,5 +95,12 @@ public class RecipeController : ControllerBase
             return NotFound();
         }
         return NoContent();
+    }
+
+    [HttpPost("scan")]
+    public async Task<IActionResult> CreateScannedRecipe(IFormFile imageFile)
+    {        
+        var result = await _ocrScanService.ProcessImageAsync(imageFile.OpenReadStream());
+        return Ok(result);
     }
 }
