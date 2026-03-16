@@ -1,10 +1,9 @@
 ﻿@page "/"
 
-@using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 
 <MudContainer MaxWidth = "MaxWidth.ExtraSmall">
-    <MudPaper Elevation="3" Class="pa-8 mt-8">
+    <MudPaper Elevation="3" Class="pa-8 mt-4">
         <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true">Bienvenue sur Memo Recipe</MudText>
         <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-6">La mémoire de vos recettes préférées</MudText>
     </MudPaper>

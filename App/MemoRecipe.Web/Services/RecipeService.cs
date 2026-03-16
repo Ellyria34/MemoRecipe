@@ -20,7 +20,8 @@ public class RecipeService : IRecipeService
         var response = await _httpClient.PostAsync("api/recipe/scan", content);
 
         var json = await response.Content.ReadAsStringAsync();
-        return JsonSerializer.Deserialize<ExtractedRecipeDto>(json) 
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        return JsonSerializer.Deserialize<ExtractedRecipeDto>(json, options)
             ?? throw new InvalidOperationException("Erreur de désérialisation");
     }
 }

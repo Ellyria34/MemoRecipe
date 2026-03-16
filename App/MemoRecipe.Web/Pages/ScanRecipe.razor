@@ -1,0 +1,109 @@
+@page "/recipes/new"
+@attribute [Authorize]
+@inject IRecipeService RecipeService
+
+<MudContainer MaxWidth = "MaxWidth.ExtraSmall">        
+    <MudPaper Class="pa-8 ma-4" Elevation="3" Align="Center">
+        <MudText Typo="Typo.h5"
+            Align="Align.Center"
+            GutterBottom="true"
+        >
+            Importer une recette
+        </MudText>
+    <div Class="mt-8" Align="Center">
+        <MudFileUpload T="IBrowserFile" FilesChanged="@UploadFile">
+            <CustomContent>
+                <MudButton Variant="Variant.Filled"
+                    Style="text-transform: none;"
+                    OnClick="@context.OpenFilePickerAsync"
+                    StartIcon="@Icons.Material.Filled.CloudUpload"
+                >
+                    Selectionner un fichier
+                </MudButton>
+            </CustomContent>
+            <SelectedTemplate />
+        </MudFileUpload>
+        @if (_selectedFile != null)
+        {
+            <MudText Typo="Typo.body2" Class="mt-2">
+                Fichier Sélectionné : @_selectedFile.Name
+                <MudIconButton Icon="@Icons.Material.Filled.Close" 
+                    Size="Size.Small" 
+                    Color="Color.Primary"
+                    OnClick="() => _selectedFile = null" />
+            </MudText>
+        }else
+        {
+            <MudText Typo="Typo.body2" Class="mt-2">
+                exemple : photo.jpg
+            </MudText>
+        }
+        @if (_selectedFile != null)
+        {
+            <MudButton
+                Class="mt-8"
+                Disabled="_isLoading"
+                Variant="Variant.Filled" 
+                Color="Color.Primary"
+                @onclick="HandleGeneration"            
+            >
+            @if (_isLoading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Génération en cours</span>
+            }
+            else
+            {
+                <span>Générer</span>
+            }
+        </MudButton>
+        }
+        </div>
+    </MudPaper>
+</MudContainer>
+
+@code
+{  
+    private ExtractedRecipeDto? _extractedRecipe;
+    private string? _errorMessage;
+    private IBrowserFile? _selectedFile;
+
+    bool _isLoading = false;
+    
+    private void UploadFile(IBrowserFile file)
+    {
+        _selectedFile = file;
+    }
+
+private async Task HandleGeneration()
+{
+    Console.WriteLine("=== 1. DEBUT HandleGeneration ===");
+    if (_selectedFile == null) 
+    {
+        Console.WriteLine("=== 2. FICHIER NULL, SORTIE ===");
+        return;
+    }
+    Console.WriteLine("=== 3. FICHIER OK : " + _selectedFile.Name + " ===");
+    _isLoading = true;
+    _errorMessage = null;
+    
+    try
+    {
+        Console.WriteLine("=== 4. OUVERTURE STREAM ===");
+        var stream = _selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+        Console.WriteLine("=== 5. APPEL API ===");
+        _extractedRecipe = await RecipeService.ScanImageAsync(stream);
+        Console.WriteLine("=== 6. REPONSE RECUE ===");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("=== ERREUR : " + ex.Message + " ===");
+        _errorMessage = "Un problème est survenu lors du scan de la recette";
+    }
+    finally
+    {
+        _isLoading = false;
+    }
+}
+
+}
