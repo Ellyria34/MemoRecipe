@@ -69,8 +69,8 @@ dotnet test
 
 ## Current Status
 
-The pipeline architecture is in place — prompt engineering and AI parsing layer are functional. The main remaining challenge is Tesseract OCR output quality on real-world images (low-quality scans, handwritten notes): noisy OCR text directly impacts downstream parsing accuracy and still needs stabilization. The full backend is done: JWT authentication via HttpOnly cookies, recipe CRUD with authorization, FluentValidation (4 validators, 71 unit tests), and global exception handling. The Blazor frontend covers Login and Register pages with inline form validation, wired to the real API with cookie-based auth. Protected routes use a custom `CookieAuthStateProvider` that verifies auth state via `api/auth/me` with in-memory caching — unauthorized users are automatically redirected to `/login`.
+The pipeline architecture is in place — prompt engineering and AI parsing layer are functional. The main remaining challenge is Tesseract OCR output quality on real-world images. The full backend is done: JWT authentication via HttpOnly cookies, recipe CRUD with authorization, FluentValidation (4 validators, 71 unit tests), and global exception handling.
 
-The API now exposes a `POST api/recipe/scan` endpoint that receives an image, calls the Azure Function IA pipeline, and returns a structured recipe. The frontend never calls the IA directly — the API orchestrates everything, keeping a single secured entry point (cookies HttpOnly) and better RGPD control.
+The Blazor frontend now covers Login/Register pages with inline validation, protected routes via CookieAuthStateProvider, responsive layout (sidebar desktop + bottom bar mobile), and a scan recipe page that uploads an image, calls the IA pipeline via the API, and displays the parsed recipe in an editable form. The user can review and modify the AI output before saving.
 
-The project is still in progress. Next steps are connecting the scan endpoint to the Blazor frontend (upload page, recipe preview with editing), stabilizing OCR output quality, and eventually the MAUI mobile client and CI/CD pipeline.
+Next steps: saving the scanned recipe to the database, improving the form UX, stabilizing OCR quality, and eventually the MAUI mobile client and CI/CD pipeline.
