@@ -26,17 +26,20 @@ var host = new HostBuilder()
         // OCR
         services.AddSingleton<IOcrService, TesseractOcrService>();
 
-        // LLM réel (Mistral)
-        services.AddSingleton<IChatCompletionClient>(sp =>
-        {
-            var factory = sp.GetRequiredService<IHttpClientFactory>();
-            var httpClient = factory.CreateClient();
+        // // LLM réel (Mistral)
+        // services.AddSingleton<IChatCompletionClient>(sp =>
+        // {
+        //     var factory = sp.GetRequiredService<IHttpClientFactory>();
+        //     var httpClient = factory.CreateClient();
 
-            var apiKey = Environment.GetEnvironmentVariable("MISTRAL_API_KEY")
-                        ?? throw new InvalidOperationException("Missing MISTRAL_API_KEY");
+        //     var apiKey = Environment.GetEnvironmentVariable("MISTRAL_API_KEY")
+        //                 ?? throw new InvalidOperationException("Missing MISTRAL_API_KEY");
 
-            return new MistralChatCompletionClient(httpClient, apiKey);
-        });
+        //     return new MistralChatCompletionClient(httpClient, apiKey);
+        // });
+
+        // Fake LLM
+        services.AddSingleton<IChatCompletionClient, FakeChatCompletionClient>();
 
         // Parsing IA
         services.AddSingleton<IRecipeAiService, RecipeAiService>();
