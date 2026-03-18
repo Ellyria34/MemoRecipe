@@ -1,5 +1,6 @@
 # ===== Journal de bord (local uniquement) =====
 journal/
+FEATURES.md
 
 # ===== Secrets =====
 appsettings.Development.json

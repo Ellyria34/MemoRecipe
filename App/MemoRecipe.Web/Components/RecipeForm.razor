@@ -1,0 +1,65 @@
+<div  style="border: 1px solid #ccc; padding: 16px; border-radius: 4px;">
+    <MudTextField @bind-Value ="Recipe.Title" Label="Titre"/>
+    <MudTextField @bind-Value ="Recipe.Description" Lines="3" Label="Description"/>
+    <MudNumericField T="int?" @bind-Value ="Recipe.Servings" Label="Portions"/>
+    <MudNumericField T="int?" @bind-Value ="Recipe.PrepTimeMinutes" Label="Préparation (min)"/>
+    <MudNumericField T="int?" @bind-Value ="Recipe.CookTimeMinutes" Label="Cuisson (min)"/>
+    <MudSelect T="DifficultyLevel?" @bind-Value ="Recipe.Difficulty" Label="Difficulté">
+        @foreach(DifficultyLevel item in Enum.GetValues<DifficultyLevel>())
+        {
+            <MudSelectItem T="DifficultyLevel?" Value="@item">@item</MudSelectItem>
+        }
+    </MudSelect>
+    <MudSwitch T="bool" @bind-Value="Recipe.IsPublic" Label="Recette publique" Color="Color.Primary" />
+</div>
+<div style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
+    <MudText Class="pb-4">Ingredients</MudText>
+        @for (int i = 0; i < Recipe.Ingredients.Count; i++)
+        {
+            var index = i;
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudTextField @bind-Value="Recipe.Ingredients[index].Name" Label="Nom" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Title="Supprimer" OnClick="() => Recipe.Ingredients.RemoveAt(index)" />
+            </MudStack>
+
+        }
+    <MudIconButton Icon="@Icons.Material.Filled.Add"
+                Title="Ajouter"
+                OnClick="() => Recipe.Ingredients.Add(new IngredientCreateDto())"
+    />
+</div>
+<div style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
+    <MudText Class="pb-4">Etapes</MudText>
+    @for (int i = 0; i < Recipe.Steps.Count; i++)
+    {
+        var index = i;
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+            <MudTextField @bind-Value="Recipe.Steps[index].Instruction" Label="Instruction" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Title="Supprimer" OnClick="() => Recipe.Steps.RemoveAt(index)" />
+        </MudStack>
+    }
+    <MudIconButton Icon="@Icons.Material.Filled.Add"
+                Title="Ajouter"
+                OnClick="() => Recipe.Steps.Add(new StepCreateDto())"
+    />
+</div>
+<div>
+    <MudButton Class="mt-4"
+            Variant="Variant.Filled"
+            Color="Color.Primary"
+            @onClick ="HandleSave" 
+    >
+        Sauvegarder
+    </MudButton>
+</div>        
+
+@code
+{
+    [Parameter] public RecipeFormModel Recipe {get; set;}
+    [Parameter] public EventCallback<RecipeFormModel> OnSave {get; set;}
+
+    private async Task HandleSave()
+    {
+        await OnSave.InvokeAsync(Recipe);
+    }
+}

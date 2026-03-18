@@ -3,14 +3,14 @@
 @inject IRecipeService RecipeService
 
 <MudContainer MaxWidth = "MaxWidth.ExtraSmall">        
-    <MudPaper Class="pa-8 ma-4" Elevation="3" Align="Center">
+    <MudPaper Class="pa-4 pb-8 ma-4" Elevation="3" Align="Center">
         <MudText Typo="Typo.h5"
             Align="Align.Center"
             GutterBottom="true"
         >
             Importer une recette
         </MudText>
-    <div Class="mt-8" Align="Center">
+    <div Align="Center" style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
         <MudFileUpload T="IBrowserFile" FilesChanged="@UploadFile">
             <CustomContent>
                 <MudButton Variant="Variant.Filled"
@@ -26,7 +26,7 @@
         @if (_selectedFile != null)
         {
             <MudText Typo="Typo.body2" Class="mt-2">
-                Fichier Sélectionné : @_selectedFile.Name
+                Fichier : @_selectedFile.Name
                 <MudIconButton Icon="@Icons.Material.Filled.Close" 
                     Size="Size.Small" 
                     Color="Color.Primary"
@@ -38,6 +38,7 @@
                 exemple : photo.jpg
             </MudText>
         }
+        </div>
         @if (_selectedFile != null)
         {
             <MudButton
@@ -58,41 +59,20 @@
             }
         </MudButton>
         }
-        </div>
     </MudPaper>
     
     @* // Previsialisation section     *@
-    @if (_extractedRecipe != null)
+    @if (_newRecipe != null)
     {
-        <MudPaper Class="pa-8 ma-4" Elevation="3">
-            <MudText Typo="Typo.h5" GutterBottom="true">Recette générée</MudText>
-            
-            <MudTextField @bind-Value="_extractedRecipe.Title" Label="Titre" />
-            <MudNumericField @bind-Value="_extractedRecipe.Servings" Label="Nombre de parts" />
-            
-            <MudText Typo="Typo.h6" Class="mt-4">Ingrédients</MudText>
-            @for (int i = 0; i < _extractedRecipe.Ingredients.Count; i++)
-            {
-                var index = i;
-                <MudTextField @bind-Value="_extractedRecipe.Ingredients[index]"
-                              Label="@($"Ingrédient {index + 1}")" />
-            }
-            
-            <MudText Typo="Typo.h6" Class="mt-4">Étapes</MudText>
-            @for (int i = 0; i < _extractedRecipe.Steps.Count; i++)
-            {
-                var index = i;
-                <MudTextField @bind-Value="_extractedRecipe.Steps[index]"
-                              Label="@($"Étape {index + 1}")" />
-            }
-            
-            <MudButton Class="mt-4"
-                       Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       @onClick ="HandleCreation" 
+        <MudPaper Class="pa-4 ma-4" Elevation="3" Align="Center">
+            <MudText Typo="Typo.h5"
+                Align="Align.Center"
+                GutterBottom="true"
+                Class="pa-4"
             >
-                Sauvegarder
-            </MudButton>
+                Votre nouvelle recette
+            </MudText>
+            <RecipeForm Recipe="_newRecipe" OnSave="HandleCreation" />
         </MudPaper>
     }
 </MudContainer>
@@ -100,10 +80,9 @@
 @code
 {  
     private ExtractedRecipeDto? _extractedRecipe;
-    @* private RecipeCreateDto? _newRecipe; *@
+    private RecipeFormModel? _newRecipe;
     private string? _errorMessage;
     private IBrowserFile? _selectedFile;
-
     bool _isLoading = false;
     bool _isValid = false;
     
@@ -125,6 +104,7 @@
         {
             var stream = _selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
             _extractedRecipe = await RecipeService.ScanImageAsync(stream);
+            _newRecipe = MapToFormModel(_extractedRecipe);
         }
         catch (Exception ex)
         {
@@ -134,5 +114,27 @@
         {
             _isLoading = false;
         }
+    }
+
+    private async Task HandleCreation(RecipeFormModel recipe)
+    {
+
+    }
+
+    //Mapper
+    private RecipeFormModel MapToFormModel (ExtractedRecipeDto extractedRecipeDto)
+    {
+        RecipeFormModel recipe = new RecipeFormModel
+        {
+            Title = extractedRecipeDto.Title,
+            Servings = extractedRecipeDto.Servings,
+            PrepTimeMinutes = null,
+            Ingredients = extractedRecipeDto.Ingredients.Select(i => new IngredientCreateDto { Name = i }).ToList(),
+            Steps = extractedRecipeDto.Steps.Select((s, index) => new StepCreateDto { 
+                    Instruction = s, 
+                    Order = index + 1 
+                }).ToList()
+        };
+        return recipe;
     }
 }
