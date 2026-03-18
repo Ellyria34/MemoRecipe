@@ -5,4 +5,6 @@ namespace MemoRecipe.Web.Services;
 public interface IRecipeService
 {
     Task<ExtractedRecipeDto> ScanImageAsync(Stream imageStream);
+
+    Task<RecipeDto> CreateRecipeAsync(RecipeCreateDto recipeCreateDto);
 }

@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text;
 using MemoRecipe.Web.Models;
 
 namespace MemoRecipe.Web.Services;
@@ -24,4 +25,18 @@ public class RecipeService : IRecipeService
         return JsonSerializer.Deserialize<ExtractedRecipeDto>(json, options)
             ?? throw new InvalidOperationException("Erreur de désérialisation");
     }
+
+    public async Task<RecipeDto> CreateRecipeAsync(RecipeCreateDto recipeCreateDto)
+    {
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var jsonString = JsonSerializer.Serialize(recipeCreateDto, options);
+        var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync("api/recipe", content);
+
+        var json = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<RecipeDto>(json, options)
+            ?? throw new InvalidOperationException("Erreur de désérialisation");
+    }
+
 }

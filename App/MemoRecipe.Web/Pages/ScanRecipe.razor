@@ -1,6 +1,7 @@
 @page "/recipes/new"
 @attribute [Authorize]
 @inject IRecipeService RecipeService
+@inject NavigationManager Navigation
 
 <MudContainer MaxWidth = "MaxWidth.ExtraSmall">        
     <MudPaper Class="pa-4 pb-8 ma-4" Elevation="3" Align="Center">
@@ -116,9 +117,26 @@
         }
     }
 
-    private async Task HandleCreation(RecipeFormModel recipe)
+    private async Task HandleCreation(RecipeFormModel recipeFormModel)
     {
-
+        var recipeCreateDto = MapToRecipeCreateDto (recipeFormModel);
+        _isLoading = true;
+        _errorMessage = null;
+        
+        try
+        {
+            var newRecipe = await RecipeService.CreateRecipeAsync(recipeCreateDto);
+            //TODO: When recipe details page was done redirecte to "/recipes/{newRecipe.Id}""
+            Navigation.NavigateTo($"/");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "Un problème est survenu lors de la sauvegarde de la recette";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
     }
 
     //Mapper
@@ -136,5 +154,22 @@
                 }).ToList()
         };
         return recipe;
+    }
+
+        private RecipeCreateDto MapToRecipeCreateDto (RecipeFormModel recipeFormModel)
+    {
+        RecipeCreateDto recipeCreateDto = new RecipeCreateDto
+        {
+            Title = recipeFormModel.Title,
+            Description = recipeFormModel.Description,
+            Servings = recipeFormModel.Servings,
+            PrepTimeMinutes = recipeFormModel.PrepTimeMinutes,
+            CookTimeMinutes = recipeFormModel.CookTimeMinutes,
+            Difficulty = recipeFormModel.Difficulty,
+            IsPublic = recipeFormModel.IsPublic,
+            Ingredients = recipeFormModel.Ingredients,
+            Steps = recipeFormModel.Steps
+        };
+        return recipeCreateDto;
     }
 }
