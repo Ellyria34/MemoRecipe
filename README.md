@@ -71,6 +71,6 @@ dotnet test
 
 The pipeline architecture is in place — prompt engineering and AI parsing layer are functional. The main remaining challenge is Tesseract OCR output quality on real-world images. The full backend is done: JWT authentication via HttpOnly cookies, recipe CRUD with authorization, FluentValidation (4 validators, 71 unit tests), and global exception handling.
 
-The Blazor frontend now covers Login/Register pages with inline validation, protected routes via CookieAuthStateProvider, responsive layout (sidebar desktop + bottom bar mobile), and a scan recipe page that uploads an image, calls the IA pipeline via the API, and displays the parsed recipe in an editable form. The user can review and modify the AI output before saving.
+The Blazor frontend now covers Login/Register pages with inline validation, protected routes via CookieAuthStateProvider, responsive layout (sidebar desktop + bottom bar mobile), and a full scan recipe workflow. The user uploads an image, the IA pipeline extracts the recipe, and the result is displayed in a reusable `RecipeForm` component with all editable fields: title, description, servings, prep time, cook time, difficulty, public toggle, structured ingredients (name + delete), and ordered steps. A dedicated `RecipeFormModel` keeps the form decoupled from API DTOs — the same component will be reused for manual creation and recipe editing.
 
-Next steps: saving the scanned recipe to the database, improving the form UX, stabilizing OCR quality, and eventually the MAUI mobile client and CI/CD pipeline.
+Next steps: validating the form, saving the scanned recipe to the database via `CreateRecipeAsync`, building the recipe list and detail pages, and eventually the MAUI mobile client and CI/CD pipeline.
