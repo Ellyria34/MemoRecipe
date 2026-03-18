@@ -73,4 +73,6 @@ The pipeline architecture is in place — prompt engineering and AI parsing laye
 
 The Blazor frontend now covers Login/Register pages with inline validation, protected routes via CookieAuthStateProvider, responsive layout (sidebar desktop + bottom bar mobile), and a full scan recipe workflow. The user uploads an image, the IA pipeline extracts the recipe, and the result is displayed in a reusable `RecipeForm` component with all editable fields: title, description, servings, prep time, cook time, difficulty, public toggle, structured ingredients (name + delete), and ordered steps. A dedicated `RecipeFormModel` keeps the form decoupled from API DTOs — the same component will be reused for manual creation and recipe editing.
 
-Next steps: validating the form, saving the scanned recipe to the database via `CreateRecipeAsync`, building the recipe list and detail pages, and eventually the MAUI mobile client and CI/CD pipeline.
+The full scan-to-save pipeline is now functional: scan → preview → edit → save to database. Form validation constraints match the backend FluentValidation rules (title length, portions range, time limits, max 50 ingredients/steps). A database migration was added to make `PrepTimeMinutes` and `CookTimeMinutes` nullable, reflecting the domain model.
+
+Next steps: improving error handling (API status code checks), adding success/error feedback messages, building the recipe list and detail pages, and eventually the MAUI mobile client and CI/CD pipeline.
