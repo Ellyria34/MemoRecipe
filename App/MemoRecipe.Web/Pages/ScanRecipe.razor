@@ -155,7 +155,7 @@
         RecipeFormModel recipe = new RecipeFormModel
         {
             Title = extractedRecipeDto.Title,
-            Servings = extractedRecipeDto.Servings,
+            Servings = extractedRecipeDto.Servings > 0 ? extractedRecipeDto.Servings : 1,
             PrepTimeMinutes = null,
             Ingredients = extractedRecipeDto.Ingredients.Select(i => new IngredientCreateDto { Name = i }).ToList(),
             Steps = extractedRecipeDto.Steps.Select((s, index) => new StepCreateDto { 
