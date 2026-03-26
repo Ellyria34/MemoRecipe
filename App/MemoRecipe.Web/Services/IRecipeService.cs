@@ -7,4 +7,6 @@ public interface IRecipeService
     Task<ExtractedRecipeDto> ScanImageAsync(Stream imageStream);
 
     Task<RecipeDto> CreateRecipeAsync(RecipeCreateDto recipeCreateDto);
+
+    Task<List<RecipeDto>> GetAllRecipesAsync();
 }
