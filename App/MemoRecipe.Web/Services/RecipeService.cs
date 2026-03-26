@@ -19,6 +19,7 @@ public class RecipeService : IRecipeService
         MultipartFormDataContent content = new MultipartFormDataContent();
         content.Add(new StreamContent(imageStream), "imageFile","image.jpg");
         var response = await _httpClient.PostAsync("api/recipe/scan", content);
+        response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync();
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
@@ -33,6 +34,7 @@ public class RecipeService : IRecipeService
         var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
 
         var response = await _httpClient.PostAsync("api/recipe", content);
+        response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<RecipeDto>(json, options)

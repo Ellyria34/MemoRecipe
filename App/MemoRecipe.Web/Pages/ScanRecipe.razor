@@ -11,7 +11,7 @@
         >
             Importer une recette
         </MudText>
-    <div Align="Center" style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
+        <div Align="Center" style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
         <MudFileUpload T="IBrowserFile" FilesChanged="@UploadFile">
             <CustomContent>
                 <MudButton Variant="Variant.Filled"
@@ -61,7 +61,11 @@
         </MudButton>
         }
     </MudPaper>
-    
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <MudAlert Severity="Severity.Error" Class="ma-4">@_errorMessage</MudAlert>
+    }
+
     @* // Previsialisation section     *@
     @if (_newRecipe != null)
     {
