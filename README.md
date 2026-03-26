@@ -75,4 +75,6 @@ The Blazor frontend now covers Login/Register pages with inline validation, prot
 
 The full scan-to-save pipeline is now functional: scan → preview → edit → save to database. Form validation constraints match the backend FluentValidation rules (title length, portions range, time limits, max 50 ingredients/steps). A database migration was added to make `PrepTimeMinutes` and `CookTimeMinutes` nullable, reflecting the domain model.
 
-Next steps: improving error handling (API status code checks), adding success/error feedback messages, building the recipe list and detail pages, and eventually the MAUI mobile client and CI/CD pipeline.
+Error handling is now in place: API responses are validated with `EnsureSuccessStatusCode`, errors display inline via `MudAlert`, and successful saves show a `MudSnackbar` toast. A recipe list page (`/recipes`) shows all saved recipes with loading states and empty-state messaging.
+
+Next steps: recipe detail page, edit/delete functionality, form validation (disable save on invalid), and eventually the MAUI mobile client and CI/CD pipeline.
