@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @inject IRecipeService RecipeService
 @inject NavigationManager Navigation
+@inject ISnackbar Snackbar
 
 <MudContainer MaxWidth = "MaxWidth.ExtraSmall">        
     <MudPaper Class="pa-4 pb-8 ma-4" Elevation="3" Align="Center">
@@ -130,6 +131,11 @@
         try
         {
             var newRecipe = await RecipeService.CreateRecipeAsync(recipeCreateDto);
+            Snackbar.Add("Recette sauvegardée !", Severity.Success, config => 
+            {
+                config.VisibleStateDuration = 1500;
+                config.ShowCloseIcon = false;
+            });
             //TODO: When recipe details page was done redirecte to "/recipes/{newRecipe.Id}""
             Navigation.NavigateTo($"/");
         }

@@ -103,4 +103,12 @@ code {
     color: #6a9c7e !important;
 }
 
+.mud-snackbar.mud-alert-filled-success {
+    background-color: #6A9C7E !important;
+}
+
+.mud-snackbar .mud-icon-root {
+    color: #eef5f1 !important;
+}
+
 
