@@ -34,19 +34,19 @@
                     </MudStack>
                 </MudCard>
             }
+        @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="ma-4">@_errorMessage</MudAlert>
+            }
         }        
     </MudPaper>
-    @if (!string.IsNullOrEmpty(_errorMessage))
-        {
-            <MudAlert Severity="Severity.Error" Class="ma-4">@_errorMessage</MudAlert>
-        }
 </MudContainer>
 
 @code
 {
-    List<RecipeDto>? _recipes = [];
+    List<RecipeDto>? _recipes = null;
     bool _isLoading = false;
-    string _errorMessage = "";
+    string? _errorMessage = null;
 
 
     protected override async Task OnInitializedAsync()
