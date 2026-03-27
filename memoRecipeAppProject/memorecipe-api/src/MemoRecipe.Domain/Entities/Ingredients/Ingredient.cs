@@ -18,10 +18,10 @@ public class Ingredient
     public string Name { get; set; } = string.Empty;
 
     // Quantity in the recipe (example: 100g, 2 tbsp, etc.)
-    public decimal Quantity { get; set; }
+    public decimal? Quantity { get; set; }
 
     // Unit used for the quantity (g, ml, tbsp, cup, etc.)
-    public string Unit { get; set; } = string.Empty;
+    public string? Unit { get; set; } = string.Empty;
 
     // Optional: group ingredients by section (ex: “Dough”, “Sauce”)
     public string? Section { get; set; }

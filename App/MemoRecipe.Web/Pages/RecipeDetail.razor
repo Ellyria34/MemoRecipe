@@ -1,0 +1,128 @@
+@page "/recipes/{id:guid}"
+
+@attribute [Authorize]
+@inject IRecipeService RecipeService
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth = "MaxWidth.ExtraSmall">
+    <MudPaper Elevation="3" Class="pa-8 mt-4"> 
+        @if (_recipe == null)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else
+        {
+
+            <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true" Class="pb-4">@_recipe.Title</MudText>
+            <MudPaper>
+                <dl Class="pa-4 mt-2">
+                    @if(_recipe.Description != null)
+                    {
+                        <dt Class="mt-2">Description : @_recipe.Description</dt>
+                    }
+                    <dt Class="mt-2">Portions : @_recipe.Servings</dt>
+                    @if(_recipe.TotalTimeMinutes>0)
+                    {
+                        <dt Class="mt-2">Temps de préparartion : @_recipe.TotalTimeMinutes</dt>
+                    }
+                </dl>
+            </MudPaper>
+            <MudPaper Class="pb-4">
+                <MudText Align="Align.Center" Color="Color.Secondary" GutterBottom="true" Class="pt-4 mt-2">Ingrédients</MudText>
+
+                    @foreach (IngredientDto ingredient in _recipe.Ingredients)
+                    {
+                        <MudText Class="ma-4">- @ingredient.Name</MudText>
+                    }
+            </MudPaper>
+            <MudPaper Class="pb-4">
+                <MudText Align="Align.Center" Color="Color.Secondary" GutterBottom="true" Class="pt-4 mt-2">Etapes</MudText>
+                    @foreach (StepDto step in _recipe.Steps)
+                    {
+                        <MudText Class="ma-4">@step.Order - @step.Instruction</MudText>
+                    }
+            </MudPaper>
+        }
+        <div  Class="mt-4">
+            <MudButton 
+                Variant="Variant.Filled" 
+                Color="Color.Primary" 
+                FullWidth="true" 
+                Class="mt-4"
+                OnClick="HandleRedirection">
+                Liste des recettes
+            </MudButton>
+            <MudButton 
+                Variant="Variant.Filled" 
+                Color="Color.Error" 
+                FullWidth="true" 
+                Class="mt-4"
+                OnClick="Delete">
+                Supprimer            
+            </MudButton>
+            <MudMessageBox @ref="_confirmDialog" 
+                Title="Supprimer la recette" 
+                CancelText="Annuler">
+                <MessageContent>
+                    Êtes-vous sûr de vouloir supprimer cette recette ?
+                </MessageContent>
+                <YesButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Error">Supprimer</MudButton>
+                </YesButton>
+            </MudMessageBox>
+        </div>
+    </MudPaper>
+</MudContainer>
+
+@code
+{
+    [Parameter]
+    public Guid Id { get; set; }
+    private RecipeDto _recipe;
+    bool _isLoading = false;
+    string _errorMessage = "";
+
+    MudMessageBox _confirmDialog;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        try
+        {
+            _recipe = await RecipeService.GetRecipeByIdAsync(Id);
+            _recipe.Steps = _recipe.Steps.OrderBy(s => s.Order).ToList();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "Un problème est survenu lors du chargement de votre recette";
+            //attendre un peu
+            Navigation.NavigateTo($"/recipes");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+    private async Task HandleRedirection()
+    {
+        Navigation.NavigateTo($"/recipes");
+    }
+
+    private async Task Delete()
+    {
+        bool? result = await _confirmDialog.ShowAsync();
+        if (result != true) return;
+
+        await RecipeService.DeleteRecipe(Id);
+        Snackbar.Add("Recette supprimée !", Severity.Success, config =>
+        {
+            config.VisibleStateDuration = 1500;
+            config.ShowCloseIcon = false;
+        });
+        Navigation.NavigateTo("/recipes");
+    }
+
+}

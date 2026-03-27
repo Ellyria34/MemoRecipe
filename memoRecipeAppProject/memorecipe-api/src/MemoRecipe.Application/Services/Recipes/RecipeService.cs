@@ -2,6 +2,8 @@ using MemoRecipe.Application.DTOs.Recipes;
 using MemoRecipe.Application.Repositories;
 using MemoRecipe.Domain.Entities.Recipes;
 using MemoRecipe.Domain.Entities.Categories;
+using MemoRecipe.Domain.Entities.Ingredients;
+using MemoRecipe.Domain.Entities.Steps;
 using AutoMapper;
 
 namespace MemoRecipe.Application.Services.Recipes;
@@ -45,6 +47,24 @@ public class RecipeService : IRecipeService
         {
             RecipeId = newRecipe.Id,
             CategoryId = categoryId
+        }).ToList();
+
+        newRecipe.Ingredients = dto.Ingredients.Select(ingredient => new Ingredient
+        {
+            Id = Guid.NewGuid(),
+            RecipeId = newRecipe.Id,
+            Name = ingredient.Name,
+            Quantity = ingredient.Quantity,
+            Unit = ingredient.Unit
+        }).ToList();
+
+
+        newRecipe.Steps = dto.Steps.Select((s, index) => new Step
+        {
+            Id = Guid.NewGuid(),
+            RecipeId = newRecipe.Id,
+            Instruction = s.Instruction,
+            Order = s.Order > 0 ? s.Order : index + 1
         }).ToList();
 
         await _repository.AddAsync(newRecipe);

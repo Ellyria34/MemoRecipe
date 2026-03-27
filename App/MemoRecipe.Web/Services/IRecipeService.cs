@@ -9,4 +9,9 @@ public interface IRecipeService
     Task<RecipeDto> CreateRecipeAsync(RecipeCreateDto recipeCreateDto);
 
     Task<List<RecipeDto>> GetAllRecipesAsync();
+
+    Task<RecipeDto> GetRecipeByIdAsync(Guid id);
+
+    Task DeleteRecipe(Guid id);
+
 }
