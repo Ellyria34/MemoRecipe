@@ -55,6 +55,14 @@
             </MudButton>
             <MudButton 
                 Variant="Variant.Filled" 
+                Color="Color.Primary" 
+                FullWidth="true" 
+                Class="mt-4"
+                Href="@($"/recipes/{Id}/edit")">
+                Modifier
+            </MudButton>
+            <MudButton 
+                Variant="Variant.Filled" 
                 Color="Color.Error" 
                 FullWidth="true" 
                 Class="mt-4"
@@ -80,11 +88,11 @@
 {
     [Parameter]
     public Guid Id { get; set; }
-    private RecipeDto _recipe;
+    private RecipeDto? _recipe;
     bool _isLoading = false;
-    string _errorMessage = "";
+    string? _errorMessage = "";
 
-    MudMessageBox _confirmDialog;
+    MudMessageBox _confirmDialog = null!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -95,7 +103,7 @@
             _recipe = await RecipeService.GetRecipeByIdAsync(Id);
             _recipe.Steps = _recipe.Steps.OrderBy(s => s.Order).ToList();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             _errorMessage = "Un problème est survenu lors du chargement de votre recette";
             //attendre un peu

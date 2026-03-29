@@ -112,7 +112,7 @@
             _extractedRecipe = await RecipeService.ScanImageAsync(stream);
             _newRecipe = MapToFormModel(_extractedRecipe);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             _errorMessage = "Un problème est survenu lors du scan de la recette";
         }
@@ -139,7 +139,7 @@
             //TODO: When recipe details page was done redirecte to "/recipes/{newRecipe.Id}""
             Navigation.NavigateTo($"/recipes");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             _errorMessage = "Un problème est survenu lors de la sauvegarde de la recette";
         }
@@ -157,11 +157,15 @@
             Title = extractedRecipeDto.Title,
             Servings = extractedRecipeDto.Servings > 0 ? extractedRecipeDto.Servings : 1,
             PrepTimeMinutes = null,
-            Ingredients = extractedRecipeDto.Ingredients.Select(i => new IngredientCreateDto { Name = i }).ToList(),
-            Steps = extractedRecipeDto.Steps.Select((s, index) => new StepCreateDto { 
-                    Instruction = s, 
-                    Order = index + 1 
-                }).ToList()
+            Ingredients = extractedRecipeDto.Ingredients.Select(i => new IngredientFormModel
+            {
+                Name = i
+            }).ToList(),
+            Steps = extractedRecipeDto.Steps.Select((s, index) => new StepFormModel
+            {
+                Instruction = s,
+                Order = index + 1
+            }).ToList()
         };
         return recipe;
     }
@@ -177,8 +181,17 @@
             CookTimeMinutes = recipeFormModel.CookTimeMinutes,
             Difficulty = recipeFormModel.Difficulty,
             IsPublic = recipeFormModel.IsPublic,
-            Ingredients = recipeFormModel.Ingredients,
-            Steps = recipeFormModel.Steps
+            Ingredients = recipeFormModel.Ingredients.Select(i => new IngredientCreateDto
+            {
+                Name = i.Name,
+                Quantity = i.Quantity ?? 0,
+                Unit = i.Unit
+            }).ToList(),
+            Steps = recipeFormModel.Steps.Select(s => new StepCreateDto
+            {
+                Instruction = s.Instruction,
+                Order = s.Order
+            }).ToList()
         };
         return recipeCreateDto;
     }

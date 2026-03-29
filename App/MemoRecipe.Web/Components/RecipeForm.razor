@@ -52,7 +52,7 @@
     {
     <MudIconButton Icon="@Icons.Material.Filled.Add"
                 Title="Ajouter"
-                OnClick="() => Recipe.Ingredients.Add(new IngredientCreateDto())"
+                OnClick="() => Recipe.Ingredients.Add(new IngredientFormModel())"
     />
     }
 </div>
@@ -72,7 +72,7 @@
     {
     <MudIconButton Icon="@Icons.Material.Filled.Add"
                 Title="Ajouter"
-                OnClick="() => Recipe.Steps.Add(new StepCreateDto())"
+                OnClick="() => Recipe.Steps.Add(new StepFormModel())"
     />}
 </div>
 <div>
@@ -87,7 +87,7 @@
 
 @code
 {
-    [Parameter] public RecipeFormModel Recipe {get; set;}
+    [Parameter] public RecipeFormModel Recipe {get; set;} = null!;
     [Parameter] public EventCallback<RecipeFormModel> OnSave {get; set;}
 
     private async Task HandleSave()

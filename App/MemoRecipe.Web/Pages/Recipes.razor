@@ -57,7 +57,7 @@
         {
            _recipes = await RecipeService.GetAllRecipesAsync();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             _errorMessage = "Un problème est survenu lors du chargement de vos recettes";
         }

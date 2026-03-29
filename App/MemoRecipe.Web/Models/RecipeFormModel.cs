@@ -12,6 +12,6 @@ public class RecipeFormModel
     public bool IsPublic { get; set; } = true;
 
     // Navigation collections
-    public List<IngredientCreateDto> Ingredients { get; set; } = new();
-    public List<StepCreateDto> Steps { get; set; } = new();
+    public List<IngredientFormModel> Ingredients { get; set; } = new();
+    public List<StepFormModel> Steps { get; set; } = new();
 }

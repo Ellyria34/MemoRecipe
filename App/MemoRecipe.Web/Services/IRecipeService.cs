@@ -14,4 +14,6 @@ public interface IRecipeService
 
     Task DeleteRecipe(Guid id);
 
+    Task<RecipeDto> UpdateRecipeAsync(Guid id, RecipeUpdateDto updateRecipe);
+
 }

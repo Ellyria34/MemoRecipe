@@ -66,4 +66,16 @@ public class RecipeService : IRecipeService
         var response = await _httpClient.DeleteAsync($"api/recipe/{id}");
         response.EnsureSuccessStatusCode();
     }
+
+    public async Task<RecipeDto> UpdateRecipeAsync(Guid id, RecipeUpdateDto recipeUpdateDto)
+    {
+        var jsonString = JsonSerializer.Serialize(recipeUpdateDto, _jsonOptions);
+        var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PutAsync($"api/recipe/{id}", content);
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadAsStringAsync();
+        return Deserialize<RecipeDto>(json);
+    }
 }

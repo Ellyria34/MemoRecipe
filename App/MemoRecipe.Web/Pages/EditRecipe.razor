@@ -1,0 +1,36 @@
+@page "/recipes/{Id:guid}/edit"
+@attribute [Authorize]
+
+<MudContainer MaxWidth = "MaxWidth.ExtraSmall">
+    <MudPaper Elevation="3" Class="pa-8 mt-4"> 
+        @if (_recipe == null)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else
+        {
+            <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true" Class="pb-4">Modifier la recette</MudText>
+            <RecipeForm Recipe="_recipeForm" OnSave="HandleModification" />
+            <div  Class="mt-4">
+                <MudButton 
+                    Variant="Variant.Filled" 
+                    Color="Color.Warning" 
+                    FullWidth="true" 
+                    Class="mt-4"
+                    OnClick="HandleCancel">
+                    Annuler            
+                </MudButton>
+                <MudMessageBox @ref="_confirmDialog" 
+                    Title="Annuler la modification de la recette" 
+                    CancelText="Annuler">
+                    <MessageContent>
+                        Êtes-vous sûr de vouloir annuler les modifications seront perdues ?
+                    </MessageContent>
+                    <YesButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Error">Annuler</MudButton>
+                    </YesButton>
+                </MudMessageBox>
+            </div>
+        }
+    </MudPaper>
+</MudContainer>
