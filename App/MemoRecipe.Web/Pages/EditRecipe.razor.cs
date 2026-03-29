@@ -89,6 +89,7 @@ public partial class EditRecipe
             Servings = recipeDto.Servings > 0 ? recipeDto.Servings : 1,
             PrepTimeMinutes = recipeDto.PrepTimeMinutes,
             CookTimeMinutes = recipeDto.CookTimeMinutes,
+            IsPublic = recipeDto.IsPublic,
             Ingredients = recipeDto.Ingredients.Select(i => new IngredientFormModel
             {
                 Name = i.Name,

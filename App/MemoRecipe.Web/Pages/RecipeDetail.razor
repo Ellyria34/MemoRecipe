@@ -33,19 +33,24 @@
                     }
                     @if(_recipe.Difficulty != null)
                     {
-                        <dt Class="mt-2">Difficulté : 
+                        <dt Class="mt-2" >Difficulté : 
                             @for (int i = 0; i <= (int)_recipe.Difficulty; i++)
                             {
                                <span>🧑‍🍳</span>
                             }
                         </dt>
                     }
-                    @if(_recipe.IsPublic)
-                    {
-                        <dt Class="mt-2">Recette public : oui</dt>
-                    } else {
-                        <dt Class="mt-2">Recette public : non</dt>
-                    }
+                    <MudStack Class="mt-2" Row="true" AlignItems="AlignItems.Center">
+                        <dt>Recette :</dt>
+                        @if(_recipe.IsPublic)
+                        {
+                            <MudChip T="string" Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Public">Publique</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Default" Size="Size.Small" Icon="@Icons.Material.Filled.Lock">Privée</MudChip>
+                        }
+                    </MudStack>
                 </dl>
             </MudPaper>
             <MudPaper Class="pb-4">

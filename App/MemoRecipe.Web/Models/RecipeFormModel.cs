@@ -9,7 +9,7 @@ public class RecipeFormModel
     public int? CookTimeMinutes { get; set; }
 
     public DifficultyLevel? Difficulty { get; set; }
-    public bool IsPublic { get; set; } = true;
+    public bool IsPublic { get; set; } = false;
 
     // Navigation collections
     public List<IngredientFormModel> Ingredients { get; set; } = new();
