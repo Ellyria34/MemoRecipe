@@ -23,9 +23,28 @@
                         <dt Class="mt-2">Description : @_recipe.Description</dt>
                     }
                     <dt Class="mt-2">Portions : @_recipe.Servings</dt>
-                    @if(_recipe.TotalTimeMinutes>0)
+                    @if(_recipe.PrepTimeMinutes >0)
                     {
-                        <dt Class="mt-2">Temps de préparartion : @_recipe.TotalTimeMinutes</dt>
+                        <dt Class="mt-2">Temps de préparartion : @_recipe.PrepTimeMinutes </dt>
+                    }
+                    @if(_recipe.CookTimeMinutes>0)
+                    {
+                        <dt Class="mt-2">Temps de cuisson : @_recipe.CookTimeMinutes</dt>
+                    }
+                    @if(_recipe.Difficulty != null)
+                    {
+                        <dt Class="mt-2">Difficulté : 
+                            @for (int i = 0; i <= (int)_recipe.Difficulty; i++)
+                            {
+                               <span>🧑‍🍳</span>
+                            }
+                        </dt>
+                    }
+                    @if(_recipe.IsPublic)
+                    {
+                        <dt Class="mt-2">Recette public : oui</dt>
+                    } else {
+                        <dt Class="mt-2">Recette public : non</dt>
                     }
                 </dl>
             </MudPaper>
@@ -45,14 +64,6 @@
                     }
             </MudPaper>
         <div  Class="mt-4">
-            <MudButton 
-                Variant="Variant.Filled" 
-                Color="Color.Primary" 
-                FullWidth="true" 
-                Class="mt-4"
-                OnClick="HandleRedirection">
-                Liste des recettes
-            </MudButton>
             <MudButton 
                 Variant="Variant.Filled" 
                 Color="Color.Primary" 
