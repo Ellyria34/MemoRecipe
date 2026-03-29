@@ -7,7 +7,7 @@
 @inject ISnackbar Snackbar
 
 <MudContainer MaxWidth = "MaxWidth.ExtraSmall">
-    <MudPaper Elevation="3" Class="pa-8 mt-4"> 
+    <MudPaper Elevation="3" Class="pa-8 mt-4" style="font-size: 1.1rem;"> 
         @if (_recipe == null)
         {
             <MudProgressCircular Indeterminate="true" />
@@ -20,20 +20,20 @@
                 <dl Class="pa-4 mt-2">
                     @if(_recipe.Description != null)
                     {
-                        <dt Class="mt-2">Description : @_recipe.Description</dt>
+                        <dt Class="mt-2"><strong>Description : </strong>@_recipe.Description</dt>
                     }
-                    <dt Class="mt-2">Portions : @_recipe.Servings</dt>
+                    <dt Class="mt-2"><strong>Portions : </strong>@_recipe.Servings</dt>
                     @if(_recipe.PrepTimeMinutes >0)
                     {
-                        <dt Class="mt-2">Temps de préparartion : @_recipe.PrepTimeMinutes </dt>
+                        <dt Class="mt-2"><strong>Temps de préparartion : </strong>@_recipe.PrepTimeMinutes </dt>
                     }
                     @if(_recipe.CookTimeMinutes>0)
                     {
-                        <dt Class="mt-2">Temps de cuisson : @_recipe.CookTimeMinutes</dt>
+                        <dt Class="mt-2"><strong>Temps de cuisson : </strong>@_recipe.CookTimeMinutes</dt>
                     }
                     @if(_recipe.Difficulty != null)
                     {
-                        <dt Class="mt-2" >Difficulté : 
+                        <dt Class="mt-2" ><strong>Difficulté : </strong>
                             @for (int i = 0; i <= (int)_recipe.Difficulty; i++)
                             {
                                <span>🧑‍🍳</span>
@@ -41,14 +41,14 @@
                         </dt>
                     }
                     <MudStack Class="mt-2" Row="true" AlignItems="AlignItems.Center">
-                        <dt>Recette :</dt>
+                        <dt><strong>Recette : </strong></dt>
                         @if(_recipe.IsPublic)
                         {
-                            <MudChip T="string" Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Public">Publique</MudChip>
+                            <MudChip T="string" Color="Color.Primary" Icon="@Icons.Material.Filled.Public">Publique</MudChip>
                         }
                         else
                         {
-                            <MudChip T="string" Color="Color.Default" Size="Size.Small" Icon="@Icons.Material.Filled.Lock">Privée</MudChip>
+                            <MudChip T="string" Color="Color.Default" Icon="@Icons.Material.Filled.Lock">Privée</MudChip>
                         }
                     </MudStack>
                 </dl>
