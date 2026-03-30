@@ -113,7 +113,14 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Choix** : Le formulaire de recette utilise un `RecipeFormModel` dédié (pas un DTO API) et vit dans un composant `RecipeForm.razor` réutilisable. Chaque page parente mappe vers le DTO approprié (`RecipeCreateDto` ou `RecipeUpdateDto`) avant d'appeler l'API.
 - **Pourquoi** : Single Responsibility — le formulaire ne doit pas dépendre d'un contrat API. `RecipeFormModel` = ce que l'utilisateur voit et édite. Le même composant est réutilisé dans 3 contextes : scan (pré-rempli par l'IA), création manuelle (vide), modification (pré-rempli depuis l'API). Le parent décide du verbe HTTP (POST vs PUT), pas le formulaire.
 - **Conséquence** : `RecipeFormModel` dans `Models/`, `RecipeForm.razor` dans `Components/`. Le composant expose un `[Parameter] RecipeFormModel` et un `[Parameter] EventCallback<RecipeFormModel>` pour notifier le parent au clic "Sauvegarder".
-- **Etat** : EN COURS — composant créé et intégré dans la page Scan. Reste : intégration création manuelle et modification.
+- **Etat** : DONE — composant intégré dans Scan, Edit et création manuelle (future).
+
+### DEC-019 : Code-behind pattern + `= default!;` pour les pages Blazor
+- **Date** : Mars 2026
+- **Choix** : Séparer chaque page en `.razor` (template) + `.razor.cs` (code C#). Utiliser `= default!;` sur les propriétés `[Inject]` pour supprimer les warnings nullable.
+- **Pourquoi** : Séparation des responsabilités (SRP) — le template ne contient que du HTML/Razor, le C# est dans une classe `partial`. `= default!;` est le pattern recommandé par Microsoft pour les injections Blazor ([doc officielle](https://learn.microsoft.com/en-us/aspnet/core/blazor/fundamentals/dependency-injection)).
+- **Conséquence** : Les `@inject` du `.razor` deviennent `[Inject]` dans le `.razor.cs` avec `{ get; set; } = default!;`. Les `using` doivent être ajoutés manuellement dans le `.razor.cs` (pas d'accès aux `@using` de `_Imports.razor`).
+- **Etat** : DONE — appliqué sur RecipeDetail, Recipes, ScanRecipe, EditRecipe.
 
 ---
 
