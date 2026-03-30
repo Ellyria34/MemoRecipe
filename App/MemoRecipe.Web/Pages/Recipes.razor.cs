@@ -7,10 +7,10 @@ namespace MemoRecipe.Web.Pages;
 public partial class Recipes
 {
     [Inject]
-    private IRecipeService RecipeService {get; set;} = null!;
+    private IRecipeService RecipeService {get; set;} = default!;
 
     [Inject]
-    private NavigationManager Navigation {get; set;} = null!;
+    private NavigationManager Navigation {get; set;} = default!;
 
     List<RecipeDto>? _recipes = null;
     bool _isLoading = false;

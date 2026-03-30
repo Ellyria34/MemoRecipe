@@ -8,16 +8,16 @@ namespace MemoRecipe.Web.Pages;
 public partial class RecipeDetail
 {
     [Inject] 
-    private IRecipeService RecipeService {get; set;} = null!;
+    private IRecipeService RecipeService {get; set;} = default!;
 
     [Inject] 
-    private NavigationManager Navigation {get; set;} = null!;
+    private NavigationManager Navigation {get; set;} = default!;
 
     [Inject] 
-    private IDialogService DialogService {get; set;} = null!;
+    private IDialogService DialogService {get; set;} = default!;
 
     [Inject] 
-    private ISnackbar Snackbar {get; set;} = null!;
+    private ISnackbar Snackbar {get; set;} = default!;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -26,7 +26,7 @@ public partial class RecipeDetail
     bool _isLoading = false;
     string? _errorMessage = "";
 
-    MudMessageBox _confirmDialog = null!;
+    MudMessageBox _confirmDialog = default!;
 
     protected override async Task OnInitializedAsync()
     {

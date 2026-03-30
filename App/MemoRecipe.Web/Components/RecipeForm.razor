@@ -87,7 +87,7 @@
 
 @code
 {
-    [Parameter] public RecipeFormModel Recipe {get; set;} = null!;
+    [Parameter] public RecipeFormModel Recipe {get; set;} = default!;
     [Parameter] public EventCallback<RecipeFormModel> OnSave {get; set;}
 
     private async Task HandleSave()

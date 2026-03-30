@@ -8,20 +8,20 @@ namespace MemoRecipe.Web.Pages;
 public partial class EditRecipe
 {
     [Inject] 
-    private IRecipeService RecipeService { get; set; } = null!;
+    private IRecipeService RecipeService { get; set; }= default!;
 
     [Inject] 
-    private NavigationManager Navigation { get; set; } = null!;
+    private NavigationManager Navigation { get; set; } = default!;
 
     [Inject] 
-    private ISnackbar Snackbar { get; set; } = null!;
+    private ISnackbar Snackbar { get; set; } = default!;
 
     [Parameter]
     public Guid Id { get; set; }
 
     private RecipeDto? _recipe;
     private RecipeFormModel? _recipeForm;
-    private MudMessageBox _confirmDialog = null!;
+    private MudMessageBox _confirmDialog = default!;
     private string? _errorMessage;
     bool _isLoading = false;
 
