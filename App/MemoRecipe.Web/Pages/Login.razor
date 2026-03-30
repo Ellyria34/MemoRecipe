@@ -1,9 +1,6 @@
 @page "/login"
 @layout AuthLayout
 
-@inject AuthenticationStateProvider AuthStateProvider
-@inject IAuthService AuthService
-@inject NavigationManager Navigation
 
 <MudContainer MaxWidth = "MaxWidth.ExtraSmall">
     <MudPaper Elevation="3" Class="pa-8 mt-8">
@@ -68,43 +65,3 @@
     </MudPaper>
 
 </MudContainer>
-
-@code 
-{
-    string _email = string.Empty;
-    string _password = string.Empty; 
-    bool _showPassword = false;
-    string _errorMessage = string.Empty;
-    bool _isValid = false;
-
-    private string? ValidateEmail(string value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return "L'email est obligatoire";
-        }
-        return null;
-    }
-
-    private string? ValidatePassword(string value)
-    {
-        if (string.IsNullOrEmpty(value)) 
-        {
-            return "Le mot de passe est obligatoire";
-        }
-        return null;
-    }
-
-   private async Task HandleLogin()
-    {
-        if (!_isValid) return;
-        var result = await AuthService.LoginAsync(_email, _password);
-        if(!result)
-        {
-            _errorMessage = "Email ou mot de passe incorrect";
-            return;
-        }
-        ((CookieAuthStateProvider)AuthStateProvider).NotifyAuthChanged();
-        Navigation.NavigateTo("/");
-    }
-}
