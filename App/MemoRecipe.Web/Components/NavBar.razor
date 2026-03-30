@@ -1,9 +1,7 @@
-@inject AuthenticationStateProvider AuthStateProvider
-@inject IAuthService AuthService
-@inject NavigationManager Navigation
-
 <MudAppBar Elevation="1">
+    <MudLink Href="/">
         <img src="logo.svg" alt="MemoRecipe" style="height:60px;" />
+    </MudLink>
         <MudSpacer />
             <MudTooltip
                 Text="Se déconnecter"
@@ -18,13 +16,3 @@
                 />
             </MudTooltip>
 </MudAppBar>
-
-@code
-{
-    private async Task LogOut()
-    {
-        await AuthService.LogoutAsync();
-        ((CookieAuthStateProvider)AuthStateProvider).NotifyAuthChanged();
-        Navigation.NavigateTo("/login");
-    }
-}
