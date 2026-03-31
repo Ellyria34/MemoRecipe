@@ -77,4 +77,6 @@ The full scan-to-save pipeline is now functional: scan → preview → edit → 
 
 Error handling is now in place: API responses are validated with `EnsureSuccessStatusCode`, errors display inline via `MudAlert`, and successful saves show a `MudSnackbar` toast. A recipe list page (`/recipes`) shows all saved recipes with loading states and empty-state messaging. The recipe detail page (`/recipes/{id}`) displays title, portions, ingredients, and ordered steps, with a delete button and `MudMessageBox` confirmation dialog. The edit page (`/recipes/{id}/edit`) reuses the shared `RecipeForm` component with pre-filled data and a code-behind pattern (`.razor` / `.razor.cs` separation). Form models (`IngredientFormModel`, `StepFormModel`) are now decoupled from API DTOs.
 
-Next steps: form validation (disable save on invalid), redirect to detail page after scan save, dashboard (US-006), and eventually the MAUI mobile client and CI/CD pipeline.
+The dashboard (`/`) shows the recipe count via a dedicated `GET api/recipe/count` endpoint and the 5 most recent recipes using query params (`?limit=5&orderBy=createdAt`). The API now supports `RecipeQueryParams` for sorting, limiting and future pagination. All pages follow the code-behind pattern with `= default!` for injected properties (DEC-019).
+
+Next steps: form validation (disable save on invalid), redirect to detail page after scan save, security/RGPD, and eventually the MAUI mobile client and CI/CD pipeline.
