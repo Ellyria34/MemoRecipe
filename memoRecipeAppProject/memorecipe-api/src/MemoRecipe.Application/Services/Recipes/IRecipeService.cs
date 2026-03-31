@@ -1,11 +1,11 @@
 using MemoRecipe.Application.DTOs.Recipes;
 
-namespace MemoRecipe.Application.Services.Recipes;
+namespace MemoRecipe.Application.DTOs.Recipes;
 
 public interface IRecipeService
 {
     Task<RecipeDto?> GetByIdAsync(Guid id, Guid userId);
-    Task<List<RecipeDto>> GetAllByUserAsync(Guid userId);
+    Task<List<RecipeDto>> GetAllByUserAsync(Guid userId, RecipeQueryParams queryParams);
     Task<RecipeDto> CreateAsync(RecipeCreateDto dto, Guid userId);
     Task<RecipeDto?> UpdateAsync(Guid id, RecipeUpdateDto dto, Guid userId);
     Task<bool> DeleteAsync(Guid id, Guid userId);

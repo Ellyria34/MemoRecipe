@@ -43,10 +43,10 @@ public class RecipeController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetRecipeByUser()
+    public async Task<IActionResult> GetRecipeByUser([FromQuery] RecipeQueryParams queryParams)
     {
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
-        var recipes = await _recipeService.GetAllByUserAsync(userId);
+        var recipes = await _recipeService.GetAllByUserAsync(userId, queryParams);
         return Ok(recipes);
     }
 

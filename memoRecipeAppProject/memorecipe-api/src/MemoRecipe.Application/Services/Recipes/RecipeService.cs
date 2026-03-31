@@ -1,5 +1,6 @@
 using MemoRecipe.Application.DTOs.Recipes;
 using MemoRecipe.Application.Repositories;
+using MemoRecipe.Application.Services.Recipes;
 using MemoRecipe.Domain.Entities.Recipes;
 using MemoRecipe.Domain.Entities.Categories;
 using MemoRecipe.Domain.Entities.Ingredients;
@@ -29,9 +30,9 @@ public class RecipeService : IRecipeService
         return _mapper.Map<RecipeDto>(recipe);
     }
 
-    public async Task<List<RecipeDto>> GetAllByUserAsync(Guid userId)
+    public async Task<List<RecipeDto>> GetAllByUserAsync(Guid userId, RecipeQueryParams queryParams)
     {
-        var recipes = await _repository.GetAllByUserIdAsync(userId);
+        var recipes = await _repository.GetAllByUserIdAsync(userId, queryParams);
         return _mapper.Map<List<RecipeDto>>(recipes);
     }
 
