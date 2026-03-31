@@ -6,5 +6,49 @@
     <MudPaper Elevation="3" Class="pa-8 mt-4">
         <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true">Bienvenue sur Memo Recipe</MudText>
         <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-6">La mémoire de vos recettes préférées</MudText>
+        <MudPaper Class="pa-2">
+            <MudText Typo="Typo.body1" Align="Align.Center" GutterBottom="true" Class="pa-4">Votre livre contient : @_recipeCount recette(s)</MudText>
+                    @if (_recipes == null)
+                    {
+                        <MudProgressCircular Indeterminate="true" />
+                    }
+                    else if (!_recipes.Any())
+                    {
+                        <p>Vous n'avez encore aucune recette sauvegardé</p>
+                    }
+                    else{
+                        @foreach(RecipeDto recipe in _recipes)
+                        {
+                            <MudCard Class="pa-4 ma-2">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.body1">@recipe.Title</MudText>
+                                    <MudIconButton Href="@($"/recipes/{recipe.Id}")" Icon="@Icons.Material.Filled.Visibility" />
+                                </MudStack>
+                            </MudCard>
+                        }
+                    @if (!string.IsNullOrEmpty(_errorMessage))
+                        {
+                            <MudAlert Severity="Severity.Error" Class="ma-4">@_errorMessage</MudAlert>
+                        }
+                    }        
+        </MudPaper>
+            <MudButton 
+                Variant="Variant.Filled" 
+                Color="Color.Primary" 
+                FullWidth="true" 
+                Class="mt-4"
+                Href="/recipes"
+            >
+                Voir toutes les recettes
+            </MudButton>
+            <MudButton 
+                Variant="Variant.Filled" 
+                Color="Color.Primary" 
+                FullWidth="true" 
+                Class="mt-4"
+                Href="/recipes/new"
+            >
+                Ajouter une recette
+            </MudButton>
     </MudPaper>
 </MudContainer>

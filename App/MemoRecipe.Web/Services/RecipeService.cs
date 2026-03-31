@@ -45,9 +45,16 @@ public class RecipeService : IRecipeService
         return Deserialize<RecipeDto>(json);
     }
 
-    public async Task<List<RecipeDto>> GetAllRecipesAsync()
+    public async Task<List<RecipeDto>> GetAllRecipesAsync(int? limit = null, string? orderBy = null, bool descending = true)
     {
-        var response = await _httpClient.GetAsync("api/recipe");
+        var queryParams = new List<string>();
+        if (limit.HasValue) queryParams.Add($"limit={limit}");
+        if (orderBy != null) queryParams.Add($"orderBy={orderBy}");
+        if (!descending) queryParams.Add("descending=false");
+
+        var querystring= string.Join("&", queryParams);
+
+        var response = await _httpClient.GetAsync($"api/recipe?{querystring}");
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadAsStringAsync();
         return Deserialize<List<RecipeDto>>(json);
@@ -78,4 +85,13 @@ public class RecipeService : IRecipeService
         var json = await response.Content.ReadAsStringAsync();
         return Deserialize<RecipeDto>(json);
     }
+
+    public async Task<int> GetRecipeCountAsync()
+    {
+        var response = await _httpClient.GetAsync("api/recipe/count");
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
+        return Deserialize<int>(json);
+    }
+
 }
