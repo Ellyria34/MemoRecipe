@@ -78,4 +78,9 @@ public class RecipeRepository : IRecipeRepository
     {
         await _db.SaveChangesAsync();
     }
+
+    public async Task<int> CountByUserAsync(Guid userId)
+    {
+        return await _db.Recipes.CountAsync(r => r.UserId == userId);
+    }
 }

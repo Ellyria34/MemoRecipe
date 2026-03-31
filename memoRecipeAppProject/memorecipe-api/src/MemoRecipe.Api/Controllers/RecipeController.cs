@@ -4,6 +4,7 @@ using MemoRecipe.Application.Services.Recipes;
 using MemoRecipe.Application.DTOs.Recipes;
 using FluentValidation;
 using MemoRecipe.Application.Services.OcrScan;
+using System.Reflection.Metadata.Ecma335;
 
 namespace MemoRecipe.Api.Controllers;
 
@@ -102,5 +103,13 @@ public class RecipeController : ControllerBase
     {        
         var result = await _ocrScanService.ProcessImageAsync(imageFile.OpenReadStream());
         return Ok(result);
+    }
+
+    [HttpGet("count")]
+    public async Task<IActionResult> CountByUser(Guid id)
+    {
+            var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+            var count = await _recipeService.CountByUserAsync(userId);
+            return Ok(count);
     }
 }

@@ -125,4 +125,14 @@ public class RecipeService : IRecipeService
         await _repository.SaveChangesAsync();
         return true;
     }
+
+    public async Task<int> CountByUserAsync(Guid userId)
+    {
+        var result = await _repository.CountByUserAsync(userId);
+        if (result == null) 
+        {
+            return 0;
+        }
+        return result;
+    }
 }

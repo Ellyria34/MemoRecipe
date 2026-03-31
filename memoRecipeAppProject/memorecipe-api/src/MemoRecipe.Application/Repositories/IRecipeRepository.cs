@@ -11,4 +11,5 @@ public interface IRecipeRepository
     void Update(Recipe recipe);
     void Delete(Recipe recipe);
     Task SaveChangesAsync();
+    Task<int> CountByUserAsync(Guid userId);
 }
