@@ -1,6 +1,8 @@
 using System.Data.Common;
 using AutoMapper;
 using MemoRecipe.Application.DTOs.Recipes;
+using MemoRecipe.Application.DTOs.Ingredients;
+using MemoRecipe.Application.DTOs.Steps;
 using MemoRecipe.Application.Mappings.Profiles;
 using MemoRecipe.Application.Services.Recipes;
 using MemoRecipe.Application.Tests.Fakes;
@@ -30,6 +32,7 @@ public class RecipeServiceTests
         _service = new RecipeService(_repository, _mapper);
     }
 
+    #region GetByIdAsync
     [Fact]
     public async Task GetByIdAsync_WithOwnPublicRecipe_ReturnsRecipe()
     {
@@ -102,7 +105,9 @@ public class RecipeServiceTests
         Assert.NotNull(result);
         Assert.Equal("Recette publique", result.Title);
     }
+    #endregion
 
+    #region DeleteAsync
     [Fact]
     public async Task DeleteAsync_WithOwnRecipe_ReturnsTrue()
     {
@@ -149,7 +154,9 @@ public class RecipeServiceTests
         // Assert
         Assert.False(result);
     }
+    #endregion
 
+    #region GetAllByUserAsync
     [Fact]
     public async Task GetAllByUserAsync_ReturnsOnlyUserRecipes()
     {
@@ -169,7 +176,9 @@ public class RecipeServiceTests
         Assert.Equal(2, result.Count);
         Assert.All(result, r => Assert.Equal(userId, r.UserId));
     }
-
+    #endregion
+    
+    #region CreateAsync
     [Fact]
     public async Task CreateAsync_ReturnsRecipeWithCorrectUserIdAndGeneratedId()
     {
@@ -200,8 +209,65 @@ public class RecipeServiceTests
 
         // Assert
         Assert.True(result.CreatedAt >= before);
+        Assert.True(result.UpdatedAt >= before);
     }
 
+    [Fact]
+    public async Task CreateAsync_WithIngredients_ReturnsRecipeWithCorrectIngredients()
+    {
+        //// Arrange
+        var userId = Guid.NewGuid();
+        var dto = new RecipeCreateDto
+        {
+            Title = "Cheesecake",
+            Ingredients = new List<IngredientCreateDto>
+            {
+                new IngredientCreateDto { Name = "Sucre", Quantity = 100, Unit = "g" },
+                new IngredientCreateDto { Name = "Beurre", Quantity = 50, Unit = "g" }
+            }
+        };
+
+        // Act
+        var result = await _service.CreateAsync(dto, userId);
+
+        // Assert
+        Assert.Equal(2, result.Ingredients.Count);
+        Assert.Equal("Sucre", result.Ingredients[0].Name);
+        Assert.Equal(100, result.Ingredients[0].Quantity);
+        Assert.Equal("g", result.Ingredients[0].Unit);
+        Assert.Equal("Beurre", result.Ingredients[1].Name); 
+        Assert.Equal(50, result.Ingredients[1].Quantity);
+        Assert.Equal("g", result.Ingredients[1].Unit);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithSteps_ReturnsRecipeWithCorrectSteps()
+    {
+        //// Arrange
+        var userId = Guid.NewGuid();
+        var dto = new RecipeCreateDto
+        {
+            Title = "Cheesecake",
+            Steps = new List<StepCreateDto>
+            {
+                new StepCreateDto { Order = 1, Instruction = "instruction1" },
+                new StepCreateDto { Order = 2, Instruction = "instruction2" }
+            }
+        };
+
+        // Act
+        var result = await _service.CreateAsync(dto, userId);
+
+        // Assert
+        Assert.Equal(2, result.Steps.Count);
+        Assert.Equal(1, result.Steps[0].Order);
+        Assert.Equal("instruction1", result.Steps[0].Instruction);
+        Assert.Equal(2, result.Steps[1].Order);
+        Assert.Equal("instruction2", result.Steps[1].Instruction);
+    }
+    #endregion
+
+    #region UpdateAsync
     [Fact]
     public async Task UpdateAsync_WithOwnRecipe_UpdatesTitle()
     {
@@ -289,7 +355,9 @@ public class RecipeServiceTests
         Assert.Equal("Nouveau titre", result.Title);
         Assert.Equal("Description originale", result.Description);
     }
+    #endregion
 
+    #region CountByUserAsync
     [Fact]
     public async Task CountByUserAsync_WithRecipes_ReturnNumberOffRecipe()
     {
@@ -383,4 +451,5 @@ public class RecipeServiceTests
         // Assert
         Assert.Equal(2, result);
     }
+    #endregion
 }
