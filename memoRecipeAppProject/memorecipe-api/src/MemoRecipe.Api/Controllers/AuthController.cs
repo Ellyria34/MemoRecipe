@@ -15,14 +15,16 @@ public class AuthController : ControllerBase
     private readonly IJwtService _jwtService;
     private readonly IValidator<RegisterDto> _registerDtoValidator;
     private readonly IValidator<LoginDto> _loginDtoValidator;
+    private readonly IWebHostEnvironment _env;
 
 
-    public AuthController(IAuthService authService, IJwtService jwtService, IValidator<RegisterDto> registerDtoValidator, IValidator<LoginDto> loginDtoValidator)
+    public AuthController(IAuthService authService, IJwtService jwtService, IValidator<RegisterDto> registerDtoValidator, IValidator<LoginDto> loginDtoValidator, IWebHostEnvironment env)
     {
         _authService = authService;
         _jwtService = jwtService;
         _registerDtoValidator = registerDtoValidator;
         _loginDtoValidator = loginDtoValidator;
+        _env = env;
     }
 
     [HttpPost("register")]
@@ -43,8 +45,7 @@ public class AuthController : ControllerBase
         Response.Cookies.Append("authCookie", token, new CookieOptions
         {
             HttpOnly = true,
-            // TODO : set Secure = true in production (HTTPS required)
-            Secure = false, 
+            Secure = !_env.IsDevelopment(), 
             SameSite = SameSiteMode.Strict, 
             Expires = DateTimeOffset.UtcNow.AddHours(1)
         });
@@ -72,8 +73,7 @@ public class AuthController : ControllerBase
         Response.Cookies.Append("authCookie", token, new CookieOptions
         {
             HttpOnly = true,
-            // TODO : set Secure = true in production (HTTPS required)
-            Secure = false, 
+            Secure = !_env.IsDevelopment(), 
             SameSite = SameSiteMode.Strict, 
             Expires = DateTimeOffset.UtcNow.AddHours(1)
         });
