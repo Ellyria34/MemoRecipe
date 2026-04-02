@@ -1,5 +1,6 @@
 using MemoRecipe.Application.Repositories;
 using MemoRecipe.Domain.Entities.Recipes;
+using MemoRecipe.Application.DTOs.Recipes;
 
 namespace MemoRecipe.Application.Tests.Fakes;
 
@@ -13,7 +14,7 @@ public class FakeRecipeRepository : IRecipeRepository
         return Task.FromResult(recipe);
     }
 
-    public Task<List<Recipe>> GetAllByUserIdAsync(Guid userId)
+    public Task<List<Recipe>> GetAllByUserIdAsync(Guid userId,  RecipeQueryParams queryParams)
     {
         var recipes = _recipes.Where(r => r.UserId == userId).ToList();
         return Task.FromResult(recipes);
@@ -40,5 +41,10 @@ public class FakeRecipeRepository : IRecipeRepository
     public Task SaveChangesAsync()
     {
         return Task.CompletedTask;
+    }
+
+    public Task<int> CountByUserAsync(Guid userId)
+    {
+        return Task.FromResult(_recipes.Count(r => r.UserId == userId));
     }
 }

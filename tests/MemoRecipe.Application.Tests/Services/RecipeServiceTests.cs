@@ -155,13 +155,14 @@ public class RecipeServiceTests
         // Arrange
         var userId = Guid.NewGuid();
         var otherUserId = Guid.NewGuid();
+        var queryParams = new RecipeQueryParams();
 
         await _repository.AddAsync(new Recipe { Id = Guid.NewGuid(), Title = "Ma recette 1", UserId = userId, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
         await _repository.AddAsync(new Recipe { Id = Guid.NewGuid(), Title = "Ma recette 2", UserId = userId, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
         await _repository.AddAsync(new Recipe { Id = Guid.NewGuid(), Title = "Recette autre", UserId = otherUserId, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
 
         // Act
-        var result = await _service.GetAllByUserAsync(userId);
+        var result = await _service.GetAllByUserAsync(userId, queryParams);
 
         // Assert
         Assert.Equal(2, result.Count);
