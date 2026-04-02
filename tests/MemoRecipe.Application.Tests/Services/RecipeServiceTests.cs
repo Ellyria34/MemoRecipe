@@ -9,6 +9,9 @@ using MemoRecipe.Application.Services.Recipes;
 using MemoRecipe.Application.Tests.Fakes;
 using MemoRecipe.Domain.Entities.Recipes;
 using Microsoft.VisualBasic;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 
 namespace MemoRecipe.Application.Tests.Services;
 
@@ -22,13 +25,10 @@ public class RecipeServiceTests
     {
         _repository = new FakeRecipeRepository();
 
-        var config = new MapperConfiguration(cfg =>
-        {
-            cfg.AddProfile<RecipeProfile>();
-            cfg.AddProfile<IngredientProfile>();
-            cfg.AddProfile<StepProfile>();
-            cfg.AddProfile<CategoryProfile>();
-        });
+        var config = new MapperConfiguration(
+            cfg => cfg.AddMaps(typeof(RecipeProfile).Assembly),
+            new NullLoggerFactory()
+        );
         _mapper = config.CreateMapper();
 
         _service = new RecipeService(_repository, _mapper);

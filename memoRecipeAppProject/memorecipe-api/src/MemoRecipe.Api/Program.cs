@@ -120,7 +120,7 @@ builder.Services.AddHttpClient<IOcrScanService, OcrScanService>();
 builder.Services.AddScoped<PasswordHasher>();
 
 // AutoMapper
-builder.Services.AddAutoMapper(typeof(UserProfile).Assembly);
+builder.Services.AddAutoMapper(cfg => cfg.AddMaps(typeof(UserProfile).Assembly));
 
 var app = builder.Build();
 
