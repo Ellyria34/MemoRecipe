@@ -2,11 +2,13 @@ using System.Data.Common;
 using AutoMapper;
 using MemoRecipe.Application.DTOs.Recipes;
 using MemoRecipe.Application.DTOs.Ingredients;
+using MemoRecipe.Application.DTOs.Categories;
 using MemoRecipe.Application.DTOs.Steps;
 using MemoRecipe.Application.Mappings.Profiles;
 using MemoRecipe.Application.Services.Recipes;
 using MemoRecipe.Application.Tests.Fakes;
 using MemoRecipe.Domain.Entities.Recipes;
+using Microsoft.VisualBasic;
 
 namespace MemoRecipe.Application.Tests.Services;
 
@@ -328,6 +330,80 @@ public class RecipeServiceTests
 
         // Assert
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_UpdateAt()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var before = DateTime.UtcNow;
+
+        var recipe = new Recipe
+        {
+            Id = Guid.NewGuid(),
+            Title = "Recette protégée",
+            UserId = userId,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _repository.AddAsync(recipe);
+
+        var dto = new RecipeUpdateDto { Title = "Nouveau titre" };
+
+        // Act
+        var result = await _service.UpdateAsync(recipe.Id, dto, userId);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("Nouveau titre", result.Title);
+        Assert.True(result.CreatedAt >= before);
+        Assert.True(result.UpdatedAt >= before);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_UpdatesAllFields()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var before = DateTime.UtcNow;
+
+        var recipe = new Recipe
+        {
+            Id = Guid.NewGuid(),
+            Title = "Recette protégée",
+            UserId = userId,
+            IsPublic = false,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        await _repository.AddAsync(recipe);
+
+        var dto = new RecipeUpdateDto 
+        { 
+            Title = "Nouveau titre",
+            Description = "New Description",
+            Servings = 8,
+            PrepTimeMinutes = 20,
+            CookTimeMinutes = 20,
+            IsPublic = true,
+            Difficulty = DifficultyLevel.Hard,
+        };
+
+        // Act
+        var result = await _service.UpdateAsync(recipe.Id, dto, userId);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("Nouveau titre", result.Title);
+        Assert.Equal("New Description", result.Description);
+        Assert.Equal(8, result.Servings);
+        Assert.Equal(40, result.TotalTimeMinutes);
+        Assert.Equal(20, result.PrepTimeMinutes);
+        Assert.Equal(20, result.CookTimeMinutes);
+        Assert.True(result.IsPublic);
+        Assert.Equal(userId, result.UserId);
+        Assert.Equal(DifficultyLevel.Hard, result.Difficulty);
     }
 
     [Fact]
