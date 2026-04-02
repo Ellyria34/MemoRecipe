@@ -122,6 +122,14 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Conséquence** : Les `@inject` du `.razor` deviennent `[Inject]` dans le `.razor.cs` avec `{ get; set; } = default!;`. Les `using` doivent être ajoutés manuellement dans le `.razor.cs` (pas d'accès aux `@using` de `_Imports.razor`).
 - **Etat** : DONE — appliqué sur RecipeDetail, Recipes, ScanRecipe, EditRecipe.
 
+### DEC-020 : Migration du hashing des mots de passe — HMAC-SHA512 → PBKDF2 (PasswordHasher\<T\>)
+- **Date** : Avril 2026
+- **Choix** : Remplacer le hashing custom `HMACSHA512` par `PasswordHasher<User>` de `Microsoft.AspNetCore.Identity` (PBKDF2, 100 000 itérations, salt intégré).
+- **Pourquoi** : `HMACSHA512` est un algorithme rapide (milliards de hash/seconde) — vulnérable au brute force si la BDD est compromise. `PasswordHasher<T>` utilise PBKDF2 avec un work factor élevé, rendant le brute force impraticable. C'est le standard recommandé par Microsoft ([doc officielle](https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.identity.passwordhasher-1?view=aspnetcore-10.0)).
+- **Migration douce** : Les utilisateurs existants (hashés avec l'ancien algo) sont migrés automatiquement à la prochaine connexion — le login vérifie l'ancien hash, re-hash avec PBKDF2, vide le `PasswordSalt`, et sauvegarde. La méthode `VerifyLegacy()` est conservée temporairement pour la rétrocompatibilité.
+- **Conséquence** : `PasswordHasher` n'est plus `static`, injecté via DI. Le champ `PasswordSalt` reste en BDD (pour vérifier les anciens hash) mais est vide pour les nouveaux users. `IUserRepository` a une nouvelle méthode `Update()`. À terme : supprimer `VerifyLegacy()` et le champ `PasswordSalt` quand tous les users auront migré.
+- **Etat** : DONE — migration douce en place, testée avec comptes existants.
+
 ---
 
 ## A investiguer
