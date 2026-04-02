@@ -1,3 +1,4 @@
+using System.Data.Common;
 using AutoMapper;
 using MemoRecipe.Application.DTOs.Recipes;
 using MemoRecipe.Application.Mappings.Profiles;
@@ -278,7 +279,7 @@ public class RecipeServiceTests
             UpdatedAt = DateTime.UtcNow
         };
         await _repository.AddAsync(recipe);
-        var dto = new RecipeUpdateDto { Title = "Nouveau titre" }; // Description non envoyée
+        var dto = new RecipeUpdateDto { Title = "Nouveau titre" };
 
         // Act
         var result = await _service.UpdateAsync(recipe.Id, dto, userId);
@@ -287,5 +288,99 @@ public class RecipeServiceTests
         Assert.NotNull(result);
         Assert.Equal("Nouveau titre", result.Title);
         Assert.Equal("Description originale", result.Description);
+    }
+
+    [Fact]
+    public async Task CountByUserAsync_WithRecipes_ReturnNumberOffRecipe()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var recipes = new List<Recipe>
+        {
+            new Recipe()
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Title = "recette 1"
+            },
+            new Recipe()
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Title = "recette 2"
+            }
+        };
+        foreach(Recipe recipe in recipes)
+        {
+            await _repository.AddAsync(recipe);
+        }
+
+        // Act
+        var result = await _service.CountByUserAsync(userId);
+
+        // Assert
+        Assert.Equal(2, result);
+    }
+
+    [Fact]
+    public async Task CountByUserAsync_WithNoRecipe_ReturnZero()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+
+        // Act
+        var result = await _service.CountByUserAsync(userId);
+
+        // Assert
+        Assert.Equal(0, result);
+    }
+
+    [Fact]
+    public async Task CountByUserAsync_WithRecipesforOtherUsers_ReturnNumberOffRecipeForUser()
+    {
+        // Arrange
+        var userId1 = Guid.NewGuid();
+        var userId2 = Guid.NewGuid();
+
+        var recipesForUser1 = new List<Recipe>
+        {
+            new Recipe()
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId1,
+                Title = "recette 1"
+            },
+            new Recipe()
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId1,
+                Title = "recette 2"
+            }
+        };
+        foreach(Recipe recipe in recipesForUser1)
+        {
+            await _repository.AddAsync(recipe);
+        }
+
+        var recipesForUser2 = new List<Recipe>
+        {
+            new Recipe()
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId2,
+                Title = "recette 1bis"
+            }
+        };
+        foreach(Recipe recipe in recipesForUser2)
+        {
+            await _repository.AddAsync(recipe);
+        }
+
+
+        // Act
+        var result = await _service.CountByUserAsync(userId1);
+
+        // Assert
+        Assert.Equal(2, result);
     }
 }
