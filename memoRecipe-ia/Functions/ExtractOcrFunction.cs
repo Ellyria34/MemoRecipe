@@ -24,7 +24,7 @@ namespace MemoRecipeIA.Functions
 
         [Function("ExtractOcrFunction")]
         public async Task<HttpResponseData> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "post")]
+            [HttpTrigger(AuthorizationLevel.Function, "post")]
             HttpRequestData req)
         {
             _logger.LogInformation("Recipe import request received.");
