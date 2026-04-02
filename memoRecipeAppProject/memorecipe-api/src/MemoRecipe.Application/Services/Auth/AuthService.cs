@@ -11,33 +11,34 @@ public class AuthService : IAuthService
     private readonly IUserRepository _userRepository;
     private readonly IMapper _mapper;
     private readonly IJwtService _jwtService;
+    private readonly PasswordHasher _passwordHasher;
 
-    public AuthService(IUserRepository userRepository, IMapper mapper, IJwtService jwtService)
+    public AuthService(IUserRepository userRepository, IMapper mapper, IJwtService jwtService, PasswordHasher passwordHasher)
     {
         _userRepository = userRepository;
         _mapper = mapper;
         _jwtService = jwtService;
+        _passwordHasher = passwordHasher;
     }
 
     public async Task<string?> RegisterAsync(RegisterDto dto)
     {
-        // Vérifier email déjà utilisé ?
-        if (await _userRepository.EmailExistsAsync(dto.Email))
-            return null;
-
-        // Hash du mot de passe
-        PasswordHasher.CreateHash(dto.Password, out string hash, out string salt);
-
         var user = new User
         {
             Id = Guid.NewGuid(),
             Email = dto.Email,
             Username = dto.Username,
-            PasswordHash = hash,
-            PasswordSalt = salt,
+            PasswordHash = "",
+            PasswordSalt = "",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
+        // Vérifier email déjà utilisé ?
+        if (await _userRepository.EmailExistsAsync(dto.Email))
+            return null;
+
+        // Hash du mot de passe
+        user.PasswordHash = _passwordHasher.HashPassword(user, dto.Password);
 
         await _userRepository.AddAsync(user);
         await _userRepository.SaveChangesAsync();
@@ -51,8 +52,16 @@ public class AuthService : IAuthService
         if (user == null)
             return null;
 
-        if (!PasswordHasher.Verify(password, user.PasswordHash, user.PasswordSalt))
+        if (!_passwordHasher.Verify(user, user.PasswordHash, password, user.PasswordSalt))
             return null;
+
+        if (_passwordHasher.NeedsRehash(user.PasswordSalt))
+            {
+                user.PasswordHash = _passwordHasher.HashPassword(user, password);
+                user.PasswordSalt = "";
+                _userRepository.Update(user);
+                await _userRepository.SaveChangesAsync();
+            }
 
         return _jwtService.GenerateToken(user);
     }

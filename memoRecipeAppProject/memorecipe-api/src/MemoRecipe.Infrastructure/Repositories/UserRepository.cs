@@ -29,6 +29,11 @@ public class UserRepository : IUserRepository
         return await _db.Users.AnyAsync(u => u.Email == email);
     }
 
+    public void Update(User user)
+    {
+        _db.Users.Update(user);
+    }
+
     public async Task AddAsync(User user)
     {
         await _db.Users.AddAsync(user);

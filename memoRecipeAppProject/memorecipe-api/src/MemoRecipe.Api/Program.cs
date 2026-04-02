@@ -117,6 +117,7 @@ builder.Services.AddScoped<IValidator<RecipeUpdateDto>, RecipeUpdateDtoValidator
 builder.Services.AddScoped<IValidator<LoginDto>, LoginDtoValidator>();
 builder.Services.AddScoped<IValidator<RegisterDto>, RegisterDtoValidator>();
 builder.Services.AddHttpClient<IOcrScanService, OcrScanService>();
+builder.Services.AddScoped<PasswordHasher>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(UserProfile).Assembly);
