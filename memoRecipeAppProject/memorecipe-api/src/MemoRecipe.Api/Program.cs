@@ -8,7 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using MemoRecipe.Application.Mappings.Profiles;
-using MemoRecipe.Api.Middleware;
+using MemoRecipe.Api.Middlewares;
 using FluentValidation;
 using MemoRecipe.Application.Validators;
 using MemoRecipe.Application.DTOs.Recipes;
@@ -133,6 +133,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();

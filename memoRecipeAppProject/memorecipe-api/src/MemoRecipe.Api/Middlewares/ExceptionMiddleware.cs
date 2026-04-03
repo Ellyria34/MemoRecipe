@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Http;
 
-namespace MemoRecipe.Api.Middleware;
+namespace MemoRecipe.Api.Middlewares;
 public class ExceptionMiddleware
 {
     private readonly RequestDelegate _next;
