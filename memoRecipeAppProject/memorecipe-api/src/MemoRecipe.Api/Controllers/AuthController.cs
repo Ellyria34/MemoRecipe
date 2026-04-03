@@ -4,6 +4,7 @@ using MemoRecipe.Application.Services.Auth;
 using MemoRecipe.Application.DTOs.Auth;
 using FluentValidation;
 using Microsoft.AspNetCore.RateLimiting;
+using System.IO.Pipelines;
 
 
 namespace MemoRecipe.Api.Controllers;
@@ -68,13 +69,17 @@ public class AuthController : ControllerBase
         {
             return BadRequest(validation.Errors);            
         }
-        
-        var token = await _authService.LoginAsync(dto.Email, dto.Password);
 
-        if (token == null)
+        var result = await _authService.LoginAsync(dto.Email, dto.Password);
+        if (result.IsLockedOut)
+        {
+            return StatusCode(429, new { message = "Trop de tentative, votre compte et momentanément bloqué." }); 
+        } 
+              
+        if (result.Token == null)
             return Unauthorized(new { message = "Invalid email or password" });
 
-        Response.Cookies.Append("authCookie", token, new CookieOptions
+        Response.Cookies.Append("authCookie", result.Token, new CookieOptions
         {
             HttpOnly = true,
             Secure = !_env.IsDevelopment(), 

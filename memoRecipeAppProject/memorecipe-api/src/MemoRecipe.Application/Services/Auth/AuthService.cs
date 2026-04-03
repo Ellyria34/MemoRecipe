@@ -3,6 +3,7 @@ using MemoRecipe.Application.DTOs.Auth;
 using MemoRecipe.Application.Repositories;
 using MemoRecipe.Domain.Entities.Users;
 using AutoMapper;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace MemoRecipe.Application.Services.Auth;
 
@@ -13,12 +14,15 @@ public class AuthService : IAuthService
     private readonly IJwtService _jwtService;
     private readonly PasswordHasher _passwordHasher;
 
-    public AuthService(IUserRepository userRepository, IMapper mapper, IJwtService jwtService, PasswordHasher passwordHasher)
+    private readonly IMemoryCache _cache;
+
+    public AuthService(IUserRepository userRepository, IMapper mapper, IJwtService jwtService, PasswordHasher passwordHasher, IMemoryCache cache)
     {
         _userRepository = userRepository;
         _mapper = mapper;
         _jwtService = jwtService;
         _passwordHasher = passwordHasher;
+        _cache = cache;
     }
 
     public async Task<string?> RegisterAsync(RegisterDto dto)
@@ -46,14 +50,29 @@ public class AuthService : IAuthService
         return _jwtService.GenerateToken(user);
     }
 
-    public async Task<string?> LoginAsync(string email, string password)
+    public async Task<LoginResult> LoginAsync(string email, string password)
     {
+        if (_cache.TryGetValue($"login-fail:{email}", out int failCount) && failCount >= 5)
+        {
+            return new LoginResult { IsLockedOut = true };
+        }
+
         var user = await _userRepository.GetByEmailAsync(email);
         if (user == null)
-            return null;
+        {
+            var newCount = failCount + 1;
+            _cache.Set($"login-fail:{email}", newCount, TimeSpan.FromMinutes(15));
+
+            return new LoginResult { Token = null };
+        }
 
         if (!_passwordHasher.Verify(user, user.PasswordHash, password, user.PasswordSalt))
-            return null;
+        {
+            var newCount = failCount + 1;
+            _cache.Set($"login-fail:{email}", newCount, TimeSpan.FromMinutes(15));
+
+            return new LoginResult { Token = null };
+        }
 
         if (_passwordHasher.NeedsRehash(user.PasswordSalt))
             {
@@ -63,7 +82,8 @@ public class AuthService : IAuthService
                 await _userRepository.SaveChangesAsync();
             }
 
-        return _jwtService.GenerateToken(user);
+        _cache.Remove($"login-fail:{email}");
+        return new LoginResult { Token = _jwtService.GenerateToken(user) };
     }
 
    public async Task<AuthUserDto?> GetCurrentUserAsync(ClaimsPrincipal user)
