@@ -130,6 +130,15 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Conséquence** : `PasswordHasher` n'est plus `static`, injecté via DI. Le champ `PasswordSalt` reste en BDD (pour vérifier les anciens hash) mais est vide pour les nouveaux users. `IUserRepository` a une nouvelle méthode `Update()`. À terme : supprimer `VerifyLegacy()` et le champ `PasswordSalt` quand tous les users auront migré.
 - **Etat** : DONE — migration douce en place, testée avec comptes existants.
 
+### DEC-021 : SecurityHeadersMiddleware custom plutot que packages tiers
+- **Date** : Avril 2026
+- **Choix** : Middleware custom dans `MemoRecipe.Api/Middlewares/SecurityHeadersMiddleware.cs` qui ajoute 6 headers de securite (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, CSP, HSTS) sur chaque reponse.
+- **Pourquoi** : Les headers sont statiques et peu nombreux — un middleware custom de ~20 lignes est plus simple et transparent qu'un package tiers (NWebsec, etc.). On garde le controle total sur les valeurs. CSP adapte a Blazor WASM (`wasm-unsafe-eval`) + MudBlazor (`unsafe-inline` pour style-src) + Google Fonts.
+- **HSTS conditionnel** : `Strict-Transport-Security` ajoute uniquement en production (`!IsDevelopment()`), car HSTS casserait le dev local en HTTP/certificats auto-signes.
+- **X-XSS-Protection volontairement omis** : Header deprecie (MDN 2025), peut creer des failles XSS. CSP le remplace entierement.
+- **Sources** : [OWASP HTTP Headers Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html), [MDN Security Headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers), [ASP.NET Core Security](https://learn.microsoft.com/en-us/aspnet/core/security/).
+- **Etat** : DONE — BACK-001, 7 tests d'integration.
+
 ---
 
 ## A investiguer

@@ -79,6 +79,6 @@ Error handling is now in place: API responses are validated with `EnsureSuccessS
 
 The dashboard (`/`) shows the recipe count via a dedicated `GET api/recipe/count` endpoint and the 5 most recent recipes using query params (`?limit=5&orderBy=createdAt`). The API now supports `RecipeQueryParams` for sorting, limiting and future pagination. All pages follow the code-behind pattern with `= default!` for injected properties (DEC-019).
 
-Security hardening is underway: password hashing migrated from HMAC-SHA512 to PBKDF2 via `PasswordHasher<T>` (DEC-020) with rolling migration for existing users. Azure Function auth level changed from Anonymous to Function.
+Security hardening is underway: password hashing migrated from HMAC-SHA512 to PBKDF2 via `PasswordHasher<T>` (DEC-020) with rolling migration for existing users. Azure Function auth level changed from Anonymous to Function. A custom `SecurityHeadersMiddleware` (DEC-021) adds 6 security headers on every response: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy` (adapted for Blazor WASM + MudBlazor), and `Strict-Transport-Security` (production only). Integration tests verify all headers with `WebApplicationFactory`.
 
-Next steps: CSRF protection, rate limiting, cookie Secure flag, form validation, and eventually the MAUI mobile client and CI/CD pipeline.
+Next steps: rate limiting, CORS dynamic configuration, RGPD compliance, and eventually the MAUI mobile client and CI/CD pipeline.
