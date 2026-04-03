@@ -3,12 +3,14 @@ using Microsoft.AspNetCore.Mvc;
 using MemoRecipe.Application.Services.Auth;
 using MemoRecipe.Application.DTOs.Auth;
 using FluentValidation;
+using Microsoft.AspNetCore.RateLimiting;
 
 
 namespace MemoRecipe.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
@@ -28,6 +30,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Register(RegisterDto dto)
     {
 
@@ -55,6 +58,7 @@ public class AuthController : ControllerBase
 
     // LOGIN - retourne un token
     [HttpPost("login")]
+    [EnableRateLimiting("auth")]
     [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
