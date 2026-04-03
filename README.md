@@ -81,4 +81,6 @@ The dashboard (`/`) shows the recipe count via a dedicated `GET api/recipe/count
 
 Security hardening is underway: password hashing migrated from HMAC-SHA512 to PBKDF2 via `PasswordHasher<T>` (DEC-020) with rolling migration for existing users. Azure Function auth level changed from Anonymous to Function. A custom `SecurityHeadersMiddleware` (DEC-021) adds 6 security headers on every response: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy` (adapted for Blazor WASM + MudBlazor), and `Strict-Transport-Security` (production only). Integration tests verify all headers with `WebApplicationFactory`.
 
-Next steps: rate limiting, CORS dynamic configuration, RGPD compliance, and eventually the MAUI mobile client and CI/CD pipeline.
+Rate limiting is in progress (BACK-002): fixed window per IP on auth (10/min), scan (5/min), and global (100/min) endpoints using ASP.NET Core's built-in `AddRateLimiter`. Per-account lockout after 5 consecutive failed logins (15-minute window) using `IMemoryCache` in `AuthService`. Integration tests pending.
+
+Next steps: rate limiting tests, CORS dynamic configuration, RGPD compliance, and eventually the MAUI mobile client and CI/CD pipeline.
