@@ -5,6 +5,7 @@ using MemoRecipe.Application.DTOs.Recipes;
 using FluentValidation;
 using MemoRecipe.Application.Services.OcrScan;
 using System.Reflection.Metadata.Ecma335;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace MemoRecipe.Api.Controllers;
 
@@ -99,6 +100,7 @@ public class RecipeController : ControllerBase
     }
 
     [HttpPost("scan")]
+    [EnableRateLimiting("scan")]
     public async Task<IActionResult> CreateScannedRecipe(IFormFile imageFile)
     {        
         var result = await _ocrScanService.ProcessImageAsync(imageFile.OpenReadStream());

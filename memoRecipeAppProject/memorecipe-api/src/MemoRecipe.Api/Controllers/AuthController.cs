@@ -3,12 +3,15 @@ using Microsoft.AspNetCore.Mvc;
 using MemoRecipe.Application.Services.Auth;
 using MemoRecipe.Application.DTOs.Auth;
 using FluentValidation;
+using Microsoft.AspNetCore.RateLimiting;
+using System.IO.Pipelines;
 
 
 namespace MemoRecipe.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
@@ -28,6 +31,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Register(RegisterDto dto)
     {
 
@@ -55,6 +59,7 @@ public class AuthController : ControllerBase
 
     // LOGIN - retourne un token
     [HttpPost("login")]
+    [EnableRateLimiting("auth")]
     [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
@@ -64,13 +69,17 @@ public class AuthController : ControllerBase
         {
             return BadRequest(validation.Errors);            
         }
-        
-        var token = await _authService.LoginAsync(dto.Email, dto.Password);
 
-        if (token == null)
+        var result = await _authService.LoginAsync(dto.Email, dto.Password);
+        if (result.IsLockedOut)
+        {
+            return StatusCode(429, new { message = "Trop de tentative, votre compte et momentanément bloqué." }); 
+        } 
+              
+        if (result.Token == null)
             return Unauthorized(new { message = "Invalid email or password" });
 
-        Response.Cookies.Append("authCookie", token, new CookieOptions
+        Response.Cookies.Append("authCookie", result.Token, new CookieOptions
         {
             HttpOnly = true,
             Secure = !_env.IsDevelopment(), 
