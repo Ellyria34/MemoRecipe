@@ -139,6 +139,15 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Sources** : [OWASP HTTP Headers Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html), [MDN Security Headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers), [ASP.NET Core Security](https://learn.microsoft.com/en-us/aspnet/core/security/).
 - **Etat** : DONE — BACK-001, 7 tests d'integration.
 
+### DEC-022 : Rate limiting double couche — IP natif + per-account custom
+- **Date** : Avril 2026
+- **Choix** : Deux niveaux de rate limiting complementaires. Niveau 1 : `AddRateLimiter()` natif ASP.NET Core avec Fixed Window par IP (global 100/min, auth 10/min, scan 5/min). Niveau 2 : compteur custom par email dans `AuthService` avec `IMemoryCache` (5 echecs → blocage 15 min).
+- **Pourquoi** : Le rate limiting par IP ne suffit pas contre le credential stuffing (botnets avec milliers d'IP). Le rate limiting par compte via `IMemoryCache` bloque AVANT la verification du mot de passe (evite le timing attack). Le rate limiter natif `AddPolicy()` avec partition par `httpContext.User` ne fonctionne PAS pour le login car `UseRateLimiter` s'execute avant `UseAuthentication`.
+- **LoginResult pattern** : `LoginAsync` retourne un objet `LoginResult` (Token + IsLockedOut) au lieu de `string?` pour permettre au controller de distinguer 401 (mauvais identifiants) de 429 (compte bloque).
+- **Retry-After** : Header ajoute via `OnRejected` callback (valeur fixe 60s). Le `RejectionStatusCode` par defaut est 503, pas 429 — doit etre configure explicitement ou gere dans `OnRejected`.
+- **Sources** : [ASP.NET Core Rate Limiting](https://learn.microsoft.com/en-us/aspnet/core/performance/rate-limit), [OWASP Credential Stuffing Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Credential_Stuffing_Prevention_Cheat_Sheet.html).
+- **Etat** : DONE — BACK-002, 3 tests d'integration. Logs des tentatives bloquees reportes a BACK-010 (Serilog).
+
 ---
 
 ## A investiguer
