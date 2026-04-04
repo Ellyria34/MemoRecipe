@@ -41,6 +41,7 @@ public class RateLimitingTests : IClassFixture<CustomWebApplicationFactory<Progr
 
         // Assert
         Assert.Equal(System.Net.HttpStatusCode.TooManyRequests, response.StatusCode);
+        Assert.True(response.Headers.Contains("Retry-After"));
     }
 
     [Fact]
@@ -65,6 +66,7 @@ public class RateLimitingTests : IClassFixture<CustomWebApplicationFactory<Progr
 
         // Assert
         Assert.Equal(System.Net.HttpStatusCode.TooManyRequests, response.StatusCode);
+        Assert.True(response.Headers.Contains("Retry-After"));
     }
 
     [Fact]
