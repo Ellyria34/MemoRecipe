@@ -21,16 +21,23 @@ using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// CORS configuration
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+if (allowedOrigins == null || allowedOrigins.Length == 0)
+    throw new InvalidOperationException("Cors:AllowedOrigins is not configured in appsettings.json");
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5110")
-            .AllowAnyHeader()
-            .AllowAnyMethod()
+        policy.WithOrigins(allowedOrigins)
+            .WithHeaders("Content-Type")
+            .WithMethods("GET", "POST", "PUT", "DELETE")
             .AllowCredentials();   
     });
 });
+
 
 builder.Services.AddDbContext<MemoRecipeDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -162,8 +169,6 @@ builder.Services.AddAutoMapper(cfg => cfg.AddMaps(typeof(UserProfile).Assembly))
 
 var app = builder.Build();
 
-app.UseCors("AllowFrontend");
-
 // Configure
 if (app.Environment.IsDevelopment())
 {
@@ -171,6 +176,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseCors("AllowFrontend");
 app.UseRateLimiter();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
