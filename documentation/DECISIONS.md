@@ -148,6 +148,16 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Sources** : [ASP.NET Core Rate Limiting](https://learn.microsoft.com/en-us/aspnet/core/performance/rate-limit), [OWASP Credential Stuffing Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Credential_Stuffing_Prevention_Cheat_Sheet.html).
 - **Etat** : DONE — BACK-002, 3 tests d'integration. Logs des tentatives bloquees reportes a BACK-010 (Serilog).
 
+### DEC-023 : CORS dynamique via appsettings + fail fast au demarrage
+- **Date** : Avril 2026
+- **Choix** : Externaliser les origines CORS dans `appsettings.json` (`Cors:AllowedOrigins` array) au lieu d'un string hard-code. Resserrer les permissions : `WithHeaders("Content-Type")` au lieu de `AllowAnyHeader()`, `WithMethods("GET", "POST", "PUT", "DELETE")` au lieu de `AllowAnyMethod()`. Validation au demarrage qui leve une exception si la config est manquante.
+- **Pourquoi** : En production, le frontend sera sur un autre domaine que `localhost:5110`. Le hard-coding empechait tout deploiement. L'array permet plusieurs origines (ex: `https://memorecipe.com` + `https://www.memorecipe.com`). Resserrer les methods/headers reduit la surface d'attaque (principe du moindre privilege).
+- **`Authorization` non whiteliste** : L'authentification passe par le cookie `authCookie` (envoye automatiquement via `AllowCredentials()`), pas par un header `Authorization: Bearer`. Pas besoin de l'autoriser explicitement.
+- **`OPTIONS` non liste dans `WithMethods`** : Les requetes preflight sont gerees automatiquement par le middleware CORS — l'ajouter manuellement est redondant et peut causer des conflits (doc Microsoft).
+- **Fail fast** : Si `Cors:AllowedOrigins` est absent ou vide au demarrage → `InvalidOperationException`. Mieux vaut crasher avec un message clair que tourner avec un CORS mal configure.
+- **Sources** : [ASP.NET Core CORS](https://learn.microsoft.com/en-us/aspnet/core/security/cors), [MDN CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS).
+- **Etat** : DONE — BACK-003, 3 tests d'integration.
+
 ---
 
 ## A investiguer

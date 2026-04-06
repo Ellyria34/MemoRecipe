@@ -83,4 +83,6 @@ Security hardening is underway: password hashing migrated from HMAC-SHA512 to PB
 
 Rate limiting is now in place (BACK-002): fixed window per IP on auth (10/min), scan (5/min), and global (100/min) endpoints using ASP.NET Core's built-in `AddRateLimiter`. Per-account lockout after 5 consecutive failed logins (15-minute window) using `IMemoryCache` in `AuthService`. Rejected requests return 429 with `Retry-After` header. A `CustomWebApplicationFactory` with SQLite in-memory replaces PostgreSQL in integration tests for Docker-free CI. `LoginResult` pattern replaces `string?` to distinguish locked/invalid/success states.
 
-Next steps: CORS dynamic configuration, RGPD compliance, and eventually the MAUI mobile client and CI/CD pipeline.
+CORS is now externalized and restricted (BACK-003, DEC-023): allowed origins are read from `appsettings.json` (`Cors:AllowedOrigins` array) with fail-fast validation at startup if the configuration is missing. Permissions are tightened: `WithHeaders("Content-Type")` replaces `AllowAnyHeader()`, and `WithMethods("GET", "POST", "PUT", "DELETE")` replaces `AllowAnyMethod()`. Integration tests verify allowed/forbidden origins and PATCH preflight rejection.
+
+Next steps: secrets management for production (BACK-004), file upload validation (BACK-005), RGPD compliance, and eventually the MAUI mobile client and CI/CD pipeline.
