@@ -101,6 +101,8 @@ public class RecipeController : ControllerBase
 
     [HttpPost("scan")]
     [EnableRateLimiting("scan")]
+    [RequestSizeLimit(10 * 1024 * 1024)]                                //Limit request size
+    [RequestFormLimits(MultipartBodyLengthLimit = 10 * 1024 * 1024)]    //Limit upload de fichiers
     public async Task<IActionResult> CreateScannedRecipe(IFormFile imageFile)
     {        
         var result = await _ocrScanService.ProcessImageAsync(imageFile.OpenReadStream());
