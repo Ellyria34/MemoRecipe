@@ -104,12 +104,21 @@ public class RecipeController : ControllerBase
     [RequestSizeLimit(10 * 1024 * 1024)]                                //Limit request size
     [RequestFormLimits(MultipartBodyLengthLimit = 10 * 1024 * 1024)]    //Limit upload de fichiers
     public async Task<IActionResult> CreateScannedRecipe(IFormFile imageFile)
-    {        
+    {    
+        // Size verification    
         if(imageFile.Length > 10 * 1024 * 1024)
         {
             return BadRequest("File size exceeds 10 MB limit.");
         }
         
+        // Extension verification
+        var allowedExtensions = new []{".jpeg", ".jpg", ".png", ".webp"};
+        var extension = Path.GetExtension(imageFile.FileName).ToLowerInvariant();
+        if(!allowedExtensions.Contains(extension))
+        {
+            return BadRequest($"Extension {extension} is not allowed. Allowed: .jpg, .jpeg, .png, .webp");
+        }
+
         var result = await _ocrScanService.ProcessImageAsync(imageFile.OpenReadStream());
         return Ok(result);
     }
