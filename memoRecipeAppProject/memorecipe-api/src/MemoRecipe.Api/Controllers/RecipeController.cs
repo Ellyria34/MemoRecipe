@@ -105,6 +105,11 @@ public class RecipeController : ControllerBase
     [RequestFormLimits(MultipartBodyLengthLimit = 10 * 1024 * 1024)]    //Limit upload de fichiers
     public async Task<IActionResult> CreateScannedRecipe(IFormFile imageFile)
     {        
+        if(imageFile.Length > 10 * 1024 * 1024)
+        {
+            return BadRequest("File size exceeds 10 MB limit.");
+        }
+        
         var result = await _ocrScanService.ProcessImageAsync(imageFile.OpenReadStream());
         return Ok(result);
     }
