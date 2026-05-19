@@ -35,6 +35,9 @@ public class UploadValidationTests : IClassFixture<CustomWebApplicationFactory<P
 
         //Assert
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        var bodyContent = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Extension", bodyContent);
+
     }
 
     private async Task EnsureTestUserAndLoginAsync()
