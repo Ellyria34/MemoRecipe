@@ -6,6 +6,8 @@ using MemoRecipe.Application.Services.Auth;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net.Http.Json;
 using System.Net.Mime;
+using System.Net.Http.Headers;
+using System.Text;
 
 namespace MemoRecipe.Api.Tests.UploadValidation;
 
@@ -46,7 +48,7 @@ public class UploadValidationTests : IClassFixture<CustomWebApplicationFactory<P
         //Arrange
         await EnsureTestUserAndLoginAsync();
 
-        byte[] fakeBytes = {0x00, 0x01, 0x02};
+        byte[] fakeBytes = { 0x00, 0x01, 0x02 };
         using var fakeMime = new MemoryStream(fakeBytes);
         var content = new MultipartFormDataContent();
         content.Add(new StreamContent(fakeMime), "imageFile", "test.jpeg");
@@ -60,6 +62,51 @@ public class UploadValidationTests : IClassFixture<CustomWebApplicationFactory<P
         Assert.Contains("MIME", bodyContent);
     }
 
+    [Fact]
+    public async Task UploadFile_WithInvalidMagicBytes_ReturnBadRequest()
+    {
+        //Arrange
+        await EnsureTestUserAndLoginAsync();
+
+        byte[] fakeBytes = Encoding.UTF8.GetBytes("this is definitely not an image file");  // 36 octets
+        using var fakeStream = new MemoryStream(fakeBytes);
+        var content = new MultipartFormDataContent();
+        var streamContent = new StreamContent(fakeStream);
+        streamContent.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+        content.Add(streamContent, "imageFile", "fake.jpeg");
+
+        //Act
+        var response = await _client.PostAsync("api/recipe/scan", content);
+
+        //Assert
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        var bodyContent = await response.Content.ReadAsStringAsync();
+        Assert.Contains("magic bytes mismatch", bodyContent);
+    }
+
+    [Fact]
+    public async Task UploadFile_WithValidFile_ReturnOk()
+    {
+        //Arrange
+        await EnsureTestUserAndLoginAsync();
+
+        byte[] jpegSignature = { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46 };  // 10 octets because > 8
+        using var fakeStream = new MemoryStream(jpegSignature);
+        var content = new MultipartFormDataContent();
+        var streamContent = new StreamContent(fakeStream);
+        streamContent.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+        content.Add(streamContent, "imageFile", "fake.jpeg");
+
+        //Act
+        var response = await _client.PostAsync("api/recipe/scan", content);
+
+        //Assert
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        var bodyContent = await response.Content.ReadAsStringAsync();
+        Assert.Contains("FakeRecipeTitle", bodyContent);
+    }
+
+
     private async Task EnsureTestUserAndLoginAsync()
     {
         using var scope = _factory.Services.CreateScope();
@@ -71,13 +118,13 @@ public class UploadValidationTests : IClassFixture<CustomWebApplicationFactory<P
 
             var user = new User
             {
-            Id = Guid.NewGuid(),
-            Email = "uploadTestUser@test.com",
-            Username = "uploadTestUser",
-            PasswordHash = "",       // temporaire, on le remplit juste après
-            PasswordSalt = "",
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+                Id = Guid.NewGuid(),
+                Email = "uploadTestUser@test.com",
+                Username = "uploadTestUser",
+                PasswordHash = "",       // temporaire, on le remplit juste après
+                PasswordSalt = "",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
             user.PasswordHash = hasher.HashPassword(user, "CorrectPassword1!");
             db.Users.Add(user);
@@ -85,5 +132,5 @@ public class UploadValidationTests : IClassFixture<CustomWebApplicationFactory<P
         }
 
         await _client.PostAsJsonAsync("api/auth/login", new { email = "uploadTestUser@test.com", password = "CorrectPassword1!" });
-    } 
+    }
 }
