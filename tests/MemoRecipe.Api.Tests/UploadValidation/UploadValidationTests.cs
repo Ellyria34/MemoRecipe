@@ -20,7 +20,7 @@ public class UploadValidationTests : IClassFixture<CustomWebApplicationFactory<P
     }
 
     [Fact]
-    public async Task UploadFile_WithRejectedFileType_ReturnBadRequest()
+    public async Task UploadFile_WithRejectedExtension_ReturnBadRequest()
     {
         //Arrange
         await EnsureTestUserAndLoginAsync();
