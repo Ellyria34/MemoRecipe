@@ -6,6 +6,7 @@ using FluentValidation;
 using MemoRecipe.Application.Services.OcrScan;
 using System.Reflection.Metadata.Ecma335;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Reflection;
 
 namespace MemoRecipe.Api.Controllers;
 
@@ -127,7 +128,19 @@ public class RecipeController : ControllerBase
             return BadRequest($"MIME Type {mime} is not allowed. Allowed : image/jpeg, image/png, image/webp");
         }
 
-        var result = await _ocrScanService.ProcessImageAsync(imageFile.OpenReadStream());
+        //Magic bytes vérification
+        using var stream = imageFile.OpenReadStream();
+        var magicBytes = new byte[8];
+        await stream.ReadExactlyAsync(magicBytes, 0, 8);
+        
+        if(!IsValidImageMagicBytes(magicBytes))
+        {
+            return BadRequest("Invalid image file (magic bytes mismatch).");
+        }
+
+        stream.Position = 0; // reset the cursor to the beginning for OCR 
+
+        var result = await _ocrScanService.ProcessImageAsync(stream);
         return Ok(result);
     }
 
@@ -137,5 +150,30 @@ public class RecipeController : ControllerBase
             var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
             var count = await _recipeService.CountByUserAsync(userId);
             return Ok(count);
+    }
+
+    private static bool IsValidImageMagicBytes(byte[] magicBytes)
+    {
+        if(magicBytes == null ||  magicBytes.Length < 8)
+        {
+            return false;
+        }
+        byte[] jpegSignature = {0xFF, 0xD8, 0xFF};
+        byte[] pngSignature = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+        byte[] webPSignature = {0x52, 0x49, 0x46, 0x46};
+
+        if(magicBytes.Take(3).SequenceEqual(jpegSignature))
+        {
+            return true;
+        }
+        if(magicBytes.Take(8).SequenceEqual(pngSignature))
+        {
+            return true;
+        }
+        if (magicBytes.Take(4).SequenceEqual(webPSignature))
+        {
+            return true;
+        }
+        return false;
     }
 }
