@@ -5,10 +5,10 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using MemoRecipe.Infrastructure.Database;
 using System.Data.Common;
+using MemoRecipe.Application.Services.OcrScan;
+
 
 namespace MemoRecipe.Api.Tests.Helpers;
-
-
 public class CustomWebApplicationFactory<Program> : WebApplicationFactory<Program> where Program : class
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -46,6 +46,14 @@ public class CustomWebApplicationFactory<Program> : WebApplicationFactory<Progra
             var db = scope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
             db.Database.EnsureCreated();
 
+            //Build the schema
+            // Remove the real IOcrScanService (HTTP call to Azure Function)
+            var ocrDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IOcrScanService));
+            if (ocrDescriptor != null)
+                services.Remove(ocrDescriptor);
+
+            // Register the fake
+            services.AddScoped<IOcrScanService, FakeOcrScanService>();
         });
 
         builder.UseEnvironment("Development");
