@@ -5,6 +5,7 @@ using MemoRecipe.Domain.Entities.Users;
 using MemoRecipe.Application.Services.Auth;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net.Http.Json;
+using System.Net.Mime;
 
 namespace MemoRecipe.Api.Tests.UploadValidation;
 
@@ -37,7 +38,26 @@ public class UploadValidationTests : IClassFixture<CustomWebApplicationFactory<P
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
         var bodyContent = await response.Content.ReadAsStringAsync();
         Assert.Contains("Extension", bodyContent);
+    }
 
+    [Fact]
+    public async Task UploadFile_WithInvalidMime_ReturnBadRequest()
+    {
+        //Arrange
+        await EnsureTestUserAndLoginAsync();
+
+        byte[] fakeBytes = {0x00, 0x01, 0x02};
+        using var fakeMime = new MemoryStream(fakeBytes);
+        var content = new MultipartFormDataContent();
+        content.Add(new StreamContent(fakeMime), "imageFile", "test.jpeg");
+
+        //Act
+        var response = await _client.PostAsync("api/recipe/scan", content);
+
+        //Assert
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        var bodyContent = await response.Content.ReadAsStringAsync();
+        Assert.Contains("MIME", bodyContent);
     }
 
     private async Task EnsureTestUserAndLoginAsync()
