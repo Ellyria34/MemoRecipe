@@ -119,6 +119,14 @@ public class RecipeController : ControllerBase
             return BadRequest($"Extension {extension} is not allowed. Allowed: .jpg, .jpeg, .png, .webp");
         }
 
+        // MIME type verification
+        var allowedMimeTypes = new[]{"image/jpeg", "image/png", "image/webp"};
+        var mime = imageFile.ContentType;
+        if(!allowedMimeTypes.Contains(mime))
+        {
+            return BadRequest($"MIME Type {mime} is not allowed. Allowed : image/jpeg, image/png, image/webp");
+        }
+
         var result = await _ocrScanService.ProcessImageAsync(imageFile.OpenReadStream());
         return Ok(result);
     }
