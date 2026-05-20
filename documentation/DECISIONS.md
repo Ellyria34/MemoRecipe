@@ -158,6 +158,21 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Sources** : [ASP.NET Core CORS](https://learn.microsoft.com/en-us/aspnet/core/security/cors), [MDN CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS).
 - **Etat** : DONE — BACK-003, 3 tests d'integration.
 
+### DEC-024 : Pas de token anti-CSRF (protection par SameSite=Strict + CORS)
+
+- **Date** : Mai 2026
+- **Choix** : MemoRecipe ne met PAS en place de token anti-CSRF dédié.
+- **Pourquoi** : La combinaison **cookie `SameSite=Strict`** (DEC-014) + **CORS whitelist stricte** (DEC-023) couvre déjà l'attaque CSRF par deux barrières indépendantes :
+  - Le navigateur n'envoie pas le cookie `authCookie` si la requête vient d'un autre site (`SameSite=Strict`)
+  - Même si le cookie passait, l'API rejette les `Origin` non whitelistées (CORS)
+- **Sources** : [OWASP CSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html), [MDN SameSite cookies](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie/SameSite)
+- **Conditions qui invalideraient ce choix** :
+  - Passer à `SameSite=Lax` (cookie envoyé en GET cross-site) → token anti-CSRF requis
+  - Acceptation d'origines partenaires (CORS plus permissif) → token anti-CSRF requis
+  - Schéma d'auth sans cookie → réévaluer
+- **État** : DONE — choix conscient, à réévaluer si une des conditions ci-dessus devient vraie.
+
+
 ---
 
 ## A investiguer
