@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Hosting;
 
 namespace MemoRecipe.Api.Tests.Middlewares;
+
 public class SecurityHeadersMiddlewareTests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly HttpClient _client;
@@ -58,5 +59,20 @@ public class SecurityHeadersMiddlewareTests : IClassFixture<WebApplicationFactor
         Assert.Equal("max-age=63072000; includeSubDomains; preload", response.Headers.GetValues("Strict-Transport-Security").First());
 
     }
+
+    // TestServer limitation: this test always passes in-memory because
+    // TestServer does not emit the Server header by default (unlike Kestrel).
+    // Real verification of Kestrel.AddServerHeader = false must be done manually
+    // via DevTools -> Network-> Response Headers in dev/prod
+    [Fact]
+    public async Task Get_ResponseDoesNotIncludeServerHeader()
+    {
+        // Arrange + Act
+        var response = await _client.GetAsync("api/auth/me");
+
+        // Assert
+        Assert.False(response.Headers.Contains("Server"));
+    }
+
 
 }

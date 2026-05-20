@@ -25,7 +25,11 @@ var builder = WebApplication.CreateBuilder(args);
 // Limite globale Kestrel — empêche les uploads > 15 Mo au niveau transport
 // (BACK-041 défense en profondeur, couche 1)
 builder.WebHost.ConfigureKestrel(options =>
-    options.Limits.MaxRequestBodySize = 15 * 1024 * 1024); // 15 Mo
+{
+    options.Limits.MaxRequestBodySize = 15 * 1024 * 1024; // 15 Mo
+    options.AddServerHeader = false; // OWAPS recommendation (limit fingerprinting)
+});
+
 
 // CORS configuration
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
