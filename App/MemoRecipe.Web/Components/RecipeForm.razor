@@ -1,36 +1,11 @@
-<div  style="border: 1px solid #ccc; padding: 16px; border-radius: 4px;">
-    <MudTextField @bind-Value ="Recipe.Title" 
-                Label="Titre"
-                MinLength="3" 
-                MaxLength="200"
-                Counter="200"
-    />
-    <MudTextField @bind-Value ="Recipe.Description" 
-                Lines="3" 
-                Label="Description"
-                MaxLength="2000"
-                Counter="2000"
-    />
-    <MudNumericField T="int?" 
-                @bind-Value ="Recipe.Servings" 
-                Label="Portions" 
-                Min="1" 
-                Max="100"
-    />
-    <MudNumericField T="int?" 
-                @bind-Value ="Recipe.PrepTimeMinutes" 
-                Label="Préparation (min)" 
-                Min="0" 
-                Max="1440"
-    />
-    <MudNumericField T="int?" 
-                @bind-Value ="Recipe.CookTimeMinutes" 
-                Label="Cuisson (min)"
-                Min="0" 
-                Max="1440"
-    />
-    <MudSelect T="DifficultyLevel?" @bind-Value ="Recipe.Difficulty" Label="Difficulté">
-        @foreach(DifficultyLevel item in Enum.GetValues<DifficultyLevel>())
+<div style="border: 1px solid #ccc; padding: 16px; border-radius: 4px;">
+    <MudTextField @bind-Value="Recipe.Title" Label="Titre" MinLength="3" MaxLength="200" Counter="200" />
+    <MudTextField @bind-Value="Recipe.Description" Lines="3" Label="Description" MaxLength="2000" Counter="2000" />
+    <MudNumericField T="int?" @bind-Value="Recipe.Servings" Label="Portions" Min="1" Max="100" />
+    <MudNumericField T="int?" @bind-Value="Recipe.PrepTimeMinutes" Label="Préparation (min)" Min="0" Max="1440" />
+    <MudNumericField T="int?" @bind-Value="Recipe.CookTimeMinutes" Label="Cuisson (min)" Min="0" Max="1440" />
+    <MudSelect T="DifficultyLevel?" @bind-Value="Recipe.Difficulty" Label="Difficulté">
+        @foreach (DifficultyLevel item in Enum.GetValues<DifficultyLevel>())
         {
             <MudSelectItem T="DifficultyLevel?" Value="@item">@item</MudSelectItem>
         }
@@ -39,21 +14,20 @@
 </div>
 <div style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
     <MudText Class="pb-4">Ingredients</MudText>
-        @for (int i = 0; i < Recipe.Ingredients.Count; i++)
-        {
-            var index = i;
-            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-                <MudTextField  Style="flex: 1" @bind-Value="Recipe.Ingredients[index].Name"/>
-                <MudIconButton Icon="@Icons.Material.Filled.Delete" Title="Supprimer" OnClick="() => Recipe.Ingredients.RemoveAt(index)" />
-            </MudStack>
+    @for (int i = 0; i < Recipe.Ingredients.Count; i++)
+    {
+        var index = i;
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+            <MudTextField Style="flex: 1" @bind-Value="Recipe.Ingredients[index].Name" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Title="Supprimer"
+                           OnClick="() => Recipe.Ingredients.RemoveAt(index)" />
+        </MudStack>
 
-        }
+    }
     @if (Recipe.Ingredients.Count < 50)
     {
-    <MudIconButton Icon="@Icons.Material.Filled.Add"
-                Title="Ajouter"
-                OnClick="() => Recipe.Ingredients.Add(new IngredientFormModel())"
-    />
+        <MudIconButton Icon="@Icons.Material.Filled.Add" Title="Ajouter"
+                       OnClick="() => Recipe.Ingredients.Add(new IngredientFormModel())" />
     }
 </div>
 <div style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
@@ -61,28 +35,28 @@
     @for (int i = 0; i < Recipe.Steps.Count; i++)
     {
         var index = i;
-        var stepNumber = i+1;
+        var stepNumber = i + 1;
 
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
             <MudTextField @bind-Value="Recipe.Steps[index].Instruction" Label="@stepNumber.ToString()" />
-            <MudIconButton Icon="@Icons.Material.Filled.Delete" Title="Supprimer" OnClick="() => Recipe.Steps.RemoveAt(index)" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Title="Supprimer"
+                           OnClick="() => Recipe.Steps.RemoveAt(index)" />
         </MudStack>
     }
     @if (Recipe.Steps.Count < 50)
     {
-    <MudIconButton Icon="@Icons.Material.Filled.Add"
-                Title="Ajouter"
-                OnClick="() => Recipe.Steps.Add(new StepFormModel())"
-    />}
+        <MudIconButton Icon="@Icons.Material.Filled.Add" Title="Ajouter"
+                       OnClick="() => Recipe.Steps.Add(new StepFormModel())" />
+    }
 </div>
 <div>
-    <MudButton Class="mt-8"
-            Variant="Variant.Filled"
-            Color="Color.Primary"
-            FullWidth="true"
-            OnClick ="HandleSave" 
-    >
+    <MudButton Class="mt-8" 
+        Variant="Variant.Filled" 
+        Color="Color.Primary" 
+        FullWidth="true" 
+        Disabled="@(!IsFormValid())"
+        OnClick="HandleSave">
         Sauvegarder
     </MudButton>
-</div>        
+</div>
 

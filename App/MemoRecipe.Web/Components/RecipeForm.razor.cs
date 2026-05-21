@@ -14,4 +14,24 @@ public partial class RecipeForm
     {
         await OnSave.InvokeAsync(Recipe);
     }
+
+    private bool IsFormValid()
+    {
+        if(string.IsNullOrWhiteSpace(Recipe.Title) || Recipe.Title.Length < 3 || Recipe.Title.Length > 200)
+        {
+            return false;
+        }
+
+        if(Recipe.Ingredients.All(i => string.IsNullOrWhiteSpace(i.Name)))
+        {
+            return false;
+        }
+
+        if(Recipe.Steps.All(s => string.IsNullOrWhiteSpace(s.Instruction)))
+        {
+            return false;
+        }
+        
+        return true;
+    }
 }
