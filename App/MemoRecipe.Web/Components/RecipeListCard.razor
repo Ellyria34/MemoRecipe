@@ -1,0 +1,22 @@
+<MudCard Class="pa-4 mb-2">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+        <MudStack>
+            <MudText Typo="Typo.body1">@Recipe.Title</MudText>
+            <MudStack Row="true">
+                @if (Recipe.TotalTimeMinutes.HasValue)
+                {
+                    <MudText Typo="Typo.caption">@Recipe.TotalTimeMinutes min</MudText>
+                }
+                @if (Recipe.Difficulty.HasValue)
+                {
+                    <MudText Typo="Typo.caption">@GetDifficultyLabel(Recipe.Difficulty)</MudText>
+                }
+                @if (Recipe.Servings.HasValue)
+                {
+                    <MudText Typo="Typo.caption">@Recipe.Servings @(Recipe.Servings == 1 ? "portion" : "portions")</MudText>
+                }
+            </MudStack>
+        </MudStack>
+        <MudIconButton Href="@($"/recipes/{Recipe.Id}")" Icon="@Icons.Material.Filled.Visibility" />
+    </MudStack>
+</MudCard>

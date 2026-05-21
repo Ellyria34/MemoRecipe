@@ -26,28 +26,7 @@
         else{
             @foreach(RecipeDto recipe in _recipes)
             {
-                <MudCard Class="pa-4 mb-2">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                        <MudStack>
-                            <MudText Typo="Typo.body1">@recipe.Title</MudText>
-                            <MudStack Row="true">
-                                @if (recipe.TotalTimeMinutes.HasValue)
-                                {
-                                    <MudText Typo="Typo.caption">@recipe.TotalTimeMinutes min</MudText>
-                                }
-                                @if (recipe.Difficulty.HasValue)
-                                {
-                                    <MudText Typo="Typo.caption">@GetDifficultyLabel(recipe.Difficulty)</MudText>
-                                }
-                                @if (recipe.Servings.HasValue)
-                                {
-                                    <MudText Typo="Typo.caption">@recipe.Servings @(recipe.Servings == 1 ? "portion" : "portions")</MudText>
-                                }
-                            </MudStack>
-                        </MudStack>
-                        <MudIconButton Href="@($"/recipes/{recipe.Id}")" Icon="@Icons.Material.Filled.Visibility" />
-                    </MudStack>
-                </MudCard>
+                <RecipeListCard Recipe="@recipe" />
             }
         @if (!string.IsNullOrEmpty(_errorMessage))
             {

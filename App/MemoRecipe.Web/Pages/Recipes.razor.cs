@@ -40,12 +40,4 @@ public partial class Recipes
         Navigation.NavigateTo($"/recipes/new");
     }
 
-    private static string GetDifficultyLabel(DifficultyLevel? difficulty) => difficulty switch
-{
-    DifficultyLevel.Easy => "Facile",
-    DifficultyLevel.Medium => "Moyen",
-    DifficultyLevel.Hard => "Difficile",
-    _ => ""
-};
-
 }

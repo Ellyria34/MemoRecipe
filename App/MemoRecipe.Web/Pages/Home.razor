@@ -19,12 +19,7 @@
                     else{
                         @foreach(RecipeDto recipe in _recipes)
                         {
-                            <MudCard Class="pa-4 ma-2">
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                                    <MudText Typo="Typo.body1">@recipe.Title</MudText>
-                                    <MudIconButton Href="@($"/recipes/{recipe.Id}")" Icon="@Icons.Material.Filled.Visibility" />
-                                </MudStack>
-                            </MudCard>
+                            <RecipeListCard Recipe="@recipe" />
                         }
                     @if (!string.IsNullOrEmpty(_errorMessage))
                         {
