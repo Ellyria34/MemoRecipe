@@ -23,7 +23,7 @@ public partial class Recipes
         _errorMessage = null;
         try
         {
-           _recipes = await RecipeService.GetAllRecipesAsync();
+           _recipes = await RecipeService.GetAllRecipesAsync(orderBy:"createdAt");
         }
         catch (Exception)
         {
@@ -39,4 +39,5 @@ public partial class Recipes
     {
         Navigation.NavigateTo($"/recipes/new");
     }
+
 }
