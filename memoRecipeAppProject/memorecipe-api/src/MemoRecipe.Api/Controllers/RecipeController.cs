@@ -113,19 +113,19 @@ public class RecipeController : ControllerBase
         }
         
         // Extension verification
-        var allowedExtensions = new []{".jpeg", ".jpg", ".png", ".webp"};
+        var allowedExtensions = new []{".jpeg", ".jpg", ".png"};
         var extension = Path.GetExtension(imageFile.FileName).ToLowerInvariant();
         if(!allowedExtensions.Contains(extension))
         {
-            return BadRequest($"Extension {extension} is not allowed. Allowed: .jpg, .jpeg, .png, .webp");
+            return BadRequest($"Extension {extension} is not allowed. Allowed: .jpg, .jpeg, .png");
         }
 
         // MIME type verification
-        var allowedMimeTypes = new[]{"image/jpeg", "image/png", "image/webp"};
+        var allowedMimeTypes = new[]{"image/jpeg", "image/png"};
         var mime = imageFile.ContentType;
         if(!allowedMimeTypes.Contains(mime))
         {
-            return BadRequest($"MIME Type {mime} is not allowed. Allowed : image/jpeg, image/png, image/webp");
+            return BadRequest($"MIME Type {mime} is not allowed. Allowed : image/jpeg, image/png");
         }
 
         //Magic bytes vérification
@@ -160,17 +160,12 @@ public class RecipeController : ControllerBase
         }
         byte[] jpegSignature = {0xFF, 0xD8, 0xFF};
         byte[] pngSignature = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
-        byte[] webPSignature = {0x52, 0x49, 0x46, 0x46};
 
         if(magicBytes.Take(3).SequenceEqual(jpegSignature))
         {
             return true;
         }
         if(magicBytes.Take(8).SequenceEqual(pngSignature))
-        {
-            return true;
-        }
-        if (magicBytes.Take(4).SequenceEqual(webPSignature))
         {
             return true;
         }
