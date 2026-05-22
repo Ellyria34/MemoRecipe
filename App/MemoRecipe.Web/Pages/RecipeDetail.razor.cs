@@ -58,12 +58,22 @@ public partial class RecipeDetail
         bool? result = await _confirmDialog.ShowAsync();
         if (result != true) return;
 
-        await RecipeService.DeleteRecipe(Id);
-        Snackbar.Add("Recette supprimée !", Severity.Success, config =>
+        try
         {
-            config.VisibleStateDuration = 1500;
-            config.ShowCloseIcon = false;
-        });
-        Navigation.NavigateTo("/recipes");
+            await RecipeService.DeleteRecipe(Id);
+            Snackbar.Add("Recette supprimée !", Severity.Success, config =>
+            {
+                config.VisibleStateDuration = 1500;
+                config.ShowCloseIcon = false;
+            });
+            Navigation.NavigateTo("/recipes");            
+        } catch
+        {
+            Snackbar.Add("Échec de la suppression. Veuillez réessayer.", Severity.Error, config =>
+            {
+                config.VisibleStateDuration = 5000;
+                config.ShowCloseIcon = true;
+            });
+        }
     }
 }
