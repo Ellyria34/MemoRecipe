@@ -106,7 +106,7 @@ dotnet test
 - Rate limiting (built-in `AddRateLimiter`): per-IP fixed window on auth (10/min), scan (5/min), and global (100/min); per-account lockout after 5 consecutive failed logins (15-minute window via `IMemoryCache`); 429 responses include `Retry-After`
 - CORS strictly configured: allowed origins loaded from `appsettings.json` with fail-fast startup validation; explicit whitelist of headers (`Content-Type`) and methods (`GET`, `POST`, `PUT`, `DELETE`)
 - CSRF protection via cookie `SameSite=Strict` combined with strict CORS (no dedicated CSRF token needed in this configuration)
-- File upload validation on the scan endpoint with **defense in depth across four layers**: global Kestrel request body limit, per-endpoint size attributes, server-side checks (size, extension whitelist `.jpg`/`.jpeg`/`.png`/`.webp`, MIME type whitelist), and binary signature verification (magic bytes for JPEG, PNG, WebP)
+- File upload validation on the scan endpoint with **defense in depth across four layers**: global Kestrel request body limit, per-endpoint size attributes, server-side checks (size, extension whitelist `.jpg`/`.jpeg`/`.png`, MIME type whitelist), and binary signature verification (magic bytes for JPEG, PNG)
 
 ### Tests
 - Unit tests on validators, services, and the AI pipeline (deterministic fakes for the LLM and the repository layer)
