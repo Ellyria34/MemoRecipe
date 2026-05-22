@@ -96,7 +96,7 @@ public partial class EditRecipe
                 Quantity = i.Quantity,
                 Unit = i.Unit
             }).ToList(),
-            Steps = recipeDto.Steps.Select((s, index) => new StepFormModel
+            Steps = recipeDto.Steps.OrderBy(s => s.Order).Select((s, index) => new StepFormModel
             {
                 Instruction = s.Instruction,
                 Order = s.Order

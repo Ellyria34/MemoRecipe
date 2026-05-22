@@ -95,8 +95,28 @@ public class RecipeService : IRecipeService
         if(dto.CookTimeMinutes != null) recipe.CookTimeMinutes = dto.CookTimeMinutes;
         if(dto.Difficulty != null) recipe.Difficulty = dto.Difficulty;
         if(dto.IsPublic != null) recipe.IsPublic = dto.IsPublic.Value;
-        // if(dto.Ingredients != null) recipe.Ingredients = dto.Ingredients;
-        // if(dto.Steps != null) recipe.Steps = dto.Steps;
+        if(dto.Ingredients != null)
+        {
+            recipe.Ingredients.Clear();
+            recipe.Ingredients = dto.Ingredients.Select(i => new Ingredient
+            {
+                RecipeId = recipe.Id,
+                Name = i.Name,
+                Quantity = i.Quantity,
+                Unit = i.Unit
+            }).ToList();
+        }
+        if(dto.Steps != null)
+        {
+            recipe.Steps.Clear();
+            recipe.Steps = dto.Steps.Select((s,index) => new Step
+            {
+                RecipeId = recipe.Id,
+                Instruction = s.Instruction,
+                Order = index + 1
+            }).ToList();
+        }
+
         recipe.UpdatedAt = DateTime.UtcNow;
         if(dto.CategoryIds != null)
         {
