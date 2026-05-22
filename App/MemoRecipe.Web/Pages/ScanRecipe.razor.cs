@@ -41,7 +41,7 @@ public partial class ScanRecipe
         try
         {
             var stream = _selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
-            _extractedRecipe = await RecipeService.ScanImageAsync(stream);
+            _extractedRecipe = await RecipeService.ScanImageAsync(stream, _selectedFile.ContentType, _selectedFile.Name);
             _newRecipe = MapToFormModel(_extractedRecipe);
         }
         catch (Exception)

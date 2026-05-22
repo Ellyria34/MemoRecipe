@@ -1,7 +1,7 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text;
 using MemoRecipe.Web.Models;
+using System.Net.Http.Headers;
 
 namespace MemoRecipe.Web.Services;
 
@@ -22,10 +22,12 @@ public class RecipeService : IRecipeService
     }
 
 
-    public async Task<ExtractedRecipeDto> ScanImageAsync(Stream imageStream)
+    public async Task<ExtractedRecipeDto> ScanImageAsync(Stream imageStream, string contentType, string fileName)
     {
         MultipartFormDataContent content = new MultipartFormDataContent();
-        content.Add(new StreamContent(imageStream), "imageFile","image.jpg");
+        var streamContent = new StreamContent(imageStream);
+        streamContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        content.Add(streamContent, "imageFile",fileName);
         var response = await _httpClient.PostAsync("api/recipe/scan", content);
         response.EnsureSuccessStatusCode();
 
