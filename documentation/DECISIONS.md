@@ -172,6 +172,32 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - Schéma d'auth sans cookie → réévaluer
 - **État** : DONE — choix conscient, à réévaluer si une des conditions ci-dessus devient vraie.
 
+### DEC-025 : Retrait du support WebP (Tesseract Windows sans libwebp)
+
+- **Date** : 22 mai 2026
+- **Choix** : MemoRecipe **ne supporte pas** le format WebP pour l'upload de recettes scannées. Seuls **JPG/JPEG et PNG** sont acceptés.
+- **Pourquoi** :
+  - L'installeur Tesseract-OCR Windows par défaut **n'inclut pas le support `libwebp`** dans le composant Leptonica utilisé pour le décodage des images.
+  - Conséquence runtime observée : `Error in pixReadMemWebP: function not present` → `System.IO.IOException: Failed to load image from memory.` au moment de `Tesseract.Pix.LoadFromMemory(...)` pour toute image WebP.
+  - Trois options ont été considérées (cf. BACK-051 + BACK-039) :
+    - **Option A — Recompiler Tesseract avec `libwebp`** : complexifie le déploiement (Docker, CI/CD), crée une dépendance fragile et environnement-spécifique difficile à reproduire entre dev / CI / prod.
+    - **Option B — Conversion serveur WebP → PNG avant Tesseract** (via `ImageSharp` ou `SkiaSharp`) : ajoute une dépendance NuGet et un overhead perf (~50-200 ms par image). Solution propre mais ajoute une couche de code à maintenir et tester.
+    - **Option C — Retirer WebP du périmètre supporté** *(choix retenu)* : KISS, alignement avec ce que Tesseract sait lire nativement, moins de surface d'attaque, code plus simple à maintenir, pas de dépendance supplémentaire.
+  - **Argument pragmatique MVP** : la valeur métier de WebP est marginale face à JPG/PNG (formats majoritaires dans le partage de recettes — appareils photo, exports Photoshop par défaut, WhatsApp, blogs culinaires). Décision **réversible** plus tard sans contrainte forte.
+- **Sources** :
+  - [Tesseract InputFormats](https://tesseract-ocr.github.io/tessdoc/InputFormats.html) — formats nativement supportés
+  - Logs Function : `Error in pixReadMemWebP: function not present` (observé pendant BACK-051, 22/05/2026)
+  - [OWASP File Upload Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html) — principe de whitelist stricte des formats supportés
+- **Conséquences** :
+  - 3 fichiers modifiés : `RecipeController.cs` (extensions + MIME + magic bytes), `ScanRecipe.razor` (attribut `Accept`), `README.md` (section defense in depth)
+  - BACK-039 mis à jour pour porter la **future ré-introduction du WebP** (Option B recommandée à terme — conversion serveur, dépendance unique vs build système custom)
+  - Aucune régression pour les utilisateurs actuels (le scan n'avait jamais réellement fonctionné avec WebP en l'absence de libwebp)
+- **Conditions qui invalideraient ce choix** :
+  - Migration vers un build de Tesseract avec `libwebp` (ex : image Docker custom Linux, package alternatif maintenu)
+  - Besoin utilisateur fort exprimé après mise en production (feedback récurrent "je n'arrive pas à uploader mon image")
+  - Apparition d'une bibliothèque .NET de conversion WebP→PNG mature et low-overhead (changement du calcul coût/bénéfice de l'Option B)
+- **État** : DONE — choix conscient, à réévaluer si une des conditions ci-dessus devient vraie.
+
 
 ---
 
