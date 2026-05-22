@@ -69,20 +69,59 @@ dotnet test
 
 ## Current Status
 
-The pipeline architecture is in place — prompt engineering and AI parsing layer are functional. The main remaining challenge is Tesseract OCR output quality on real-world images. The full backend is done: JWT authentication via HttpOnly cookies, recipe CRUD with authorization, FluentValidation (4 validators, 71 unit tests), and global exception handling.
+### AI pipeline
+- OCR (Tesseract) + LLM parsing (Mistral) + deterministic post-processing
+- Clean abstraction (`IChatCompletionClient`) decouples the API from the LLM provider
+- Main remaining challenge: Tesseract OCR quality on real-world images
 
-The Blazor frontend now covers Login/Register pages with inline validation, protected routes via CookieAuthStateProvider, responsive layout (sidebar desktop + bottom bar mobile), and a full scan recipe workflow. The user uploads an image, the IA pipeline extracts the recipe, and the result is displayed in a reusable `RecipeForm` component with all editable fields: title, description, servings, prep time, cook time, difficulty, public toggle, structured ingredients (name + delete), and ordered steps. A dedicated `RecipeFormModel` keeps the form decoupled from API DTOs — the same component will be reused for manual creation and recipe editing.
+### Backend (ASP.NET Core .NET 10)
+- Clean Architecture (Api / Application / Domain / Infrastructure)
+- JWT authentication stored in `HttpOnly` cookies (no `localStorage`)
+- Recipe CRUD with ownership and `IsPublic` authorization rules
+- FluentValidation with dedicated unit tests on each validator
+- Global exception middleware (generic client response, full stack in server logs)
+- Query parameters object for sorting, limiting and future pagination
+- Dedicated `GET /api/recipe/count` endpoint
 
-The full scan-to-save pipeline is now functional: scan → preview → edit → save to database. Form validation constraints match the backend FluentValidation rules (title length, portions range, time limits, max 50 ingredients/steps). A database migration was added to make `PrepTimeMinutes` and `CookTimeMinutes` nullable, reflecting the domain model.
+### Frontend (Blazor WASM .NET 10 + MudBlazor)
+- Login / Register pages with inline validation
+- Protected routes via custom `CookieAuthStateProvider`
+- Responsive layout (sidebar on desktop, bottom bar on mobile)
+- Full scan-to-save workflow: upload → AI extraction → preview → edit → database save
+- Reusable `RecipeForm` component shared between scan, edit, and future manual creation
+- Form models (`RecipeFormModel`, `IngredientFormModel`, `StepFormModel`) decoupled from API DTOs
+- Recipe list page (`/recipes`) sorted by creation date (most recent first), enriched cards (title, total time, French difficulty labels, servings with singular/plural)
+- Reusable `RecipeListCard` component shared between recipe list and dashboard
+- Recipe detail page with delete confirmation dialog
+- Recipe edit page (`/recipes/{id}/edit`) reusing the shared form
+- Dashboard (`/`) with recipe count and 5 most recent recipes
+- Code-behind pattern everywhere (`.razor` / `.razor.cs` separation)
+- Save button automatically disabled while the form is invalid (title length, at least one ingredient, at least one step)
 
-Error handling is now in place: API responses are validated with `EnsureSuccessStatusCode`, errors display inline via `MudAlert`, and successful saves show a `MudSnackbar` toast. A recipe list page (`/recipes`) shows all saved recipes with loading states and empty-state messaging. The recipe detail page (`/recipes/{id}`) displays title, portions, ingredients, and ordered steps, with a delete button and `MudMessageBox` confirmation dialog. The edit page (`/recipes/{id}/edit`) reuses the shared `RecipeForm` component with pre-filled data and a code-behind pattern (`.razor` / `.razor.cs` separation). Form models (`IngredientFormModel`, `StepFormModel`) are now decoupled from API DTOs.
+### Security
+- Password hashing migrated from HMAC-SHA512 to PBKDF2 (`PasswordHasher<T>`, 100k iterations), with rolling migration for existing users
+- Azure Function authorization level set to `Function` (not `Anonymous`)
+- Custom `SecurityHeadersMiddleware` adds 6 security headers: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy` (tuned for Blazor WASM + MudBlazor), `Strict-Transport-Security` (production only)
+- Kestrel configured to hide the `Server` header (no underlying web server exposed)
+- Rate limiting (built-in `AddRateLimiter`): per-IP fixed window on auth (10/min), scan (5/min), and global (100/min); per-account lockout after 5 consecutive failed logins (15-minute window via `IMemoryCache`); 429 responses include `Retry-After`
+- CORS strictly configured: allowed origins loaded from `appsettings.json` with fail-fast startup validation; explicit whitelist of headers (`Content-Type`) and methods (`GET`, `POST`, `PUT`, `DELETE`)
+- CSRF protection via cookie `SameSite=Strict` combined with strict CORS (no dedicated CSRF token needed in this configuration)
+- File upload validation on the scan endpoint with **defense in depth across four layers**: global Kestrel request body limit, per-endpoint size attributes, server-side checks (size, extension whitelist `.jpg`/`.jpeg`/`.png`/`.webp`, MIME type whitelist), and binary signature verification (magic bytes for JPEG, PNG, WebP)
 
-The dashboard (`/`) shows the recipe count via a dedicated `GET api/recipe/count` endpoint and the 5 most recent recipes using query params (`?limit=5&orderBy=createdAt`). The API now supports `RecipeQueryParams` for sorting, limiting and future pagination. All pages follow the code-behind pattern with `= default!` for injected properties (DEC-019).
+### Tests
+- Unit tests on validators, services, and the AI pipeline (deterministic fakes for the LLM and the repository layer)
+- Integration tests using `WebApplicationFactory<Program>` with SQLite in-memory replacing PostgreSQL (no Docker required for CI)
+- Targeted integration tests on the scan endpoint covering each defense layer (extension, MIME, magic bytes, golden path), with mutation testing applied to verify each test actually fails when its target layer is removed
+- A `FakeOcrScanService` swapped in via DI override allows testing the golden path without calling the real Azure Function
 
-Security hardening is underway: password hashing migrated from HMAC-SHA512 to PBKDF2 via `PasswordHasher<T>` (DEC-020) with rolling migration for existing users. Azure Function auth level changed from Anonymous to Function. A custom `SecurityHeadersMiddleware` (DEC-021) adds 6 security headers on every response: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy` (adapted for Blazor WASM + MudBlazor), and `Strict-Transport-Security` (production only). Integration tests verify all headers with `WebApplicationFactory`.
+### Tooling and maintenance
+- NuGet package versions aligned across projects (EF Core, Blazor WASM); legacy `Microsoft.AspNetCore.WebUtilities 2.2.0` upgraded to a current .NET 8 release in the AI project
 
-Rate limiting is now in place (BACK-002): fixed window per IP on auth (10/min), scan (5/min), and global (100/min) endpoints using ASP.NET Core's built-in `AddRateLimiter`. Per-account lockout after 5 consecutive failed logins (15-minute window) using `IMemoryCache` in `AuthService`. Rejected requests return 429 with `Retry-After` header. A `CustomWebApplicationFactory` with SQLite in-memory replaces PostgreSQL in integration tests for Docker-free CI. `LoginResult` pattern replaces `string?` to distinguish locked/invalid/success states.
+## Next Steps
 
-CORS is now externalized and restricted (BACK-003, DEC-023): allowed origins are read from `appsettings.json` (`Cors:AllowedOrigins` array) with fail-fast validation at startup if the configuration is missing. Permissions are tightened: `WithHeaders("Content-Type")` replaces `AllowAnyHeader()`, and `WithMethods("GET", "POST", "PUT", "DELETE")` replaces `AllowAnyMethod()`. Integration tests verify allowed/forbidden origins and PATCH preflight rejection.
-
-Next steps: secrets management for production (BACK-004), file upload validation (BACK-005), RGPD compliance, and eventually the MAUI mobile client and CI/CD pipeline.
+- Secrets management for production (environment variables, `.env.example`, fail-fast validation at startup)
+- HTTPS forced in production (verified behavior behind a reverse proxy)
+- Docker images for API and frontend, then CI/CD pipeline (automated build, tests, vulnerable-package scan)
+- GDPR compliance: account deletion with grace period, data export, legal pages, AI transparency notice
+- Manual recipe creation (without scan), pagination, search and filters on the recipe list
+- MAUI mobile client (consumes the same API contracts as the Blazor web client)
