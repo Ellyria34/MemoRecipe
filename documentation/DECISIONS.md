@@ -198,6 +198,35 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - Apparition d'une bibliothèque .NET de conversion WebP→PNG mature et low-overhead (changement du calcul coût/bénéfice de l'Option B)
 - **État** : DONE — choix conscient, à réévaluer si une des conditions ci-dessus devient vraie.
 
+### DEC-026 : Migration AutoMapper → Mapperly (source generator, OSS MIT, mappers statiques)
+
+- **Date** : 23 mai 2026
+- **Choix** : MemoRecipe abandonne **AutoMapper** au profit de **Mapperly** (`Riok.Mapperly`, OSS MIT), avec une approche **mappers statiques** plutôt que l'instanciation + injection DI traditionnelle.
+- **Pourquoi** :
+  - **Changement de licence AutoMapper** : depuis fin 2024 / début 2025, AutoMapper (créé par Jimmy Bogard en 2008, OSS depuis 17 ans) est passé sous licence commerciale **Lucky Penny Software**. Warning au build : `You do not have a valid license key for the Lucky Penny software AutoMapper. This is allowed for development and testing scenarios. If you are running in production you are required to have a licensed version.` → bloquant pour la prod sans achat de licence (~$300/an).
+  - **Trois options évaluées** (cf. BACK-046) :
+    - **Option A — Acheter licence Lucky Penny** : 0 code à toucher, mais ~$300/an + dépendance commerciale + mauvais signal sur un projet perso d'apprentissage.
+    - **Option B — Downgrade vers AutoMapper v13 (dernière OSS)** : gratuit mais **dette technique** (version morte, plus de fixes sécurité). À éviter.
+    - **Option C — Migrer vers Mapperly** *(choix retenu)* : OSS MIT, **source generator** (mappings générés à la compilation, zéro reflection runtime, 30-50× plus rapide), erreurs détectées à la compilation, apprentissage d'un outil moderne .NET.
+  - **Style "mappers statiques" plutôt que DI** : Mapperly est conçu pour être appelé directement via `RecipeMapper.ToDto(recipe)` sans injection. Avantages : pas de DI à configurer, pas d'interfaces à créer, services simplifiés (plus de `private readonly IMapper _mapper;`). Les tests utilisant `FakeRepository` (pas Moq) ne mockent jamais le mapper de toute façon — pas de perte de testabilité.
+- **Sources** :
+  - [Mapperly GitHub (riok/mapperly)](https://github.com/riok/mapperly) — OSS MIT, maintenu actif
+  - [Annonce Lucky Penny / AutoMapper commercial](https://www.jimmybogard.com/automapper-and-mediatr-going-commercial/)
+  - [Comparaison perf AutoMapper vs Mapperly (benchmarks)](https://mapperly.riok.app/docs/intro/)
+  - [OWASP A03:2025 Software Supply Chain Failures](https://owasp.org/Top10/2025/A03_2025-Software_and_Data_Integrity_Failures/) — vendor lock-in OSS comme risque
+- **Conséquences** :
+  - **5 profiles** à réécrire (UserProfile, RecipeProfile, CategoryProfile, IngredientProfile, StepProfile) en classes statiques partielles avec `[Mapper]` attribute
+  - **2 services** à simplifier (`AuthService`, `RecipeService`) — retrait du paramètre `IMapper mapper` dans le constructeur + appels directs `XxxMapper.ToDto(...)`
+  - **`Program.cs`** : retrait de `builder.Services.AddAutoMapper(...)` (Mapperly ne nécessite pas d'enregistrement DI en mode statique)
+  - **2 csproj** : retrait du `PackageReference Include="AutoMapper"`, ajout de `PackageReference Include="Riok.Mapperly"`
+  - **Gains attendus** : warning licence parti, perf mapping ~30-50× plus rapide, erreurs typo détectées à la compilation (build cassé) au lieu du runtime (`AutoMapperMappingException`)
+  - **Bonus pédagogique** : découverte des **source generators** .NET (concept moderne très valorisé en entretien — utilisés aussi par System.Text.Json, Serilog source-gen, etc.)
+- **Conditions qui invalideraient ce choix** :
+  - **Mapperly devient commercial** lui aussi (peu probable, OSS MIT avec gouvernance communautaire — mais on a un précédent récent avec AutoMapper)
+  - **Besoin de mock dynamique du mapper** dans les tests (ex : passage à Moq) → revenir au pattern instance + interface (Style 2). Aujourd'hui non pertinent : tests via `FakeRepository`.
+  - **Émergence d'un nouveau standard** dans l'écosystème .NET pour le mapping (ex : feature native EF Core ou primitive de runtime) → réévaluer.
+- **État** : DÉCIDÉ le 23/05/2026 — implémentation en cours sur la branche `feature/BACK-046-migrate-to-mapperly`. Sera marqué DONE quand BACK-046 sera complètement clôturé.
+
 
 ---
 
