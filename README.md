@@ -45,7 +45,10 @@ The API runs on ASP.NET Core .NET 10 with PostgreSQL 16 (Docker) and Entity Fram
 **Prerequisites:** .NET 10 SDK, .NET 8 SDK, Docker Desktop, Azure Functions Core Tools, Tesseract, and `MISTRAL_API_KEY` set as an environment variable.
 
 ```bash
-# Database
+# Database — first time setup
+cd memoRecipeAppProject/memorecipe-api
+cp .env.example .env
+# Then edit .env and replace CHANGE_ME_USE_A_STRONG_PASSWORD with your own strong passwords
 docker-compose up -d
 
 # API → http://localhost:5131
@@ -64,6 +67,8 @@ func start
 cd memoRecipeAppProject/memorecipe-api
 dotnet test
 ```
+
+> **Local credentials:** `.env` is gitignored (never commit real credentials). `.env.example` is a template tracked in git with `CHANGE_ME` placeholders — each contributor sets their own local values.
 
 > **Frontend without API:** swap `AuthService` for `FakeAuthService` in `Program.cs` to develop the UI without running the API or Docker.
 
@@ -121,7 +126,7 @@ dotnet test
 
 ## Next Steps
 
-- Secrets management for production (environment variables, `.env.example`, fail-fast validation at startup)
+- Secrets management for production (environment variables, secret managers like Azure Key Vault, fail-fast validation at startup) — local dev already uses `.env`/`.env.example` pattern
 - HTTPS forced in production (verified behavior behind a reverse proxy)
 - Docker images for API and frontend, then CI/CD pipeline (automated build, tests, vulnerable-package scan)
 - GDPR compliance: account deletion with grace period, data export, legal pages, AI transparency notice
