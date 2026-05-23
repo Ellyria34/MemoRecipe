@@ -1,4 +1,6 @@
 # MemoRecipe
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+
 
 MemoRecipe is a personal project that started from a concrete need: being able to import recipes from photos or scans (magazines, handwritten notes), then correct, improve, and reuse them over time.
 
@@ -125,3 +127,10 @@ dotnet test
 - GDPR compliance: account deletion with grace period, data export, legal pages, AI transparency notice
 - Manual recipe creation (without scan), pagination, search and filters on the recipe list
 - MAUI mobile client (consumes the same API contracts as the Blazor web client)
+
+
+## License
+
+This project is licensed under the **GNU Affero General Public License v3.0** — see the [LICENSE](LICENSE) file for full text.
+
+Why AGPL? It allows the code to remain open-source for everyone while keeping the door open for future commercial dual-licensing if the project becomes a paid product.
