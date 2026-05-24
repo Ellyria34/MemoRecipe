@@ -2,7 +2,6 @@ using System.Security.Claims;
 using MemoRecipe.Application.DTOs.Auth;
 using MemoRecipe.Application.Repositories;
 using MemoRecipe.Domain.Entities.Users;
-using AutoMapper;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace MemoRecipe.Application.Services.Auth;
@@ -10,16 +9,14 @@ namespace MemoRecipe.Application.Services.Auth;
 public class AuthService : IAuthService
 {
     private readonly IUserRepository _userRepository;
-    private readonly IMapper _mapper;
     private readonly IJwtService _jwtService;
     private readonly PasswordHasher _passwordHasher;
 
     private readonly IMemoryCache _cache;
 
-    public AuthService(IUserRepository userRepository, IMapper mapper, IJwtService jwtService, PasswordHasher passwordHasher, IMemoryCache cache)
+    public AuthService(IUserRepository userRepository, IJwtService jwtService, PasswordHasher passwordHasher, IMemoryCache cache)
     {
         _userRepository = userRepository;
-        _mapper = mapper;
         _jwtService = jwtService;
         _passwordHasher = passwordHasher;
         _cache = cache;
