@@ -7,13 +7,11 @@ using MemoRecipe.Application.Services.Auth;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
-using MemoRecipe.Application.Mappings.Profiles;
 using MemoRecipe.Api.Middlewares;
 using FluentValidation;
 using MemoRecipe.Application.Validators;
 using MemoRecipe.Application.DTOs.Recipes;
 using MemoRecipe.Application.DTOs.Auth;
-using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using MemoRecipe.Infrastructure.ExternalServices;
 using MemoRecipe.Application.Services.OcrScan;
@@ -172,9 +170,6 @@ builder.Services.AddScoped<IValidator<RegisterDto>, RegisterDtoValidator>();
 builder.Services.AddHttpClient<IOcrScanService, OcrScanService>();
 builder.Services.AddScoped<PasswordHasher>();
 builder.Services.AddMemoryCache();
-
-// AutoMapper
-builder.Services.AddAutoMapper(cfg => cfg.AddMaps(typeof(UserProfile).Assembly));
 
 var app = builder.Build();
 
