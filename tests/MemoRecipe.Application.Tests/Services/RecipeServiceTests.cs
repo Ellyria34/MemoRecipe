@@ -1,16 +1,10 @@
-using System.Data.Common;
-using AutoMapper;
 using MemoRecipe.Application.DTOs.Recipes;
 using MemoRecipe.Application.DTOs.Ingredients;
-using MemoRecipe.Application.DTOs.Categories;
 using MemoRecipe.Application.DTOs.Steps;
-using MemoRecipe.Application.Mappings.Profiles;
 using MemoRecipe.Application.Services.Recipes;
 using MemoRecipe.Application.Tests.Fakes;
 using MemoRecipe.Domain.Entities.Recipes;
-using Microsoft.VisualBasic;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
+
 
 
 namespace MemoRecipe.Application.Tests.Services;
@@ -18,20 +12,13 @@ namespace MemoRecipe.Application.Tests.Services;
 public class RecipeServiceTests
 {
     private readonly FakeRecipeRepository _repository;
-    private readonly IMapper _mapper;
     private readonly RecipeService _service;
 
     public RecipeServiceTests()
     {
         _repository = new FakeRecipeRepository();
 
-        var config = new MapperConfiguration(
-            cfg => cfg.AddMaps(typeof(RecipeProfile).Assembly),
-            new NullLoggerFactory()
-        );
-        _mapper = config.CreateMapper();
-
-        _service = new RecipeService(_repository, _mapper);
+        _service = new RecipeService(_repository);
     }
 
     #region GetByIdAsync
