@@ -5,19 +5,17 @@ using MemoRecipe.Domain.Entities.Recipes;
 using MemoRecipe.Domain.Entities.Categories;
 using MemoRecipe.Domain.Entities.Ingredients;
 using MemoRecipe.Domain.Entities.Steps;
-using AutoMapper;
+using MemoRecipe.Application.Mappings.Profiles;
 
 namespace MemoRecipe.Application.Services.Recipes;
  
 public class RecipeService : IRecipeService
 {
     private readonly IRecipeRepository _repository;
-    private readonly IMapper _mapper;
 
-    public RecipeService(IRecipeRepository repository, IMapper mapper)
+    public RecipeService(IRecipeRepository repository)
     {
         _repository = repository;
-        _mapper = mapper;
     }
 
     public async Task<RecipeDto?> GetByIdAsync(Guid id, Guid userId)
@@ -27,18 +25,18 @@ public class RecipeService : IRecipeService
         {
             return null;
         }
-        return _mapper.Map<RecipeDto>(recipe);
+        return recipe.ToDto();	    
     }
 
     public async Task<List<RecipeDto>> GetAllByUserAsync(Guid userId, RecipeQueryParams queryParams)
     {
         var recipes = await _repository.GetAllByUserIdAsync(userId, queryParams);
-        return _mapper.Map<List<RecipeDto>>(recipes);
+        return recipes.Select(r => r.ToDto()).ToList();
     }
 
     public async Task<RecipeDto> CreateAsync(RecipeCreateDto dto, Guid userId)
     {
-        var newRecipe = _mapper.Map<Recipe>(dto);
+        var newRecipe = dto.ToEntity();
         newRecipe.Id = Guid.NewGuid();
         newRecipe.UserId = userId;
         newRecipe.CreatedAt = DateTime.UtcNow;
@@ -76,7 +74,7 @@ public class RecipeService : IRecipeService
         {
             throw new InvalidOperationException("Recipe was not found after creation");
         }
-        return _mapper.Map<RecipeDto>(recipeCreated);
+        return recipeCreated.ToDto();
     }
 
     public async Task<RecipeDto?> UpdateAsync(Guid id, RecipeUpdateDto dto, Guid userId)
@@ -131,7 +129,7 @@ public class RecipeService : IRecipeService
         _repository.Update(recipe);
         await _repository.SaveChangesAsync();
         
-        return _mapper.Map<RecipeDto>(recipe);
+        return recipe.ToDto();
     }
 
     public async Task<bool> DeleteAsync(Guid id, Guid userId)
