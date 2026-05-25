@@ -196,13 +196,10 @@ app.Run();
 
 static void RequireConfig(IConfiguration config, string key, string description)
 {
-    // 1. Retrieve the value from the configuration (using the config[key] index)
     var configValue = config[key];
 
-    // 2. If null/empty OR if it contains “CHANGE_ME” → throw InvalidOperationException
     if(string.IsNullOrWhiteSpace(configValue) || configValue.Contains("CHANGE_ME"))
     {
-        // 3. The exception message must include: the key and the description passed as an argument
         throw new InvalidOperationException($"Configuration '{key}' is invalid. {description}");
     }
 }
