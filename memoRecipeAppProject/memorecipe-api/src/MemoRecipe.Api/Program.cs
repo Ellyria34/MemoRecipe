@@ -45,6 +45,9 @@ builder.Services.AddCors(options =>
     });
 });
 
+RequireConfig(builder.Configuration, "JwtSettings:Secret", "Set the JwtSettings__Secret environment variable in production or update appsettings.Development.json (local dev).");
+RequireConfig(builder.Configuration, "ConnectionStrings:DefaultConnection", "Set the ConnectionStrings__DefaultConnection environment variable in production or update appsettings.Development.json (local dev).");
+RequireConfig(builder.Configuration, "OcrScan:BaseUrl", "Set the OcrScan__BaseUrl environment variable in production or update appsettings.Development.json (local dev).");
 
 builder.Services.AddDbContext<MemoRecipeDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -191,4 +194,13 @@ app.MapControllers();
 
 app.Run();
 
+static void RequireConfig(IConfiguration config, string key, string description)
+{
+    var configValue = config[key];
+
+    if(string.IsNullOrWhiteSpace(configValue) || configValue.Contains("CHANGE_ME"))
+    {
+        throw new InvalidOperationException($"Configuration '{key}' is invalid. {description}");
+    }
+}
 public partial class Program { }
