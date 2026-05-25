@@ -45,6 +45,9 @@ builder.Services.AddCors(options =>
     });
 });
 
+RequireConfig(builder.Configuration, "JwtSettings:Secret", "Set the JwtSettings__Secret environment variable in production or update appsettings.Development.json (local dev).");
+RequireConfig(builder.Configuration, "ConnectionStrings:DefaultConnection", "Set the ConnectionStrings__DefaultConnection environment variable in production or update appsettings.Development.json (local dev).");
+RequireConfig(builder.Configuration, "OcrScan:BaseUrl", "Set the OcrScan__BaseUrl environment variable in production or update appsettings.Development.json (local dev).");
 
 builder.Services.AddDbContext<MemoRecipeDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -191,4 +194,16 @@ app.MapControllers();
 
 app.Run();
 
+static void RequireConfig(IConfiguration config, string key, string description)
+{
+    // 1. Retrieve the value from the configuration (using the config[key] index)
+    var configValue = config[key];
+
+    // 2. If null/empty OR if it contains “CHANGE_ME” → throw InvalidOperationException
+    if(string.IsNullOrWhiteSpace(configValue) || configValue.Contains("CHANGE_ME"))
+    {
+        // 3. The exception message must include: the key and the description passed as an argument
+        throw new InvalidOperationException($"Configuration '{key}' is invalid. {description}");
+    }
+}
 public partial class Program { }
