@@ -83,7 +83,6 @@ docker-compose.override.yml
 
 # Docker stuff
 *.tar
-*.dockerignore
 
 ############################
         TEST RESULTS      
