@@ -1,0 +1,49 @@
+# Build artifacts
+**/bin/
+**/obj/
+
+# IDE / OS
+**/.vs/
+**/.vscode/
+**/.idea/
+**/.DS_Store
+**/Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Logs
+**/*.log
+
+# Documentation (not needed at runtime)
+**/*.md
+README.md
+LICENSE
+
+# Environment files (NEVER ship secrets in image)
+**/.env
+**/.env.local
+**/.env.*.local
+**/appsettings.Development.json
+**/appsettings.*.local.json
+**/.env.example
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Tests (not deployed)
+tests/
+**/*.Tests/
+
+# Visual Studio / IDE generated files (recursive)
+**/*.user
+**/*.suo
+**/*.lscache
+**/*.http
+
+# (Optional) Dev launch profiles
+**/Properties/launchSettings.json
