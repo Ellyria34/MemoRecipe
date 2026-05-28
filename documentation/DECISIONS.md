@@ -228,6 +228,33 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **État** : DÉCIDÉ le 23/05/2026 — implémentation en cours sur la branche `feature/BACK-046-migrate-to-mapperly`. Sera marqué DONE quand BACK-046 sera complètement clôturé.
 
 
+### DEC-027 : nginx:alpine pour servir le Blazor WASM (au lieu d'aspnet runtime)
+
+- **Date** : 28 mai 2026
+- **Choix** : Le Dockerfile du Frontend Blazor WASM utilise **`nginx:alpine`** au stage runtime, **pas** `mcr.microsoft.com/dotnet/aspnet:10.0-alpine` (qu'on utilise côté API).
+- **Pourquoi** :
+  - **Blazor WASM = SPA statique** : le résultat de `dotnet publish` produit un dossier `wwwroot/` contenant uniquement des fichiers statiques (`index.html`, `_framework/` avec le bundle WASM, CSS, JS, images). Le navigateur télécharge ces fichiers et **exécute le WebAssembly côté client**. **Aucun runtime .NET n'est nécessaire côté serveur**.
+  - Embarquer `aspnet:10.0-alpine` (~150 MB) juste pour servir des fichiers statiques = gâchis : 100% du runtime .NET inutilisé.
+  - **`nginx:alpine`** (~40 MB) est conçu pour ça : **4× plus léger**, performances imbattables sur le statique, optimisé pour des dizaines de milliers de connexions concurrentes, configuration simple via fichiers `.conf`.
+  - **Trade-off** : on perd la possibilité de servir des assets dynamiques côté serveur (SSR, middleware), mais c'est inapplicable au modèle Blazor WASM (tout est client-side).
+- **Sources** :
+  - [Blazor WebAssembly hosting & deployment (Microsoft)](https://learn.microsoft.com/en-us/aspnet/core/blazor/host-and-deploy/webassembly) — confirme que tout serveur HTTP statique convient
+  - [nginx official Docker image](https://hub.docker.com/_/nginx) — image officielle, mainline branch, scans CVE réguliers
+  - Fiche [DOCKERFILE-CHEATSHEET.md](fiches/DOCKERFILE-CHEATSHEET.md) section Partie 2 — détail technique
+- **Conséquences** :
+  - **`nginx.conf` requis** dans le projet Frontend pour gérer le **SPA routing fallback** (`try_files $uri $uri/ /index.html =404`) sans lequel un F5 sur une route interne (`/recipes/abc`) renvoie un 404 nginx
+  - **Pas d'`ENV ASPNETCORE_ENVIRONMENT=Production`** côté Frontend : nginx n'est pas un runtime .NET, et le mode Production est figé dans le bundle au moment du publish (`-c Release`)
+  - **Port exposé = 80** (convention nginx), pas 8080 comme côté API
+  - **Pas d'`ENTRYPOINT` à définir** : l'image officielle nginx lance nginx en foreground par défaut (container-compatible)
+  - **Image finale ~40 MB** (vs ~150 MB avec aspnet) — gain net 110 MB par image. À l'échelle d'un CI/CD ou d'un registry, c'est significatif (bandwidth, storage, pull time)
+  - Optimisations prod nginx (gzip avancé, cache headers immutables sur assets hashés, security headers) tracées dans **BACK-054** pour application juste avant le déploiement
+- **Conditions qui invalideraient ce choix** :
+  - **Passage à Blazor Server** ou **Blazor United/SSR** : ces modèles nécessitent un runtime .NET côté serveur. Il faudrait revenir à `aspnet:10.0-alpine`.
+  - **Besoin de middleware/API routes côté serveur** dans le même container (ex: BFF pattern). Mais c'est mieux d'avoir une API séparée (déjà notre cas).
+  - **Migration vers Caddy** (alternative à nginx avec HTTPS auto via Let's Encrypt) : à considérer au moment de BACK-009 si on veut simplifier la chaîne TLS, mais nginx reste la baseline.
+- **État** : DÉCIDÉ et appliqué le 28/05/2026 (BACK-007 partie 2, PR #13).
+
+
 ---
 
 ## A investiguer

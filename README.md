@@ -114,6 +114,7 @@ dotnet test
 - CORS strictly configured: allowed origins loaded from `appsettings.json` with fail-fast startup validation; explicit whitelist of headers (`Content-Type`) and methods (`GET`, `POST`, `PUT`, `DELETE`)
 - CSRF protection via cookie `SameSite=Strict` combined with strict CORS (no dedicated CSRF token needed in this configuration)
 - File upload validation on the scan endpoint with **defense in depth across four layers**: global Kestrel request body limit, per-endpoint size attributes, server-side checks (size, extension whitelist `.jpg`/`.jpeg`/`.png`, MIME type whitelist), and binary signature verification (magic bytes for JPEG, PNG)
+- Fail-fast configuration validation at startup: the API refuses to boot if required env vars (`JwtSettings:Secret`, `ConnectionStrings:DefaultConnection`, `OcrScan:BaseUrl`) are missing or still hold `CHANGE_ME` placeholders — prevents accidental production deployments with insecure dev defaults
 
 ### Tests
 - Unit tests on validators, services, and the AI pipeline (deterministic fakes for the LLM and the repository layer)
@@ -123,12 +124,23 @@ dotnet test
 
 ### Tooling and maintenance
 - NuGet package versions aligned across projects (EF Core, Blazor WASM); legacy `Microsoft.AspNetCore.WebUtilities 2.2.0` upgraded to a current .NET 8 release in the AI project
+- Object mapping handled by [Mapperly](https://github.com/riok/mapperly) (MIT-licensed source generator) — mappings produced at compile time, zero runtime reflection, errors caught at build time
+
+### Containerization
+- Multi-stage Docker images:
+  - **API** (~150 MB): `dotnet/sdk:10.0-alpine` for build, `dotnet/aspnet:10.0-alpine` for runtime (SDK stripped from the final image)
+  - **Frontend** (~40 MB): `dotnet/sdk:10.0-alpine` for build, `nginx:alpine` to serve the published Blazor WASM bundle as static files (no .NET runtime required server-side)
+- Layer caching optimized: csproj files copied before sources so `dotnet restore` stays cached when only code changes
+- `nginx.conf` configured with SPA routing fallback (`try_files $uri $uri/ /index.html =404`) so client-side routes work correctly on full reload (F5)
+- `.dockerignore` excludes build artifacts, IDE state, secrets, and personal docs to keep the build context lean and avoid shipping sensitive files
+- `.env.example` documents every required env var for production deployment with `CHANGE_ME` placeholders
 
 ## Next Steps
 
-- Secrets management for production (environment variables, secret managers like Azure Key Vault, fail-fast validation at startup) — local dev already uses `.env`/`.env.example` pattern
+- Production orchestration via `docker-compose.prod.yml` wiring the API, frontend, and PostgreSQL services together (API + frontend Docker images already in place)
 - HTTPS forced in production (verified behavior behind a reverse proxy)
-- Docker images for API and frontend, then CI/CD pipeline (automated build, tests, vulnerable-package scan)
+- CI/CD pipeline (automated build, tests, vulnerable-package scan via `dotnet list package --vulnerable`)
+- AGPL §13 footer linking to source (compliance for public-facing AGPL deployment)
 - GDPR compliance: account deletion with grace period, data export, legal pages, AI transparency notice
 - Manual recipe creation (without scan), pagination, search and filters on the recipe list
 - MAUI mobile client (consumes the same API contracts as the Blazor web client)
@@ -137,5 +149,4 @@ dotnet test
 ## License
 
 This project is licensed under the **GNU Affero General Public License v3.0** — see the [LICENSE](LICENSE) file for full text.
-
-Why AGPL? It allows the code to remain open-source for everyone while keeping the door open for future commercial dual-licensing if the project becomes a paid product.
+It allows the code to remain open-source for everyone while keeping the door open for future commercial dual-licensing if the project becomes a paid product.
