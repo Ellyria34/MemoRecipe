@@ -255,6 +255,39 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **État** : DÉCIDÉ et appliqué le 28/05/2026 (BACK-007 partie 2, PR #13).
 
 
+### DEC-028 : Frontend ↔ API via reverse proxy nginx (Option B), pas de CORS exposé
+
+- **Date** : 29 mai 2026
+- **Choix** : Pour la composition prod (BACK-007 partie 3), le nginx du container Frontend **proxifie `/api/*`** vers le container API en interne au réseau Docker (`proxy_pass http://api:8080/api/`). L'API n'est **pas exposée** publiquement. Le bundle Blazor WASM utilise une **URL relative `/api/...`** (même origine), donc **zéro CORS** en prod.
+- **Pourquoi** :
+  - **Surface d'attaque réduite** : l'API n'écoute qu'en interne au réseau Docker, jamais joignable depuis Internet. Vis-à-vis OWASP A05:2025 (Security Misconfiguration), c'est la posture la plus restrictive.
+  - **Simplicité TLS** : 1 seul certificat HTTPS pour le sous-domaine `app.memorecipe.com` (Apache du host + Let's Encrypt via BACK-009), au lieu de 2 certificats pour 2 sous-domaines (`api.` + `app.`).
+  - **Same-origin** : `SameSite=Strict` sur les cookies HttpOnly (DEC-024 CSRF) fonctionne parfaitement parce que le Frontend et l'API partagent l'origine. Pas de bidouille `credentials: include` cross-origin.
+  - **Bundle WASM universel** : un seul build `dotnet publish -c Release` fonctionne en dev local (avec override `appsettings.Development.json`) ET en prod (URL relative via `HostEnvironment.BaseAddress`). Pas de rebuild par environnement.
+  - **Pattern standard prod** : architecture SPA + API derrière un même reverse proxy = pratique recommandée chez la majorité des déploiements modernes (Caddy, Traefik, nginx).
+- **Alternative considérée — Option A (Frontend appelle API en cross-origin)** :
+  - L'API serait exposée sur `api.memorecipe.com` avec son propre certificat
+  - CORS à configurer (déjà partiellement fait dans BACK-002 + BACK-023)
+  - Cookies HttpOnly cross-origin = trade-off `SameSite=None; Secure` + `credentials: include` partout
+  - Rebuild WASM par environnement (URL `api.memorecipe.com` dans le bundle compilé)
+  - **Rejetée** : plus de complexité, plus de surface d'attaque, pas d'avantage compensatoire.
+- **Sources** :
+  - [Mozilla — Same-origin policy & CORS](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy)
+  - [OWASP A05:2025 — Security Misconfiguration](https://owasp.org/Top10/2025/A05_2025-Security_Misconfiguration/)
+  - [Blazor WASM hosting models (Microsoft)](https://learn.microsoft.com/en-us/aspnet/core/blazor/host-and-deploy/webassembly)
+  - DEC-024 — CSRF protection via SameSite=Strict + strict CORS (cette décision renforce DEC-024)
+- **Conséquences** :
+  - **Modifs Frontend** : 3 fichiers — `wwwroot/appsettings.json` (`ApiBaseUrl: ""`), `wwwroot/appsettings.Development.json` (`ApiBaseUrl: "http://localhost:5131/"` pour le dev `dotnet watch`), `Program.cs` (lecture depuis config avec fallback sur `HostEnvironment.BaseAddress`)
+  - **Modif `nginx.conf`** : ajout d'un bloc `location /api/ { proxy_pass http://api:8080/api/; ... }` avant le `location /` existant
+  - **`docker-compose.prod.yml`** : API et Postgres utilisent `expose:` (interne) au lieu de `ports:` (mappé sur host)
+  - **API CORS config** : peut être supprimée en prod (origins vide) puisqu'il n'y a plus de cross-origin. **À garder en dev** pour le mode `dotnet watch`.
+  - **Apache du host** (Infomaniak VPS Cloud) : ProxyPass `app.memorecipe.com → http://127.0.0.1:8080/` (loopback vers le container Frontend nginx). Cohabitation propre avec les autres sites prod du VPS.
+- **Conditions qui invalideraient ce choix** :
+  - **L'API devient consommée par d'autres clients que le Frontend Blazor** (ex: mobile MAUI futur appelant directement, partenaires externes, microservices) → là `api.memorecipe.com` sous-domaine séparé + CORS strict devient pertinent. Mais le Frontend Web pourrait continuer en Option B en parallèle.
+  - **Découplage Frontend / API souhaité** pour les déployer séparément (versions différentes, ratios de scaling différents) → 2 containers ≠ même origine.
+- **État** : **DÉCIDÉ le 29/05/2026 — à implémenter** dans BACK-007 partie 3 (session prochaine).
+
+
 ---
 
 ## A investiguer
