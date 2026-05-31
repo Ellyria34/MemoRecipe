@@ -1,0 +1,88 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: memorecipe_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    mem_limit: 512m
+    cpus: '1.0'
+    security_opt:
+      - no-new-privileges:true
+
+
+  api:
+    build:
+      context: ./memoRecipeAppProject/memorecipe-api
+      dockerfile: Dockerfile
+    container_name: memorecipe_api
+    restart: unless-stopped
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      JwtSettings__Secret: ${JWT_SECRET}
+      JwtSettings__Issuer: ${JWT_ISSUER}
+      JwtSettings__Audience: ${JWT_AUDIENCE}
+      OcrScan__BaseUrl: ${OCR_SCAN_BASE_URL}
+      Cors__AllowedOrigins__0: "http://localhost:8080"
+      ASPNETCORE_ENVIRONMENT: Production
+    networks:
+      - backend
+    depends_on:
+      postgres: 
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    mem_limit: 512m
+    cpus: '1.0'
+    security_opt:
+      - no-new-privileges:true
+
+
+  web:
+    build:
+      context: ./App/MemoRecipe.Web
+      dockerfile: Dockerfile
+    container_name: memorecipe_web
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    networks:
+      - backend
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    mem_limit: 128m
+    cpus: '0.5'
+    security_opt:
+      - no-new-privileges:true
+
+  
+networks:
+  backend:
+    driver: bridge
+  
+volumes:
+  postgres_data:
+    driver: local
