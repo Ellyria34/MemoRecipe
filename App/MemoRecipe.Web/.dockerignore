@@ -28,7 +28,7 @@ LICENSE
 **/.env.*.local
 **/appsettings.Development.json
 **/appsettings.*.local.json
-**/.env.example
+**/*.example
 
 # Docker
 Dockerfile

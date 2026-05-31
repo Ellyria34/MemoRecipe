@@ -57,6 +57,8 @@ dotnet run --project src/MemoRecipe.Api
 
 # Frontend → http://localhost:5110
 cd App/MemoRecipe.Web
+# First time only: copy the dev appsettings template (gitignored real file)
+cp wwwroot/appsettings.Development.json.example wwwroot/appsettings.Development.json
 dotnet watch
 
 # Azure Functions → http://localhost:7071
@@ -69,6 +71,8 @@ dotnet test
 ```
 
 > **Local credentials:** `.env` is gitignored (never commit real credentials). `.env.example` is a template tracked in git with `CHANGE_ME` placeholders — each contributor sets their own local values.
+
+> **API local dev config:** the API reads from `appsettings.Development.json` (gitignored). Use the keys listed in [`.env.example`](memoRecipeAppProject/memorecipe-api/.env.example), converted from env-var format to nested JSON — e.g. `JwtSettings__Secret=...` becomes `{"JwtSettings": {"Secret": "..."}}`.
 
 > **Frontend without API:** swap `AuthService` for `FakeAuthService` in `Program.cs` to develop the UI without running the API or Docker.
 
@@ -104,6 +108,7 @@ dotnet test
 - Dashboard (`/`) with recipe count and 5 most recent recipes
 - Code-behind pattern everywhere (`.razor` / `.razor.cs` separation)
 - Save button automatically disabled while the form is invalid (title length, at least one ingredient, at least one step)
+- API base URL is config-driven via `wwwroot/appsettings.json` (with Development override) — same bundle works in `dotnet watch` mode (cross-origin) and in Docker compose prod (same-origin via nginx reverse proxy)
 
 ### Security
 - Password hashing migrated from HMAC-SHA512 to PBKDF2 (`PasswordHasher<T>`, 100k iterations), with rolling migration for existing users
