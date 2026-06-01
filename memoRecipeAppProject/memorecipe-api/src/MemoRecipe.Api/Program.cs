@@ -172,9 +172,17 @@ builder.Services.AddScoped<IValidator<LoginDto>, LoginDtoValidator>();
 builder.Services.AddScoped<IValidator<RegisterDto>, RegisterDtoValidator>();
 builder.Services.AddHttpClient<IOcrScanService, OcrScanService>();
 builder.Services.AddScoped<PasswordHasher>();
+builder.Services.AddHealthChecks();
 builder.Services.AddMemoryCache();
 
 var app = builder.Build();
+
+// Auto-apply EF Core migrations on startup.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
+    db.Database.Migrate();
+}
 
 // Configure
 if (app.Environment.IsDevelopment())
@@ -190,7 +198,9 @@ app.UseMiddleware<ExceptionMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapHealthChecks("/health");
 app.MapControllers();
+
 
 app.Run();
 
