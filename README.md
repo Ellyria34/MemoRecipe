@@ -139,16 +139,20 @@ dotnet test
 - `nginx.conf` configured with SPA routing fallback (`try_files $uri $uri/ /index.html =404`) so client-side routes work correctly on full reload (F5)
 - `.dockerignore` excludes build artifacts, IDE state, secrets, and personal docs to keep the build context lean and avoid shipping sensitive files
 - `.env.example` documents every required env var for production deployment with `CHANGE_ME` placeholders
+- **`docker-compose.prod.yml`** orchestrates the 3 services (API + Frontend + PostgreSQL) with a custom internal bridge network, healthchecks chain (`postgres healthy → api healthy → web healthy`), resource limits, `security_opt: no-new-privileges`, and a same-origin reverse proxy pattern (Frontend nginx proxifies `/api/*` to the API container) — no CORS needed in production
+- API has a `/health` endpoint (`AddHealthChecks()`) used by the Docker compose healthcheck, and applies EF Core migrations automatically on startup (single-instance pattern; multi-instance scaling would use an init container)
 
 ## Next Steps
 
-- Production orchestration via `docker-compose.prod.yml` wiring the API, frontend, and PostgreSQL services together (API + frontend Docker images already in place)
-- HTTPS forced in production (verified behavior behind a reverse proxy)
-- CI/CD pipeline (automated build, tests, vulnerable-package scan via `dotnet list package --vulnerable`)
+- HTTPS forced in production (reverse proxy + Let's Encrypt at the host edge, TLS terminating upstream and forwarding HTTP to the Docker compose Frontend on the local loopback)
+- CI/CD pipeline (automated build, tests, vulnerable-package scan via `dotnet list package --vulnerable`, plus CodeQL on GitHub-hosted runners)
 - AGPL §13 footer linking to source (compliance for public-facing AGPL deployment)
 - GDPR compliance: account deletion with grace period, data export, legal pages, AI transparency notice
 - Manual recipe creation (without scan), pagination, search and filters on the recipe list
 - MAUI mobile client (consumes the same API contracts as the Blazor web client)
+- Compose hardening v2: `read_only` filesystems, `cap_drop: ALL` with minimal `cap_add`, explicit non-root `user:` directive (currently deferred to avoid breaking Postgres startup with too-strict capabilities — incremental hardening)
+- Automated Postgres backup to S3-compatible object storage (`pg_dump` daily, encrypted at rest, documented restore procedure)
+- Observability: log rotation + centralized aggregation (Loki/Grafana), metrics scraping (Prometheus + Grafana + exporters)
 
 
 ## License

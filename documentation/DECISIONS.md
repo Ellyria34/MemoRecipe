@@ -281,11 +281,38 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **Modif `nginx.conf`** : ajout d'un bloc `location /api/ { proxy_pass http://api:8080/api/; ... }` avant le `location /` existant
   - **`docker-compose.prod.yml`** : API et Postgres utilisent `expose:` (interne) au lieu de `ports:` (mappé sur host)
   - **API CORS config** : peut être supprimée en prod (origins vide) puisqu'il n'y a plus de cross-origin. **À garder en dev** pour le mode `dotnet watch`.
-  - **Apache du host** (Infomaniak VPS Cloud) : ProxyPass `app.memorecipe.com → http://127.0.0.1:8080/` (loopback vers le container Frontend nginx). Cohabitation propre avec les autres sites prod du VPS.
+  - **Reverse proxy edge du host** (Apache/nginx/Caddy selon le setup) : ProxyPass de l'origine publique HTTPS vers le loopback du container Frontend nginx en interne au host. Permet la cohabitation propre avec d'autres sites éventuels hébergés sur le même host.
 - **Conditions qui invalideraient ce choix** :
   - **L'API devient consommée par d'autres clients que le Frontend Blazor** (ex: mobile MAUI futur appelant directement, partenaires externes, microservices) → là `api.memorecipe.com` sous-domaine séparé + CORS strict devient pertinent. Mais le Frontend Web pourrait continuer en Option B en parallèle.
   - **Découplage Frontend / API souhaité** pour les déployer séparément (versions différentes, ratios de scaling différents) → 2 containers ≠ même origine.
-- **État** : **DÉCIDÉ le 29/05/2026 — à implémenter** dans BACK-007 partie 3 (session prochaine).
+- **État** : **DÉCIDÉ le 29/05/2026 et APPLIQUÉ le 01/06/2026** (BACK-007 partie 3, PR #14). Validé en E2E local : bundle Blazor WASM appelle `/api/*` en same-origin via nginx reverse proxy, **zéro CORS error** dans la console DevTools.
+
+
+### DEC-029 : Compose security baseline — phasage volontaire du hardening avancé
+
+- **Date** : 31 mai 2026
+- **Choix** : Le `docker-compose.prod.yml` (BACK-007 partie 3) implémente une **posture sécu baseline solide** (network isolation, `security_opt: no-new-privileges`, `mem_limit` + `cpus`, healthchecks + `depends_on: service_healthy`, secrets via `env_file`) **mais diffère volontairement** 3 mesures de hardening avancées (`read_only: true` filesystems, `cap_drop: ALL` + `cap_add` minimal, `user:` non-root explicit) tracées dans **BACK-056**.
+- **Pourquoi** :
+  - **Postgres en particulier** nécessite plusieurs Linux capabilities (`CHOWN`, `SETUID`, `SETGID`, `DAC_OVERRIDE`, `FOWNER`, `FSETID`) et l'accès en écriture à `/var/run/postgresql` + `/tmp`. Configurer `cap_drop: ALL` + `cap_add: [...]` + `read_only: true` + `tmpfs: [...]` proprement demande du **tuning fin par image** qui peut casser au moindre upgrade Postgres.
+  - **Phasage > perfection** : avoir une baseline solide validée et fonctionnelle MAINTENANT vaut mieux que chercher la perfection trop tôt et risquer de casser le service en production. **Hardening incrémental** = méthode pro standard.
+  - **Trade-off conscient** : la baseline actuelle ferme déjà 80% de la surface d'attaque (isolation réseau, anti-escalade, anti-DoS). Les 20% restants nécessitent du temps qui n'est pas critique au stade portfolio.
+- **Autres trade-offs deferred dans cette même PR** (mentionnés pour traçabilité) :
+  - **Pas de TLS intra-network** (HTTP entre `web` et `api` dans le réseau Docker `backend`) : acceptable car même host, attaquer le bus interne demanderait déjà d'avoir compromis le host. mTLS = overkill pour notre cas.
+  - **Pas de Docker secrets** natifs (`secrets:` mechanism qui monte les secrets en fichier `/run/secrets/x` au lieu d'env vars) : env vars suffisent pour un compose simple. Le mécanisme `secrets:` brille en Docker Swarm / Kubernetes où il est intégré au scheduler. Pas pertinent ici.
+  - **Pas d'images distroless** (au lieu d'Alpine) : Alpine ~50 MB déjà très léger. Distroless ~20 MB mais zéro shell = très complexe à debugger en cas de pb prod. Marginal gain vs cost.
+- **Sources** :
+  - [Docker Compose hardening guide (OWASP)](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html)
+  - [Postgres official Docker image security recommendations](https://hub.docker.com/_/postgres)
+  - [no-new-privileges security_opt (Docker docs)](https://docs.docker.com/reference/compose-file/services/#security_opt)
+- **Conséquences** :
+  - **Sécu actuelle** : ~7/10 pour un projet portfolio learning, ~6/10 pour une app SaaS B2B moyenne, ~4/10 pour fintech/santé (où il faudrait BACK-056 + BACK-057 + BACK-058 + BACK-059 + compliance).
+  - **Pitch entretien clair et défendable** : "j'ai construit le compose en couches sécu — baseline d'abord, hardening avancé tracé pour itération suivante. Phasage évite de casser le service en cherchant la perfection trop tôt."
+  - **Tickets dédiés créés** : BACK-056 (advanced hardening), BACK-057 (backup auto Postgres), BACK-058 (logs centralisés), BACK-059 (monitoring Prometheus+Grafana) — pour rendre explicite ce qui manque et le tracker comme dette technique consciente.
+- **Conditions qui invalideraient ce choix** :
+  - **Passage à un domaine régulé** (santé, finance, gov) où le hardening avancé devient obligation légale → faire BACK-056 immédiatement.
+  - **Incident de sécurité** sur un projet similaire qui aurait été évité par read_only / cap_drop → revoir la priorité.
+  - **Disponibilité d'un orchestrateur** (Docker Swarm, Kubernetes) qui intègre natement Docker secrets / Pod security policies → migrer vers ces mécanismes.
+- **État** : DÉCIDÉ et appliqué le 31/05/2026 (BACK-007 partie 3, PR #14 mergée le 01/06/2026).
 
 
 ---
