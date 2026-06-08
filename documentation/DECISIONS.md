@@ -25,8 +25,23 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 
 ### DEC-004 : PostgreSQL avec colonnes JSONB
 - **Date** : Nov 2025
-- **Choix** : Donnees structurees en tables relationnelles + JSONB pour les donnees flexibles (OCR brut, nutrition, metadata).
-- **Pourquoi** : PostgreSQL gere nativement le JSON avec indexation. Evite de creer des tables pour des donnees semi-structurees qui varient beaucoup.
+- **Choix** : Données structurées en tables relationnelles + JSONB pour les données flexibles (OCR brut, nutrition, metadata).
+- **Pourquoi** : PostgreSQL gère nativement le JSON avec indexation. Évite de créer des tables pour des données semi-structurées qui varient beaucoup.
+- **Colonnes concrètes** :
+  - `IngredientNutrition.AllergensJson` : liste d'allergènes
+  - `OCRExtraction.JsonData` : sortie brute OCR + IA structurée
+  - `RecipeSource.MetadataJson` : metadata source variable (URL, livre, etc.)
+- **Conséquence sur les tests (identifiée 02/06/2026)** :
+  Les tests d'intégration actuels utilisent SQLite in-memory via `WebApplicationFactory`. **Deux divergences silencieuses** vs Postgres prod :
+  **1. JSONB** : SQLite ne supporte pas le type `jsonb` — traduit en `TEXT`. Aujourd'hui sans risque (aucune query JSONB-specific dans le code), mais dès que des queries `@>`, `?`, `->` seront ajoutées (ex: recherche par allergène), il faudra TestContainers.
+  **2. Dates et timestamps** : SQLite n'a pas de type date natif (stockage en TEXT/ISO string), donc :
+    - Pas de support `TIMESTAMP WITH TIME ZONE` (les colonnes `CreatedAt`/`UpdatedAt` perdent la sémantique TIMESTAMPTZ)
+    - Précision microseconde Postgres → précision variable SQLite
+    - `DateTime.Kind` perdu au round-trip (revient `Unspecified` en SQLite vs `Utc` en Postgres + Npgsql)
+  Aujourd'hui le code utilise systématiquement `DateTime.UtcNow` et aucune logique métier ne dépend de `.Kind` après lecture DB → risque dates faible. Mais le risque latent grandira avec les features futures (search par période, filtre temporel).
+  **A Faire** : migration vers TestContainers tracée dans **BACK-062**.
+- **État** : DÉCIDÉ et appliqué — Postgres avec JSONB en place depuis InitialCreate migration.
+
 
 ### DEC-005 : JWT pour l'authentification API-first
 - **Date** : Nov 2025
@@ -248,6 +263,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **Pas d'`ENTRYPOINT` à définir** : l'image officielle nginx lance nginx en foreground par défaut (container-compatible)
   - **Image finale ~40 MB** (vs ~150 MB avec aspnet) — gain net 110 MB par image. À l'échelle d'un CI/CD ou d'un registry, c'est significatif (bandwidth, storage, pull time)
   - Optimisations prod nginx (gzip avancé, cache headers immutables sur assets hashés, security headers) tracées dans **BACK-054** pour application juste avant le déploiement
+  - **Frontend non impacté par DEC-030** (Container Support natif SDK .NET, scope API uniquement) : le Frontend Blazor WASM garde son `Dockerfile` nginx custom — le SDK .NET ne sait pas générer une image avec nginx comme runtime
 - **Conditions qui invalideraient ce choix** :
   - **Passage à Blazor Server** ou **Blazor United/SSR** : ces modèles nécessitent un runtime .NET côté serveur. Il faudrait revenir à `aspnet:10.0-alpine`.
   - **Besoin de middleware/API routes côté serveur** dans le même container (ex: BFF pattern). Mais c'est mieux d'avoir une API séparée (déjà notre cas).
@@ -313,6 +329,183 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **Incident de sécurité** sur un projet similaire qui aurait été évité par read_only / cap_drop → revoir la priorité.
   - **Disponibilité d'un orchestrateur** (Docker Swarm, Kubernetes) qui intègre natement Docker secrets / Pod security policies → migrer vers ces mécanismes.
 - **État** : DÉCIDÉ et appliqué le 31/05/2026 (BACK-007 partie 3, PR #14 mergée le 01/06/2026).
+
+
+### DEC-030 : Container Support natif SDK .NET pour la generation de l'image API
+
+- **Date** : 04 juin 2026
+- **Choix** : Pour le projet `MemoRecipe.Api`, abandon du `Dockerfile` manuel au profit du **Container Support natif intégré au SDK .NET 7+** (cible MSBuild `PublishContainer`). L'image API est désormais générée via `dotnet publish --os linux --arch x64 /t:PublishContainer`, avec la configuration en properties MSBuild dans le `.csproj` (`<ContainerBaseImage>`, `<ContainerImageName>`, `<ContainerImageTag>`, `<ContainerUser>`, `<ContainerPort>`).
+- **Pourquoi** :
+  - **Suggestion du mentor (retour LinkedIn 02/06/2026, cf. fiche MENTORING-RETOURS.md)** : ".Net 10, tu peux te passer des Dockerfile, c'est directement intégré dans les csproj maintenant et dans le SDK .net."
+  - **Cohérence automatique avec le SDK** : la base image (`mcr.microsoft.com/dotnet/aspnet:10.0-alpine`) suit la version du SDK installée. Plus de risque de désynchronisation Dockerfile / SDK lors des upgrades.
+  - **Sécurité baked-in** : Container Support SDK applique les bonnes pratiques par défaut (utilisateur non-root via `<ContainerUser>`, layers optimisées, minimal attack surface).
+  - **Maintenabilité** : ~5 lignes XML dans le `.csproj` remplacent ~30 lignes de Dockerfile multi-stage. Moins de code = moins de bugs potentiels.
+  - **Layer caching automatique** : le SDK gère le découpage en layers (OS / runtime / NuGet deps / code app) sans configuration manuelle.
+  - **Validation en visio mentor 04/06/2026** : le mentor confirme que le résultat reste une image Docker standard, donc l'orchestration Compose (et le déploiement en prod) est inchangée — c'est uniquement la "recette" qui passe du Dockerfile vers le `.csproj`.
+- **Scope** :
+  - **S'applique à** : `MemoRecipe.Api` uniquement (projet .NET 10).
+  - **Ne s'applique PAS au Frontend Blazor WASM** : le Frontend utilise `nginx:alpine` comme runtime (cf. DEC-027), pas un runtime .NET. Container Support SDK ne sait pas générer une image avec nginx comme entrypoint. Le Dockerfile custom Frontend est conservé.
+- **Alternative considérée — Garder le Dockerfile multi-stage existant** :
+  - Avantage : aucune migration, code stable connu.
+  - Inconvénient : ~30 lignes à maintenir manuellement, version base image hardcodée (drift vs SDK installé), pas de bénéfice à l'effort de maintenance.
+  - **Rejetée** : la migration est mécanique et apporte une simplification durable.
+- **Sources** :
+  - [.NET SDK Container Building (docs Microsoft)](https://learn.microsoft.com/en-us/dotnet/core/docker/publish-as-container)
+  - [SDK Containers — properties MSBuild de customisation](https://learn.microsoft.com/en-us/dotnet/core/docker/publish-as-container#customizing-the-container-image)
+  - Retour mentor 02/06/2026 + visio 04/06/2026 (cf. fiches/MENTORING-RETOURS.md)
+- **Conséquences** :
+  - **`memorecipe-api.csproj`** enrichi des properties `<ContainerBaseImage>`, `<ContainerImageName>`, `<ContainerImageTag>`, `<ContainerUser>`, `<ContainerPort>`, etc.
+  - **`Dockerfile` de l'API supprimé** du repo.
+  - **`docker-compose.yml` (dev)** : le service `api` passe de `build: ./...` à `image: memorecipe-api:dev`. Workflow dev : `dotnet publish /t:PublishContainer` avant `docker compose up -d`.
+  - **`docker-compose.prod.yml`** : le service `api` passe de `build:` à `image: ghcr.io/<user>/memorecipe-api:<tag>` (cf. DEC-031 pour le workflow registry).
+  - **Frontend non impacté** : DEC-027 reste valide (Dockerfile nginx custom conservé).
+  - **Pré-requis pour DEC-032 (Aspire)** : Aspire utilise Container Support SDK en interne pour les projets .NET. Cette décision doit être appliquée avant l'étape Aspire.
+- **Conditions qui invalideraient ce choix** :
+  - **Customisation OS poussée** non supportable par les properties MSBuild (installation de paquets système custom, configuration noyau, dépendances natives complexes) → repasser à un Dockerfile.
+  - **Build multi-architecture complexe** non couvert par `<ContainerRuntimeIdentifiers>` → repasser à un Dockerfile + buildx.
+  - **Retrait du Container Support du SDK** (improbable, fonctionnalité officielle Microsoft) → repasser à un Dockerfile.
+- **État** : DÉCIDÉ le 04/06/2026 (visio mentor). À implémenter dans **BACK-063** (étape 1A).
+
+
+### DEC-031 : Distribution des images via GitHub Container Registry (GHCR) en prod
+
+- **Date** : 04 juin 2026 (visio mentor) + analyse comparative post-visio
+- **Choix** : Les images Docker du projet (API et Frontend) sont **buildées en local sur le poste dev**, **pushées vers GHCR (GitHub Container Registry)** taguées avec une version sémantique, puis **pullées depuis le VPS Cloud** au moment du déploiement. Le `docker-compose.prod.yml` utilise `image: ghcr.io/<user>/memorecipe-api:<tag>` au lieu de `build:`. (Option A retenue contre Option B "installer SDK .NET sur le VPS".)
+- **Pourquoi** :
+  - **VPS partagé** : le VPS Cloud héberge aussi d'autres sites en parallèle. Installer le SDK .NET dessus (alternative Option B) serait invasif (paquets système ~600 MB + maintenance des versions SDK) et augmenterait la surface d'attaque. Option A préserve la coexistence.
+  - **Build sur dev = principe pro standard** : on ne build pas sur le serveur de prod. Le serveur de prod doit juste **exécuter** des artefacts pré-construits et validés. Build CPU-intensive en dev → pas de risque de ralentir les autres services du VPS pendant un déploiement.
+  - **Rollback rapide** : `docker compose pull memorecipe-api:v1.0.4 && docker compose up -d` permet de revenir à une version précédente en ~30 secondes, atomiquement. Alternative Option B demanderait `git checkout + rebuild + restart` (~5-10 min, plus risqué).
+  - **Reproductibilité parfaite** : un tag d'image (`v1.0.5`) est **immuable**. La même image tourne en dev, en pré-prod (futur), et en prod. Plus de "ça marche chez moi" lié à la version du SDK installée localement.
+  - **Versionning natif** : les tags sémantiques (`v1.0.5`, `latest`, `staging`) offrent une gestion de versions explicite sans tooling additionnel.
+  - **CI/CD future facilitée (BACK-008)** : GitHub Actions peut push directement à GHCR via `GITHUB_TOKEN` (5 lignes de config). Alternative Option B demanderait SSH depuis CI vers le VPS = clé privée à sécuriser = friction.
+  - **Sécurité** : code source jamais déposé sur le VPS. GHCR scanne automatiquement les images pour vulnérabilités (Dependabot intégré).
+  - **Cohérence avec DEC-032** : Aspire (étape 2) réutilisera GHCR comme registry cible via `aspire publish --registry ghcr.io`. Décision compatible avec roadmap.
+- **Pourquoi GHCR plutôt que Docker Hub** :
+  - **Repos publics illimités** + **pulls illimités** (Docker Hub limite à 100 pulls/6h en anonyme, 200 en compte gratuit).
+  - **Authentification native GitHub** via `GITHUB_TOKEN` — pas de compte séparé à créer/maintenir.
+  - **Intégration GitHub** : packages visibles sur la page Packages du repo, lien direct au code source, releases.
+  - **Docker Hub free** : limité à 1 seul repo privé, friction si on veut faire évoluer le projet.
+- **Alternative considérée — Option B : installer SDK .NET sur le VPS** :
+  - Workflow : `git pull` sur VPS + `dotnet publish /t:PublishContainer` sur VPS + `docker compose up -d`.
+  - Avantage : pas besoin de registry.
+  - Inconvénients : SDK à installer/maintenir sur VPS partagé, code source exposé sur VPS, build CPU sur prod (risque de ralentir les autres services hébergés), rollback lent (rebuild), pas de versionning natif, anti-pattern (build sur prod).
+  - **Rejetée** : invasive sur le VPS partagé + plusieurs anti-patterns prod.
+- **Sources** :
+  - [GitHub Container Registry — docs officielles](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
+  - [.NET SDK Containers — push vers un registry](https://learn.microsoft.com/en-us/dotnet/core/docker/publish-as-container#publish-the-container-image-to-a-container-registry)
+  - Analyse comparative Option A vs B documentée dans fiche MENTORING-RETOURS.md (section visio 04/06/2026)
+- **Conséquences** :
+  - **Création d'un compte GHCR** (depuis le compte GitHub existant) + génération d'un PAT (Personal Access Token) avec scope `write:packages` pour push depuis le poste dev.
+  - **Authentification Docker locale** : `docker login ghcr.io -u <user> -p $GHCR_TOKEN` (token stocké dans le password manager, jamais en clair dans le repo).
+  - **Workflow déploiement** : `dotnet publish /t:PublishContainer /p:ContainerRegistry=ghcr.io /p:ContainerImageTag=<version>` génère + push en une commande.
+  - **`docker-compose.prod.yml`** : services utilisent `image: ghcr.io/<user>/memorecipe-api:<tag>` (plus de `build:`).
+  - **VPS** : doit pouvoir s'authentifier à GHCR pour pull (token read-only via `read:packages`). Pour les repos publics, pas d'auth nécessaire.
+  - **Premier push plus lent** (image complète ~150-300 MB, ~2-3 min en fibre), **pushs incrémentaux rapides** (~5-20 MB delta, ~10-30 sec) grâce au layer caching Docker.
+  - **Tag = version sémantique** (`v1.0.5`) pour rollback explicite + `latest` mis à jour à chaque release stable.
+  - **Décision finale prise en solo après la visio** (le mentoring s'étant arrêté à 1 session). Traçabilité de l'analyse comparative conservée dans MENTORING-RETOURS.md pour relecture future.
+- **Conditions qui invalideraient ce choix** :
+  - **Volonté de quitter GitHub** comme plateforme principale du projet → migrer vers Docker Hub, Azure Container Registry, ou self-hosted (Harbor).
+  - **Besoin d'un registry privé en self-hosted** (compliance, on-premise, isolation réseau) → migrer vers un registry custom.
+  - **Évolution des quotas GHCR** (improbable au volume actuel — repos publics gratuits illimités) → réévaluer.
+- **État** : DÉCIDÉ le 04/06/2026 (visio mentor 04/06 + analyse comparative post-visio en solo). À implémenter dans **BACK-064** (étape 1B).
+
+
+### DEC-032 : .NET Aspire (Option B) pour orchestration du stack dev + prod
+
+- **Date** : 04 juin 2026 (visio mentor)
+- **Choix** : Adoption de **.NET Aspire** en **étape 2** (après que Container Support SDK DEC-030 soit en place) pour décrire et orchestrer le stack MemoRecipe (Postgres + API + Frontend + reverse proxy nginx). **Option B retenue** : décrire le **maximum** dans l'AppHost C# (services + reverse proxy nginx via `WithContainer()` + healthchecks), pour que le `docker-compose.yml` généré par `aspire publish --publisher docker-compose` soit le plus complet possible et directement réutilisable en prod.
+- **Pourquoi** :
+  - **Suggestion du mentor (retour LinkedIn 02/06/2026, cf. fiche MENTORING-RETOURS.md)** : ".net aspire pour t'éviter les docker compose et faire tourner le tout en local en un clic et sa sera d'autant plus sécurisé."
+  - **Validation Option B en visio 04/06/2026** : le mentor confirme la stratégie "tout dans l'AppHost" plutôt que "compose généré + patch manuel". Minimise la maintenance double et garantit que le compose prod est généré déterministiquement depuis le code C#.
+  - **Dev local en 1 clic** : `dotnet run` sur l'AppHost lance Postgres + API + Frontend simultanément. Plus besoin de jongler entre `docker compose up`, `dotnet run`, `dotnet watch` dans plusieurs terminaux.
+  - **Injection automatique des connection strings** via `WithReference()` : plus de manipulation manuelle de `.env` côté dev. Sécurité améliorée (= ce que le mentor appelle "d'autant plus sécurisé").
+  - **Dashboard intégré** sur `localhost:18888` (port par défaut Aspire) : logs centralisés, traces distribuées (OpenTelemetry natif), métriques. Couvre une partie du scope BACK-058 (logs centralisés) et BACK-059 (monitoring) en dev gratuitement.
+  - **Service Discovery** : l'API trouve la DB par son nom logique (`postgres`), pas par URL hardcodée. Plus robuste aux changements d'infra.
+  - **Composants intégrés prêts** (Postgres, Redis, RabbitMQ, etc.) : ajout d'un service tiers = 1 ligne dans l'AppHost.
+  - **Pitch portfolio** : .NET Aspire est trendy en 2026, signal "veille active" pour entretiens.
+- **Pourquoi Option B (tout dans l'AppHost) plutôt qu'Option A (patch manuel)** :
+  - **Option A** : Aspire génère un compose minimal, on ajoute le reverse proxy nginx + healthchecks dans un `docker-compose.prod.override.yml` séparé. → 2 fichiers à synchroniser, drift facile au fil du temps.
+  - **Option B (retenue)** : tout est décrit dans l'AppHost C# (services .NET + reverse proxy nginx via `WithContainer()` + healthchecks). Le compose généré est complet → 1 seule source de vérité.
+- **Cohérence avec DEC-030 et DEC-031** :
+  - **Aspire utilise Container Support SDK (DEC-030)** en interne pour générer les images des projets .NET. Pré-requis : DEC-030 doit être appliqué avant.
+  - **Aspire push vers GHCR (DEC-031)** via `aspire publish --publisher docker-compose --registry ghcr.io --tag <version>`. Le registry est réutilisé.
+  - Les 3 décisions sont **complémentaires** (Container Support SDK = génération, GHCR = distribution, Aspire = orchestration), pas concurrentes.
+- **Alternative considérée — Continuer avec docker-compose manuel** :
+  - Avantage : aucune migration, stack connu et fonctionnel.
+  - Inconvénients : dev local nécessite plusieurs terminaux, pas de dashboard logs intégré, gestion manuelle des secrets, pas de signal portfolio "veille".
+  - **Rejetée** : le bénéfice DX (developer experience) + observabilité + portfolio l'emporte sur le coût de migration (1 spike de 1-2 jours).
+- **Limites assumées** :
+  - **Vendor lock-in Microsoft** : Aspire est un framework propriétaire. Migration future hors écosystème .NET impliquerait de tout redécrire. Acceptable vu que le projet est 100% .NET.
+  - **Courbe d'apprentissage** : nouveau concept (AppHost, ServiceDefaults, lifecycle). Géré par le spike BACK-065.
+  - **Le VPS ne sait pas qu'Aspire existe** : il reçoit juste un `docker-compose.yml` standard généré par `aspire publish`. Aspire est un outil **dev-side**, transparent côté prod.
+- **Sources** :
+  - [.NET Aspire — docs officielles Microsoft](https://learn.microsoft.com/en-us/dotnet/aspire/)
+  - [Aspire docker-compose publisher](https://learn.microsoft.com/en-us/dotnet/aspire/deployment/manifest-format)
+  - [WithContainer() API reference](https://learn.microsoft.com/en-us/dotnet/api/aspire.hosting.containerresourcebuilderextensions.withcontainer)
+  - Retour mentor 02/06/2026 + visio 04/06/2026 (cf. fiches/MENTORING-RETOURS.md)
+- **Conséquences** :
+  - **Création d'un nouveau projet** `MemoRecipe.AppHost` (type Aspire AppHost) dans la solution `memorecipe-api.sln`.
+  - **Création d'un projet** `MemoRecipe.ServiceDefaults` (configuration commune OpenTelemetry, health checks, service discovery).
+  - **L'AppHost devient le point d'entrée dev** : `dotnet run --project MemoRecipe.AppHost`.
+  - **`docker-compose.yml` (dev)** : potentiellement supprimé ou maintenu pour fallback, à arbitrer en fin de spike BACK-065.
+  - **`docker-compose.prod.yml`** : devient un **artefact généré** par `aspire publish --publisher docker-compose --registry ghcr.io`. Ne se modifie plus à la main.
+  - **BACK-058 et BACK-059** (logs centralisés + monitoring) : partiellement couverts en dev par Aspire Dashboard. Décision sur scope prod à reposer au moment de leur implém.
+  - **Dépendances NuGet** : ajout des packages `Aspire.Hosting.AppHost`, `Aspire.Hosting.PostgreSQL`, etc.
+  - **Validation post-spike** : si le spike BACK-065 révèle des limitations bloquantes (compose généré non utilisable en prod, complexité ingérable), retour à docker-compose manuel acceptable (décision à reverser).
+- **Conditions qui invalideraient ce choix** :
+  - **Aspire ne supporte pas l'orchestration multi-conteneurs complète** (reverse proxy nginx custom + healthchecks complets) au moment du spike → fallback sur docker-compose manuel.
+  - **Vendor lock-in devient bloquant** : besoin de migrer hors .NET ou hors écosystème Microsoft → repasser à docker-compose.
+  - **Le compose généré n'est pas réutilisable tel quel en prod** (Option B échoue) → 2 stratégies à arbitrer : repasser à Option A (compose + patch) ou abandonner Aspire.
+  - **Coûts dev (apprentissage + maintenance AppHost) dépassent les bénéfices DX** sur la durée → retour à docker-compose.
+- **État** : DÉCIDÉ le 04/06/2026 (visio mentor) — Option B confirmée. À implémenter dans **BACK-065** (étape 2, après BACK-063 + BACK-064).
+
+
+### DEC-033 : Migration des tests d'integration SQLite -> TestContainers (vrai Postgres prod-like)
+
+- **Date** : 04 juin 2026 (visio mentor) — décision actée, implémentation tracée dans BACK-062 
+- **Choix** : Migration progressive de **SQLite in-memory** (utilisé actuellement dans `CustomWebApplicationFactory` via `UseSqlite(":memory:")` + `EnsureCreated()`) vers **TestContainers** (lance un container `postgres:16-alpine` réel pendant les tests d'intégration). Stratégie d'application **mix SQLite + TC** vs **all-TC** à arbitrer au moment de l'implémentation (cf. heuristique dans MENTORING-RETOURS.md section "Arbitrages restants à prendre en solo"). Migrations EF Core appliquées via `MigrateAsync()` (pas `EnsureCreated()`) pour valider le vrai chemin migration prod.
+- **Pourquoi** :
+  - **Suggestion du mentor (retour LinkedIn 02/06/2026, cf. fiche MENTORING-RETOURS.md, suggestion A)** : "Tu peux regarder du côté de TestContainer si tu veux faire tes tests sur un vrai PostgreSQL et pas du in-memory."
+  - **Audit JSONB (03/06/2026)** : 3 colonnes JSONB en schéma prod (`AllergensJson`, `JsonData`, `MetadataJson` — cf. DEC-004) sont silencieusement traduites en `TEXT` par SQLite. Aucune query JSONB-specific exécutée aujourd'hui dans les tests, mais le risque devient bloquant dès la première feature "search by allergen" (`@>`, `?`, `->>` operators).
+  - **Audit dates** : les colonnes `TIMESTAMP WITH TIME ZONE` (Postgres) sont stockées en `TEXT` par SQLite (ISO string). Précision microseconde perdue + `DateTime.Kind` perdu au round-trip (`Unspecified` en SQLite vs `Utc` en Postgres+Npgsql). Risque latent : si une logique métier finit par dépendre de `.Kind` post-DB-read, comportement différent test/prod.
+  - **Validation migrations EF Core** : `EnsureCreated()` actuel **ne joue pas** les migrations EF Core — il crée le schéma direct depuis le modèle. Donc une migration custom (raw SQL, opérations Postgres-specific) passerait les tests mais péterait en prod. `Migrate()` sur TC valide le vrai chemin.
+  - **Validation en visio mentor 04/06/2026** : le mentor confirme l'usage de TC dans ses projets (intégration + E2E), partage le concept d'extension "dépendances tierces" (cf. ci-dessous).
+- **Scope** :
+  - **S'applique à** : tests d'intégration ASP.NET dans `MemoRecipe.Api.Tests` (suites `CorsTests`, `RateLimitingTests`, `SecurityHeadersMiddlewareTests`, `UploadValidationTests`).
+  - **Ne s'applique PAS aux tests unitaires** : les services métier (`RecipeService`, `AuthService`, validators, pipeline IA) utilisent des **Fakes** (`FakeRecipeRepository`, etc.) → millisecondes, pas de DB. TestContainers ralentirait sans bénéfice. Stratégie Fakes conservée (cf. DEC-009 — Tests unitaires avec FakeRepository).
+- **Audit des tests existants (03/06/2026, ligne par ligne)** :
+  - `CorsTests` : **DB-agnostic** (endpoint protégé → 401 avant DB).
+  - `SecurityHeadersMiddlewareTests` : **DB-agnostic** (endpoint protégé → 401 avant DB).
+  - `RateLimitingTests` : **DB-dependent mais Postgres-agnostic** (INSERT + SELECT basiques sur Users — comportement identique SQLite/Postgres).
+  - `UploadValidationTests` : **DB-dependent mais Postgres-agnostic** (INSERT + SELECT pour auth setup).
+  - **0 test actuel Postgres-dependent** → SQLite couvre 100% fonctionnellement aujourd'hui. **TC est une anticipation** pour les futures features (search JSONB, recherche temporelle, validation migrations).
+- **Extension future — Dépendances tierces** (concept apporté par le mentor en visio 04/06/2026) :
+  - TestContainers ne se limite pas aux DB : on peut containeriser **n'importe quel service tiers** dont l'app dépend (programme Python, service IA, API externe mock, MinIO/S3, RabbitMQ, etc.).
+  - **Applicabilité MemoRecipe — service IA `memoRecipe-ia`** : aujourd'hui remplacé par `FakeOcrScanService` dans `CustomWebApplicationFactory`. Pour des tests E2E réels (futur), TC pourrait lancer un vrai container Azure Function en plus du container Postgres → test du contrat HTTP API <-> Service IA bout en bout. **Pas prioritaire maintenant** (le Fake actuel suffit, et le vrai service IA appelle Mistral en externe → mocking quand même nécessaire), tracé comme extension future dans BACK-062.
+- **Alternative considérée — Garder SQLite in-memory** :
+  - Avantage : tests ultra-rapides (ms), aucune dépendance Docker pour les tests.
+  - Inconvénient : divergence silencieuse schéma test vs prod (JSONB → TEXT, TIMESTAMPTZ → TEXT, migrations non jouées). Bloquant dès qu'une feature exploite du Postgres-specific.
+  - **Rejetée à terme** mais conservée comme **option mix** : peut rester pour les tests "DB-agnostic" (CORS, headers, rate limiting) qui ont juste besoin d'une DB pour booter `WebApplicationFactory` sans l'exercer.
+- **Sources** :
+  - [TestContainers for .NET — docs officielles](https://dotnet.testcontainers.org/)
+  - [Testcontainers.PostgreSql NuGet](https://www.nuget.org/packages/Testcontainers.PostgreSql/)
+  - [EF Core Database.MigrateAsync()](https://learn.microsoft.com/en-us/dotnet/api/microsoft.entityframeworkcore.relationaldatabasefacadeextensions.migrateasync)
+  - Retour mentor 02/06/2026 + visio 04/06/2026 (cf. fiches/MENTORING-RETOURS.md)
+  - DEC-004 (PostgreSQL avec colonnes JSONB) — section "Conséquence sur les tests"
+- **Conséquences** :
+  - **Dépendance NuGet** ajoutée à `MemoRecipe.Api.Tests` : `Testcontainers.PostgreSql`.
+  - **Création fixture** `PostgresContainerFixture : IAsyncLifetime` qui lance/kill un container `postgres:16-alpine`.
+  - **Refacto `CustomWebApplicationFactory`** : remplacer `UseSqlite(conn)` par `UseNpgsql(container.GetConnectionString())`. Selon stratégie mix vs all-TC, possibilité de maintenir 2 factories (`CustomWebApplicationFactorySqlite` pour DB-agnostic + `CustomWebApplicationFactoryPostgres` pour DB-dependent).
+  - **Remplacement `EnsureCreated()` -> `await db.Database.MigrateAsync()`** : applique les vraies migrations EF Core → validation du chemin prod.
+  - **Stratégie d'isolation** entre tests (à arbitrer à l'implém) : transaction rollback / TRUNCATE / container par classe. Suggéré dans MENTORING-RETOURS.md : démarrer avec **container par classe** (le plus simple), affiner si trop lent.
+  - **Performance** : premier run plus lent (~30s incluant download + start container), runs suivants ~10s (image cachée). Acceptable pour integration tests.
+  - **CI/CD** : GitHub Actions a Docker disponible sur les runners GitHub-hosted par défaut → pas de friction supplémentaire pour BACK-008.
+  - **Documentation** : note dans `MemoRecipe.Api.Tests/README.md` (ou DEC dédiée) sur la stratégie de test, vocabulaire DB-agnostic / DB-dependent / Postgres-dependent (cf. MENTORING-RETOURS.md section "Vocabulaire clé").
+- **Conditions qui invalideraient ce choix** :
+  - **Docker indisponible sur l'environnement de test** (machine dev sans Docker Desktop, CI sans Docker support) → fallback SQLite + tests Postgres-specific skip.
+  - **Coût TestContainers (~1s/test, ~5s setup) devient bloquant** sur un volume de tests gigantesque (1000+ tests d'intégration) → arbitrer container partagé vs containers per-class, ou repasser à SQLite sur les suites DB-agnostic.
+  - **Migration vers un nouveau moteur DB non-Postgres** (improbable, cf. DEC-004 stable) → réévaluer.
+- **État** : DÉCIDÉ le 04/06/2026 (visio mentor). À implémenter dans **BACK-062**.
 
 
 ---
