@@ -334,7 +334,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 ### DEC-030 : Container Support natif SDK .NET pour la generation de l'image API
 
 - **Date** : 04 juin 2026
-- **Choix** : Pour le projet `MemoRecipe.Api`, abandon du `Dockerfile` manuel au profit du **Container Support natif intégré au SDK .NET 7+** (cible MSBuild `PublishContainer`). L'image API est désormais générée via `dotnet publish --os linux --arch x64 /t:PublishContainer`, avec la configuration en properties MSBuild dans le `.csproj` (`<ContainerBaseImage>`, `<ContainerImageName>`, `<ContainerImageTag>`, `<ContainerUser>`, `<ContainerPort>`).
+- **Choix** : Pour le projet `MemoRecipe.Api`, abandon du `Dockerfile` manuel au profit du **Container Support natif intégré au SDK .NET 7+** (cible MSBuild `PublishContainer`). L'image API est désormais générée via `dotnet publish --os linux --arch x64 /t:PublishContainer`, avec la configuration en properties MSBuild dans le `.csproj` (`<ContainerBaseImage>`, `<ContainerRepository>`, `<ContainerImageTag>`, `<ContainerUser>`, `<ContainerPort>`).
 - **Pourquoi** :
   - **Suggestion du mentor (retour LinkedIn 02/06/2026, cf. fiche MENTORING-RETOURS.md)** : ".Net 10, tu peux te passer des Dockerfile, c'est directement intégré dans les csproj maintenant et dans le SDK .net."
   - **Cohérence automatique avec le SDK** : la base image (`mcr.microsoft.com/dotnet/aspnet:10.0-alpine`) suit la version du SDK installée. Plus de risque de désynchronisation Dockerfile / SDK lors des upgrades.
@@ -354,7 +354,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - [SDK Containers — properties MSBuild de customisation](https://learn.microsoft.com/en-us/dotnet/core/docker/publish-as-container#customizing-the-container-image)
   - Retour mentor 02/06/2026 + visio 04/06/2026 (cf. fiches/MENTORING-RETOURS.md)
 - **Conséquences** :
-  - **`memorecipe-api.csproj`** enrichi des properties `<ContainerBaseImage>`, `<ContainerImageName>`, `<ContainerImageTag>`, `<ContainerUser>`, `<ContainerPort>`, etc.
+  - **`memorecipe-api.csproj`** enrichi des properties `<ContainerBaseImage>`, `<ContainerRepository>`, `<ContainerImageTag>`, `<ContainerUser>`, `<ContainerPort>`, etc. (Note : `<ContainerImageName>` est **obsolète** depuis le SDK .NET 10.0 — remplacé par `<ContainerRepository>`, warning CONTAINER003 à l'utilisation.)
   - **`Dockerfile` de l'API supprimé** du repo.
   - **`docker-compose.yml` (dev)** : le service `api` passe de `build: ./...` à `image: memorecipe-api:dev`. Workflow dev : `dotnet publish /t:PublishContainer` avant `docker compose up -d`.
   - **`docker-compose.prod.yml`** : le service `api` passe de `build:` à `image: ghcr.io/<user>/memorecipe-api:<tag>` (cf. DEC-031 pour le workflow registry).
