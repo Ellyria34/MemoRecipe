@@ -508,6 +508,36 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **État** : DÉCIDÉ le 04/06/2026 (visio mentor). À implémenter dans **BACK-062**.
 
 
+### DEC-034 : Report du fix collation Postgres dev lors du passage Debian -> Alpine (warning accepte temporairement)
+
+- **Date** : 11 juin 2026
+- **Choix** : Pendant l'implémentation de BACK-066 (alignement Postgres dev `:16` -> `:16-alpine`), un warning `database "memorecipe_db" has no actual collation version, but a version was recorded` apparaît à chaque connexion psql. La commande standard `ALTER DATABASE memorecipe_db REFRESH COLLATION VERSION` échoue avec `ERROR: invalid collation version change` car elle gère seulement les changements de version dans le même provider, pas un changement cross-provider (glibc Debian -> musl Alpine). Le fix propre nécessite une procédure `pg_dump` + `dropdb` + `createdb` + `pg_restore`. **Décision** : **reporter ce fix** dans un ticket dédié (**BACK-068**) plutôt que de l'inclure dans BACK-066. Accepter le warning de façon temporaire.
+- **Pourquoi reporter** :
+  - **Zéro impact pratique aujourd'hui** : aucune feature actuelle ne fait de tri textuel sensible aux collations (pas de `ORDER BY title` avec accents/ligatures qui nécessiterait une cohérence parfaite). Les opérations CRUD basiques (INSERT/UPDATE/SELECT par PK ou FK) ne sont pas affectées.
+  - **Scope BACK-066 strict** : BACK-066 est un **quick win** d'alignement d'image Docker (~10 min). Embarquer une procédure `pg_dump/restore` (~30-45 min) dans le même PR ferait gonfler le scope et masquerait l'objectif initial. Cohérent avec les principes "atomic commits" + "un sujet = un ticket = une PR".
+  - **REINDEX déjà fait** : le `REINDEX DATABASE memorecipe_db` exécuté dans BACK-066 a recréé les **index** avec le nouveau provider musl. Les requêtes utilisant ces index ont des résultats cohérents. Seule la **métadonnée Postgres** garde une référence à l'ancien provider, ce qui se manifeste par le warning à la connexion (pas par un comportement erroné des requêtes).
+  - **Documentation traçable** : BACK-068 trace le fix complet avec procédure step-by-step, critères d'acceptation, et dépendance explicite envers BACK-029 (recherche et filtres avec tri textuel). Le "Toi du futur" qui voudra implémenter BACK-029 saura qu'il faut d'abord clore BACK-068.
+- **Alternative considérée — Faire le fix tout de suite dans BACK-066** :
+  - Avantage : warning éliminé immédiatement, scope "Postgres dev/prod consistent" 100% complet.
+  - Inconvénients : (1) scope creep de BACK-066 (passage de 10 min à ~1h), (2) la procédure `pg_dump/restore` est manuelle et hors du fichier Compose — elle ne se commit pas comme un changement de code, donc le commit serait un mélange de modif de fichier + procédure documentée, ce qui est moins propre, (3) prend du temps de session pour un bénéfice nul aujourd'hui.
+  - **Rejetée** : préférence pour les commits/PRs atomiques + le fix sera fait au moment où il deviendra utile (juste avant BACK-029).
+- **Sources** :
+  - [Postgres docs — ALTER DATABASE (REFRESH COLLATION VERSION)](https://www.postgresql.org/docs/current/sql-alterdatabase.html)
+  - [Postgres collation provider docs](https://www.postgresql.org/docs/current/collation.html)
+  - Error message constaté en session 11/06/2026 : `ERROR: invalid collation version change`
+- **Conséquences** :
+  - **Warning visible** à chaque connexion psql en dev. Cosmétique, signale une dette technique connue. Pas de masquage d'autres warnings importants (Postgres logs distinctement).
+  - **CRUD non impacté** : INSERT, UPDATE, DELETE, SELECT par PK/FK fonctionnent normalement. C'est uniquement le tri textuel basé sur les locales (qui n'est pas utilisé dans le code actuel) qui pourrait donner des résultats légèrement différents entre la version glibc historique et la version musl actuelle.
+  - **Dette technique tracée** : BACK-068 (P2) avec procédure complète + critères d'acceptation + dépendance sur BACK-029.
+  - **Onboarding contributeurs** : les nouveaux contributeurs qui clonent le repo n'ont pas le warning (ils créent un volume `postgres_data` neuf directement avec le provider musl). Le warning ne concerne que le volume historique de l'ancien dev existant. À mentionner dans le runbook de migration si besoin.
+- **Conditions qui invalideraient ce choix (== déclenchent l'implémentation de BACK-068)** :
+  - **Implémentation d'une feature utilisant un tri textuel** sur des champs susceptibles de contenir des accents/ligatures (typiquement BACK-029 recherche/filtres avec `ORDER BY title`). Le warning devient un risque réel : possibilité de tri non-déterministe entre dev et prod si les providers de collation finissaient par diverger encore plus.
+  - **Multiplication des warnings** : si d'autres warnings critiques apparaissent et que le warning de collation noie le signal, il faut le traiter pour récupérer un log propre.
+  - **Changement de provider Postgres** (improbable) : si on revenait à un provider glibc (passage à postgres:16 Debian classique), l'incohérence serait inversée — préférable de tout traiter d'un coup à ce moment-là.
+  - **Découverte d'un bug réel** lié à la collation (résultats de requêtes différents en dev et en prod sur des chaînes de caractères) : le warning passerait de cosmétique à symptôme d'un vrai problème.
+- **État** : DÉCIDÉ et appliqué le 11/06/2026. Fix tracé dans **BACK-068** (P2) avec étapes + critères d'acceptation. À réévaluer au moment du planning de **BACK-029** (recherche et filtres).
+
+
 ---
 
 ## A investiguer
