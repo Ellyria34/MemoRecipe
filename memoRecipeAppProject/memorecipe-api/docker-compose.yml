@@ -1,8 +1,6 @@
-version: "3.9"
-
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16-alpine
     container_name: memorecipe_postgres
     restart: always
     environment:
