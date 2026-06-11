@@ -20,20 +20,22 @@ On the frontend side, the plan is a Blazor WASM web client and a MAUI mobile app
 
 ```
 MemoRecipe/
-├── memoRecipe-ia/              # Azure Functions — OCR & AI processing
+├── memoRecipe-ia/                  # Azure Functions — OCR & AI processing
 ├── memoRecipeAppProject/
-│   └── memorecipe-api/         # ASP.NET API — domain, auth, persistence
-│       ├── src/
-│       │   ├── MemoRecipe.Api
-│       │   ├── MemoRecipe.Application
-│       │   ├── MemoRecipe.Domain
-│       │   └── MemoRecipe.Infrastructure
-│       └── tests/
+│   └── memorecipe-api/             # ASP.NET API — domain, auth, persistence
+│       └── src/
+│           ├── MemoRecipe.Api
+│           ├── MemoRecipe.Application
+│           ├── MemoRecipe.Domain
+│           └── MemoRecipe.Infrastructure
 ├── App/
-│   └── MemoRecipe.Web          # Blazor WASM frontend
-├── documentation/
-│   └── DECISIONS.md            # Architectural decisions and technical debt log
-└── journal/                    # Development log
+│   └── MemoRecipe.Web              # Blazor WASM frontend
+├── tests/                          # xUnit test projects (Api, Application, IA)
+│   ├── MemoRecipe.Api.Tests
+│   ├── MemoRecipe.Application.Tests
+│   └── MemoRecipe.IA.Tests
+└── documentation/
+    └── DECISIONS.md                # Architectural decisions and technical debt log
 ```
 
 ## Technology Foundation
@@ -65,9 +67,10 @@ dotnet watch
 cd memoRecipe-ia
 func start
 
-# Tests
-cd memoRecipeAppProject/memorecipe-api
-dotnet test
+# Tests (run from the repo root)
+dotnet test tests/MemoRecipe.Application.Tests/MemoRecipe.Application.Tests.csproj
+dotnet test tests/MemoRecipe.Api.Tests/MemoRecipe.Api.Tests.csproj
+dotnet test tests/MemoRecipe.IA.Tests/MemoRecipe.IA.Tests.csproj
 ```
 
 > **Local credentials:** `.env` is gitignored (never commit real credentials). `.env.example` is a template tracked in git with `CHANGE_ME` placeholders — each contributor sets their own local values.
@@ -95,35 +98,26 @@ dotnet test
 - Dedicated `GET /api/recipe/count` endpoint
 
 ### Frontend (Blazor WASM .NET 10 + MudBlazor)
-- Login / Register pages with inline validation
-- Protected routes via custom `CookieAuthStateProvider`
-- Responsive layout (sidebar on desktop, bottom bar on mobile)
-- Full scan-to-save workflow: upload → AI extraction → preview → edit → database save
-- Reusable `RecipeForm` component shared between scan, edit, and future manual creation
-- Form models (`RecipeFormModel`, `IngredientFormModel`, `StepFormModel`) decoupled from API DTOs
-- Recipe list page (`/recipes`) sorted by creation date (most recent first), enriched cards (title, total time, French difficulty labels, servings with singular/plural)
-- Reusable `RecipeListCard` component shared between recipe list and dashboard
-- Recipe detail page with delete confirmation dialog
-- Recipe edit page (`/recipes/{id}/edit`) reusing the shared form
-- Dashboard (`/`) with recipe count and 5 most recent recipes
-- Code-behind pattern everywhere (`.razor` / `.razor.cs` separation)
-- Save button automatically disabled while the form is invalid (title length, at least one ingredient, at least one step)
-- API base URL is config-driven via `wwwroot/appsettings.json` (with Development override) — same bundle works in `dotnet watch` mode (cross-origin) and in Docker compose prod (same-origin via nginx reverse proxy)
+- Auth: Login / Register with inline validation, protected routes via custom `CookieAuthStateProvider`, JWT in HttpOnly cookies (never `localStorage`)
+- Recipe workflow: list (`/recipes`, enriched cards), detail (with delete confirmation), edit (`/recipes/{id}/edit`), dashboard (`/`, count + 5 most recent)
+- Scan-to-save: upload → AI extraction → preview → edit → database save
+- Shared components and patterns: `RecipeForm` (scan/edit/future manual creation), `RecipeListCard` (list/dashboard), code-behind `.razor/.razor.cs`, form models decoupled from API DTOs
+- Responsive: sidebar on desktop, bottom bar on mobile; save button disabled while form invalid (title length, ≥1 ingredient, ≥1 step)
+- Config-driven API base URL via `wwwroot/appsettings.json` — same bundle for `dotnet watch` dev (cross-origin) and Docker compose prod (same-origin via nginx reverse proxy)
 
 ### Security
-- Password hashing migrated from HMAC-SHA512 to PBKDF2 (`PasswordHasher<T>`, 100k iterations), with rolling migration for existing users
-- Azure Function authorization level set to `Function` (not `Anonymous`)
-- Custom `SecurityHeadersMiddleware` adds 6 security headers: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy` (tuned for Blazor WASM + MudBlazor), `Strict-Transport-Security` (production only)
-- Kestrel configured to hide the `Server` header (no underlying web server exposed)
-- Rate limiting (built-in `AddRateLimiter`): per-IP fixed window on auth (10/min), scan (5/min), and global (100/min); per-account lockout after 5 consecutive failed logins (15-minute window via `IMemoryCache`); 429 responses include `Retry-After`
-- CORS strictly configured: allowed origins loaded from `appsettings.json` with fail-fast startup validation; explicit whitelist of headers (`Content-Type`) and methods (`GET`, `POST`, `PUT`, `DELETE`)
-- CSRF protection via cookie `SameSite=Strict` combined with strict CORS (no dedicated CSRF token needed in this configuration)
-- File upload validation on the scan endpoint with **defense in depth across four layers**: global Kestrel request body limit, per-endpoint size attributes, server-side checks (size, extension whitelist `.jpg`/`.jpeg`/`.png`, MIME type whitelist), and binary signature verification (magic bytes for JPEG, PNG)
-- Fail-fast configuration validation at startup: the API refuses to boot if required env vars (`JwtSettings:Secret`, `ConnectionStrings:DefaultConnection`, `OcrScan:BaseUrl`) are missing or still hold `CHANGE_ME` placeholders — prevents accidental production deployments with insecure dev defaults
+- Passwords: PBKDF2 (`PasswordHasher<T>`, 100k iterations) with rolling migration from legacy HMAC-SHA512
+- HTTP headers: custom `SecurityHeadersMiddleware` adds 6 headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy` tuned for Blazor WASM, `Strict-Transport-Security` in production); Kestrel `Server` header hidden
+- Rate limiting (`AddRateLimiter`): per-IP fixed window (auth 10/min, scan 5/min, global 100/min) + per-account lockout after 5 failed logins (15-min window via `IMemoryCache`); 429 responses include `Retry-After`
+- CORS strict: allowed origins / headers (`Content-Type`) / methods (`GET`, `POST`, `PUT`, `DELETE`) loaded from `appsettings.json` with fail-fast startup validation
+- CSRF: cookie `SameSite=Strict` + strict CORS (no dedicated CSRF token needed)
+- Upload validation (defense in depth, 4 layers): Kestrel body limit, per-endpoint size attribute, server-side checks (size + extension/MIME whitelist for `.jpg`/`.jpeg`/`.png`), binary magic-bytes signature verification
+- Config fail-fast at startup: API refuses to boot if required env vars (`JwtSettings:Secret`, `ConnectionStrings:DefaultConnection`, `OcrScan:BaseUrl`) are missing or still hold `CHANGE_ME` placeholders — prevents accidental prod deployments with insecure defaults
+- Azure Function authorization level: `Function` (not `Anonymous`)
 
 ### Tests
 - Unit tests on validators, services, and the AI pipeline (deterministic fakes for the LLM and the repository layer)
-- Integration tests using `WebApplicationFactory<Program>` with SQLite in-memory replacing PostgreSQL (no Docker required for CI)
+- Integration tests via `WebApplicationFactory<Program>` with SQLite in-memory as the test DB; migration to TestContainers (real PostgreSQL in a container) planned for full prod-like fidelity (cf. DECISIONS.md DEC-033)
 - Targeted integration tests on the scan endpoint covering each defense layer (extension, MIME, magic bytes, golden path), with mutation testing applied to verify each test actually fails when its target layer is removed
 - A `FakeOcrScanService` swapped in via DI override allows testing the golden path without calling the real Azure Function
 
@@ -132,20 +126,25 @@ dotnet test
 - Object mapping handled by [Mapperly](https://github.com/riok/mapperly) (MIT-licensed source generator) — mappings produced at compile time, zero runtime reflection, errors caught at build time
 
 ### Containerization
-- Multi-stage Docker images:
-  - **API** (~150 MB): `dotnet/sdk:10.0-alpine` for build, `dotnet/aspnet:10.0-alpine` for runtime (SDK stripped from the final image)
-  - **Frontend** (~40 MB): `dotnet/sdk:10.0-alpine` for build, `nginx:alpine` to serve the published Blazor WASM bundle as static files (no .NET runtime required server-side)
-- Layer caching optimized: csproj files copied before sources so `dotnet restore` stays cached when only code changes
-- `nginx.conf` configured with SPA routing fallback (`try_files $uri $uri/ /index.html =404`) so client-side routes work correctly on full reload (F5)
-- `.dockerignore` excludes build artifacts, IDE state, secrets, and personal docs to keep the build context lean and avoid shipping sensitive files
-- `.env.example` documents every required env var for production deployment with `CHANGE_ME` placeholders
-- **`docker-compose.prod.yml`** orchestrates the 3 services (API + Frontend + PostgreSQL) with a custom internal bridge network, healthchecks chain (`postgres healthy → api healthy → web healthy`), resource limits, `security_opt: no-new-privileges`, and a same-origin reverse proxy pattern (Frontend nginx proxifies `/api/*` to the API container) — no CORS needed in production
-- API has a `/health` endpoint (`AddHealthChecks()`) used by the Docker compose healthcheck, and applies EF Core migrations automatically on startup (single-instance pattern; multi-instance scaling would use an init container)
+- **API image (~194 MB)**: built via **.NET SDK native Container Support** (no Dockerfile) — properties declared in `MemoRecipe.Api.csproj` (`<ContainerBaseImage>`, `<ContainerRepository>`, `<ContainerUser>`, `<ContainerPort>`, `<ContainerEnvironmentVariable>`). Generated with:
+  ```
+  dotnet publish memoRecipeAppProject/memorecipe-api/src/MemoRecipe.Api/MemoRecipe.Api.csproj --os linux --arch x64 /t:PublishContainer
+  ```
+  Base: `dotnet/aspnet:10.0-alpine` (non-root user `app` UID 1654 inherited). The SDK handles multi-stage build, layer caching, and image generation in one MSBuild target.
+- **Frontend image (~40 MB)**: still uses a **custom Dockerfile** with `dotnet/sdk:10.0-alpine` for build and `nginx:alpine` for runtime to serve the published Blazor WASM bundle as static files (no .NET runtime required server-side). Container Support SDK does not apply because the runtime is nginx, not .NET.
+- Layer caching optimized automatically by the SDK for the API; manual layer optimization in the Frontend Dockerfile (csproj copied before sources so `dotnet restore` stays cached when only code changes).
+- `nginx.conf` configured with SPA routing fallback (`try_files $uri $uri/ /index.html =404`) so client-side routes work correctly on full reload (F5).
+- `.env.example` documents every required env var for production deployment with `CHANGE_ME` placeholders.
+- **`docker-compose.prod.yml`** orchestrates the 3 services (API + Frontend + PostgreSQL) with a custom internal bridge network, healthchecks chain (`postgres healthy → api healthy → web healthy`), resource limits, `security_opt: no-new-privileges`, and a same-origin reverse proxy pattern (Frontend nginx proxifies `/api/*` to the API container) — no CORS needed in production.
+- API has a `/health` endpoint (`AddHealthChecks()`) used by the Docker compose healthcheck, and applies EF Core migrations automatically on startup (single-instance pattern; multi-instance scaling would use an init container).
 
 ## Next Steps
 
 - HTTPS forced in production (reverse proxy + Let's Encrypt at the host edge, TLS terminating upstream and forwarding HTTP to the Docker compose Frontend on the local loopback)
 - CI/CD pipeline (automated build, tests, vulnerable-package scan via `dotnet list package --vulnerable`, plus CodeQL on GitHub-hosted runners)
+- Container registry distribution via GitHub Container Registry (GHCR): images built locally with the .NET SDK + pushed to GHCR + pulled from the deployment host — replacing build-on-host workflows (cf. DECISIONS.md DEC-031)
+- Integration tests migration to TestContainers (real PostgreSQL in a container instead of SQLite in-memory) for full prod-like fidelity on JSONB columns and TIMESTAMPTZ precision (cf. DEC-033)
+- Optional: .NET Aspire AppHost as a single-source-of-truth stack orchestrator (dev local in one click + generated docker-compose for prod, cf. DEC-032)
 - AGPL §13 footer linking to source (compliance for public-facing AGPL deployment)
 - GDPR compliance: account deletion with grace period, data export, legal pages, AI transparency notice
 - Manual recipe creation (without scan), pagination, search and filters on the recipe list
