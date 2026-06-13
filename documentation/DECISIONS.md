@@ -505,7 +505,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **Docker indisponible sur l'environnement de test** (machine dev sans Docker Desktop, CI sans Docker support) → fallback SQLite + tests Postgres-specific skip.
   - **Coût TestContainers (~1s/test, ~5s setup) devient bloquant** sur un volume de tests gigantesque (1000+ tests d'intégration) → arbitrer container partagé vs containers per-class, ou repasser à SQLite sur les suites DB-agnostic.
   - **Migration vers un nouveau moteur DB non-Postgres** (improbable, cf. DEC-004 stable) → réévaluer.
-- **État** : DÉCIDÉ le 04/06/2026 (visio mentor). À implémenter dans **BACK-062**.
+- **État** : DÉCIDÉ le 04/06/2026 (visio mentor). **APPLIQUÉ le 13/06/2026** via BACK-062 (PR `feature/BACK-062-testcontainers`). 18/18 tests d'intégration passent contre vrai Postgres `postgres:16-alpine` lancé en container TestContainers. Résout aussi en cascade BACK-067 (régression `RequireConfig` fail-fast) via variables d'environnement système set dans un static constructor de `CustomWebApplicationFactory`. Stratégie d'isolation retenue : un container par classe de tests via `IClassFixture` (optimisation `ICollectionFixture` possible plus tard si volume tests augmente).
 
 
 ### DEC-034 : Report du fix collation Postgres dev lors du passage Debian -> Alpine (warning accepte temporairement)
