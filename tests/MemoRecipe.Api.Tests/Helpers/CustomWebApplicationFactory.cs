@@ -1,16 +1,41 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using MemoRecipe.Infrastructure.Database;
 using System.Data.Common;
 using MemoRecipe.Application.Services.OcrScan;
-
+using Testcontainers.PostgreSql;
 
 namespace MemoRecipe.Api.Tests.Helpers;
-public class CustomWebApplicationFactory<Program> : WebApplicationFactory<Program> where Program : class
+public class CustomWebApplicationFactory<Program> : WebApplicationFactory<Program>, IAsyncLifetime where Program : class
 {
+    static CustomWebApplicationFactory()
+    {
+        Environment.SetEnvironmentVariable("DOTNET_TEST_MODE", "true");
+        Environment.SetEnvironmentVariable("JwtSettings__Secret", 
+        "TEST_JWT_SECRET_AT_LEAST_64_CHARS_FOR_INTEGRATION_TESTS_PURPOSES_XXX");
+        Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", 
+        "Host=fake;Database=fake;Username=fake;Password=fake");
+        Environment.SetEnvironmentVariable("OcrScan__BaseUrl", "http://fake-ocr/");
+    }
+
+    // Spin up a PostgreSQL container shared across all tests of this class.
+    private readonly PostgreSqlContainer _postgresContainer = new PostgreSqlBuilder("postgres:16-alpine").Build();
+
+    // Called by xUnit ONCE before all tests start.
+    public async Task InitializeAsync()
+    {
+        await _postgresContainer.StartAsync();
+    }
+
+    // Called by xUnit ONCE after all tests finished.
+    public new async Task DisposeAsync()
+    {
+        await _postgresContainer.DisposeAsync();
+    }
+
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureServices(services =>
@@ -29,22 +54,17 @@ public class CustomWebApplicationFactory<Program> : WebApplicationFactory<Progra
                 services.Remove(descriptor);
             }
 
-            // Create an in-memory SQLite connection
-            var connection = new SqliteConnection("DataSource=:memory:");
-            connection.Open();
-            services.AddSingleton<DbConnection>(connection);
-
-            services.AddDbContext<MemoRecipeDbContext>((container, options) =>
+            // Register a new DbContext that uses the container's connection string.
+            services.AddDbContext<MemoRecipeDbContext>(options =>
             {
-                var conn = container.GetRequiredService<DbConnection>();
-                options.UseSqlite(conn);
+                options.UseNpgsql(_postgresContainer.GetConnectionString());
             });
 
             // Build the schema (create tables from EF Core entities)
             var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
-            db.Database.EnsureCreated();
+            db.Database.Migrate();
 
             //Build the schema
             // Remove the real IOcrScanService (HTTP call to Azure Function)

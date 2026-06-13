@@ -178,10 +178,13 @@ builder.Services.AddMemoryCache();
 var app = builder.Build();
 
 // Auto-apply EF Core migrations on startup.
-using (var scope = app.Services.CreateScope())
+if (Environment.GetEnvironmentVariable("DOTNET_TEST_MODE") != "true")
 {
-    var db = scope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
-    db.Database.Migrate();
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
+        db.Database.Migrate();
+    }
 }
 
 // Configure
