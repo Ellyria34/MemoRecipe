@@ -5,7 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ContainerBaseImage>mcr.microsoft.com/dotnet/aspnet:10.0-alpine</ContainerBaseImage>
-    <ContainerRepository>memorecipe-api</ContainerRepository>
+    <ContainerRepository>ellyria34/memorecipe-api</ContainerRepository>
+    <ContainerRegistry>ghcr.io</ContainerRegistry>
     <ContainerUser>app</ContainerUser>
     <ContainerImageTag>dev</ContainerImageTag>
   </PropertyGroup>
@@ -30,6 +31,9 @@
   <ItemGroup>
     <ContainerPort Include="8080" Type="tcp"/>
     <ContainerEnvironmentVariable Include="ASPNETCORE_ENVIRONMENT" Value="Production"/>
+    <ContainerLabel Include="org.opencontainers.image.source" Value="https://github.com/Ellyria34/MemoRecipe" />
+    <ContainerLabel Include="org.opencontainers.image.description" Value="MemoRecipe API - personal recipe management with AI parsing" />
+    <ContainerLabel Include="org.opencontainers.image.licenses" Value="AGPL-3.0" />
   </ItemGroup>
 
 </Project>
