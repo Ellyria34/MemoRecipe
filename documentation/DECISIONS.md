@@ -407,7 +407,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **Volonté de quitter GitHub** comme plateforme principale du projet → migrer vers Docker Hub, Azure Container Registry, ou self-hosted (Harbor).
   - **Besoin d'un registry privé en self-hosted** (compliance, on-premise, isolation réseau) → migrer vers un registry custom.
   - **Évolution des quotas GHCR** (improbable au volume actuel — repos publics gratuits illimités) → réévaluer.
-- **État** : DÉCIDÉ le 04/06/2026 (visio mentor 04/06 + analyse comparative post-visio en solo). À implémenter dans **BACK-064** (étape 1B).
+- **État** : APPLIQUÉ le 17/06/2026 via **BACK-064** (PR #18 mergée). Workflow opérationnel : `dotnet publish /t:PublishContainer` pour l'API (push direct via Container SDK) + `docker build && docker push` pour le Frontend. Procédure complète documentée dans [`documentation/DEPLOYMENT.md`](DEPLOYMENT.md). Test E2E local validé (pull GHCR + compose up + auth fonctionnelle). Application sur VPS Cloud Infomaniak prévue dans **BACK-007 partie 3**.
 
 
 ### DEC-032 : .NET Aspire (Option B) pour orchestration du stack dev + prod
