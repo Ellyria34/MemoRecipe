@@ -15,6 +15,11 @@ RUN dotnet publish -c Release -o /app/publish --no-restore
 # Stage 2: Runtime image (smaller nginx for static file)
 FROM nginx:alpine AS runtime
 
+# OCI standard labels for image self-documentation on GHCR
+LABEL org.opencontainers.image.source="https://github.com/Ellyria34/MemoRecipe"
+LABEL org.opencontainers.image.description="MemoRecipe Frontend - Blazor WASM SPA served by nginx"
+LABEL org.opencontainers.image.licenses="AGPL-3.0"
+
 COPY --from=build /app/publish/wwwroot /usr/share/nginx/html
 
 # Remplace la config nginx par défaut par la nôtre (SPA routing + gzip)
