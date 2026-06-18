@@ -589,6 +589,74 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **État** : APPLIQUÉ le 18/06/2026 via **BACK-070** (commits `0372c29` + `fb0c81b` + commit logging à venir). Spike validé E2E avec Mistral (scan recette OK) et Gemini (429 free tier mais code fonctionnel). Factory étendue par-user prévue dans **BACK-069**.
 
 
+### DEC-036 : Choix de Groq (Llama 3.3 70B) comme provider de fallback serveur pour la stratégie freemium de BACK-069
+
+- **Date** : 18 juin 2026 (spike BACK-071 préparatoire à BACK-069)
+- **Choix** : **Groq Llama 3.3 70B Versatile** est retenu comme provider de fallback serveur pour la stratégie freemium hybride de BACK-069 (essais gratuits avec clé Sarah avant que l'utilisateur configure la sienne). 3 garde-fous accompagnent ce choix : (1) **maximum 2 essais gratuits par jour par utilisateur** (compteur applicatif BDD, reset à minuit UTC), (2) **compteur applicatif par minute** côté serveur pour détecter les pics et anticiper le 429 Groq (30 req/min), (3) **message d'information visible en UI** prévenant l'utilisateur que sur la version gratuite, des difficultés de scan peuvent survenir en cas de forte affluence. Groq remplace donc Gemini Flash qui avait été initialement proposé dans BACK-069 mais s'est révélé insuffisant en throughput après le spike BACK-070.
+- **Pourquoi Groq plutôt que Gemini Flash, Mistral Small, ou autres** :
+  - **Free tier journalier le plus généreux** : **14 400 scans/jour** (reset minuit UTC) vs 1 500/jour pour Gemini Flash et ~250-500/mois pour Mistral free. Permet d'absorber confortablement les volumes "portfolio" (jusqu'à ~100k users actifs/mois) à 0€ pour Sarah.
+  - **Throughput minute correct** : 30 req/min (2× supérieur à Gemini Flash 15 req/min), suffisant pour un projet portfolio. Mistral est meilleur (60 req/min) mais perd sur le quota mensuel/journalier.
+  - **Pas de carte bancaire requise** à l'inscription, ni pour activer le free tier (contrairement à OpenAI qui exige une CB dès le départ).
+  - **Qualité parsing comparable** à Mistral Small / Gemini Flash pour le cas d'usage "parser une recette OCR en JSON structuré" (validé en spike BACK-070/071 sur la recette "Quiche sans pâte aux poireaux et thon").
+  - **Vitesse d'inférence ultra-rapide** : LPU custom Groq → temps de réponse perçu ~200-500ms vs 1-2s pour les autres providers cloud. Meilleure UX de scan.
+  - **API REST compatible OpenAI** (format `messages[].role/content`) → adapter Groq quasi-identique à Mistral, **zéro nouveau pattern à apprendre** côté code (cf. `GroqChatCompletionClient.cs` créé en 5 min sur BACK-071).
+  - **Cohérence avec l'analyse coûts** (cf. tableau ci-dessous) : 0€/mois pour Sarah jusqu'à ~100k users actifs/mois, et coût raisonnable au-delà.
+- **Analyse comparative chiffrée (issue de BACK-071)** :
+  - **Coût par scan** (~2 000 tokens : 1 500 input + 500 output) :
+    - Gemini Flash : ~$0.00026/scan (le moins cher en absolu)
+    - Mistral Small : ~$0.0006/scan
+    - Groq Llama 3.3 70B : ~$0.0013/scan
+    - Claude Haiku : ~$0.004/scan (le plus cher)
+  - **Coût mensuel pour Sarah selon volume** (scénario portfolio modéré, avg 3 scans/user/mois) :
+    - 10 users : 0€ avec n'importe quel provider
+    - 1 000 users : 0€ avec Groq (3 000 scans absorbés free tier), ~1.50€ Mistral, ~0€ Gemini (sous free 45k)
+    - 10 000 users : ✅ **0€ avec Groq** (30 000 scans), ~17€ Mistral, ~3€ Gemini (au-delà free)
+    - 100 000 users : ✅ **0€ avec Groq** (300 000 scans, sous 432k free), ~170€ Mistral, ~67€ Gemini
+    - 500 000 users : ~1 387€ Groq, ~860€ Mistral, ~273€ Gemini (Gemini moins cher EN ABSOLU à très grande échelle mais throughput catastrophique pour ce volume)
+  - **Throughput** :
+    - Pic 30 users/minute : ✅ Groq OK (30/min) | ❌ Gemini bloque (15/min) | ✅ Mistral OK (60/min)
+    - Pic 100 users/heure : ✅ Groq large (14 400/jour) | ⚠️ Gemini limit 1500/jour | ✅ Mistral OK mais coût $$
+- **Garde-fous décidés (à implémenter dans BACK-069)** :
+  - **Garde-fou utilisateur** : maximum **2 essais gratuits par jour** par compte utilisateur (table `free_tier_usage` : `UserId`, `Date`, `Count`. Index unique sur (`UserId`, `Date`). Reset implicite à minuit UTC car nouvelle entrée chaque jour). Au-delà → modal "Tu as utilisé tes 2 essais gratuits aujourd'hui. Configure ta clé pour continuer OU reviens demain."
+  - **Garde-fou serveur global** : **compteur applicatif par minute** (table ou cache mémoire `IMemoryCache` avec TTL 60s). Si compteur global ≥ 28 dans la minute glissante (marge de 2 sur les 30 de Groq), refuser temporairement les nouveaux essais avec message "Service IA temporairement saturé, réessaie dans 1 min" — évite proactivement le 429 Groq.
+  - **Information utilisateur (UI)** : bannière ou tooltip visible sur la page de scan : "**Sur la version gratuite, des difficultés peuvent survenir en cas de forte affluence. Pour une expérience optimale, configure ta propre clé IA gratuite dans Settings.**" Texte clair, non culpabilisant, qui invite à la conversion vers BYO key.
+  - **Pas de cap global serveur explicite** au démarrage (= on accepte de payer si dépassement, mais avec alerting log pour anticiper). À ajouter plus tard si volumes massifs constatés.
+  - **Gestion du 429 réel** (si malgré le garde-fou minute on tape le quota Groq) : intercepter `HttpRequestException` avec status 429 → ne PAS comptabiliser dans le compteur user (pas de double-charge), retourner message frontend clair invitant à réessayer dans 1 min ou configurer sa clé.
+- **Sources** :
+  - [Groq Cloud Pricing](https://groq.com/pricing/)
+  - [Groq Rate Limits documentation](https://console.groq.com/docs/rate-limits)
+  - [Mistral AI Pricing](https://docs.mistral.ai/platform/pricing/)
+  - [Google AI Studio Free Tier](https://ai.google.dev/pricing)
+  - Spike BACK-070 (test E2E Gemini 429) + BACK-071 (test E2E Groq + analyse coûts)
+- **Alternative considérée — Mistral Small** :
+  - Avantage : throughput minute meilleur (60 req/min vs 30 Groq), code adapter déjà testé E2E dans BACK-070.
+  - Inconvénients : free tier mensuel beaucoup plus restreint (~250-500 scans/mois vs 432 000 Groq), coût plus rapide à grandir, pas de visibilité sur les quotas free exacts.
+  - **Rejetée** : Groq offre un free tier journalier 28× supérieur à Mistral mensuel, ce qui prime sur l'avantage throughput minute (rarement critique pour un portfolio).
+- **Alternative considérée — Multi-provider rotation** (Groq → Mistral → Gemini si quota saturé) :
+  - Avantage : robustesse maximale (jamais bloqué tant qu'au moins 1 provider OK).
+  - Inconvénients : complexité architecture (état partagé, logique rotation, gestion des 3 clés et leurs quotas), overkill pour un projet portfolio.
+  - **Rejetée pour MVP** : à reconsidérer si Sarah atteint des volumes > 100k users actifs/mois (= "joli problème à avoir").
+- **Alternative considérée — Pas de fallback serveur du tout (strict BYO key)** :
+  - Avantage : 0€ pour Sarah, simplicité maximale.
+  - Inconvénients : friction énorme pour la démo entretien (recruteur doit créer un compte Groq pour tester), conversion utilisateurs catastrophique sur un portfolio.
+  - **Rejetée** : un projet portfolio doit pouvoir être testé en 30 secondes par un recruteur, le freemium est crucial.
+- **Conséquences** :
+  - **`GROQ_API_KEY` à provisionner** dans les Application Settings Azure en prod (créée par Sarah dans Bitwarden lors de BACK-071).
+  - **`AI_PROVIDER=Groq`** comme défaut serveur en prod (cf. DEC-035 — factory env var).
+  - **2 nouvelles tables/structures** à ajouter dans le schéma BDD de BACK-069 :
+    - `free_tier_usage` (UserId, Date, Count) — quota journalier par user.
+    - Compteur minute en `IMemoryCache` (volatile, perdu au restart — acceptable car protection best-effort).
+  - **Component UI BACK-069** : bannière "version gratuite limitée" sur la page de scan, persistant tant que pas de config user.
+  - **Documentation BACK-069 + politique de confidentialité (BACK-006)** : mentionner Groq comme provider tiers de scan recettes en version gratuite. Conformité RGPD (donnée envoyée à Groq Inc. — DPA Groq à vérifier au moment de BACK-006).
+  - **Surveillance à mettre en place plus tard** (post-MVP) : dashboard ou alertes Application Insights sur le compteur jour/minute pour anticiper l'atteinte des seuils Groq.
+- **Conditions qui invalideraient ce choix** :
+  - **Volume serveur dépassant régulièrement 14 400 scans/jour** (= ~5 000 users actifs/jour avec 2-3 scans) → migrer vers tier payant Groq OU multi-provider rotation OU passer à un fallback Mistral Small payant à la demande.
+  - **Dégradation de qualité du parsing** observée sur Llama 3.3 70B (peu probable, mais à surveiller) → bascule vers Mistral Small en fallback.
+  - **Changement de politique Groq** (suppression du free tier 14 400/jour, ajout CB obligatoire) → bascule vers Mistral ou Together AI.
+  - **Atteinte de volumes massifs imprévus** (>500k users actifs/mois) → re-arbitrer entre Groq payant (~1 400€/mois pour 500k users à 3 scans/mois) et Gemini Flash payant (~273€/mois mais throughput catastrophique pour ce volume — improbable).
+- **État** : DÉCIDÉ le 18/06/2026 via **BACK-071** (spike technique validé E2E). À **APPLIQUER dans BACK-069** : les 3 garde-fous (compteur jour user, compteur minute serveur, bannière UI) sont à coder dans BACK-069 en même temps que la factory par-user.
+
+
 ---
 
 ## A investiguer
