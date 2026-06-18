@@ -4,6 +4,7 @@ using MemoRecipeIA.Infrastructure.OCR;
 using MemoRecipeIA.Infrastructure.AI;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 // var host = new HostBuilder()
 //     .ConfigureFunctionsWorkerDefaults()
@@ -18,6 +19,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
+    .ConfigureLogging((context, logging) =>
+    {
+        // Sécurité : éviter de logger les URLs HTTP sortantes
+        // (elles contiennent les API keys en query string : ?key=...)
+        logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
+    })
     .ConfigureServices(services =>
     {
         // Http client

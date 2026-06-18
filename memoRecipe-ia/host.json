@@ -2,6 +2,7 @@
   "version": "2.0",
   "logging": {
     "logLevel": {
+      "System.Net.Http.HttpClient": "Warning",
       "Default": "Information",
       "Function": "Information",
       "Host.Results": "Information",
