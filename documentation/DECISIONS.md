@@ -654,7 +654,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **Dégradation de qualité du parsing** observée sur Llama 3.3 70B (peu probable, mais à surveiller) → bascule vers Mistral Small en fallback.
   - **Changement de politique Groq** (suppression du free tier 14 400/jour, ajout CB obligatoire) → bascule vers Mistral ou Together AI.
   - **Atteinte de volumes massifs imprévus** (>500k users actifs/mois) → re-arbitrer entre Groq payant (~1 400€/mois pour 500k users à 3 scans/mois) et Gemini Flash payant (~273€/mois mais throughput catastrophique pour ce volume — improbable).
-- **État** : DÉCIDÉ le 18/06/2026 via **BACK-071** (spike technique validé E2E). À **APPLIQUER dans BACK-069** : les 3 garde-fous (compteur jour user, compteur minute serveur, bannière UI) sont à coder dans BACK-069 en même temps que la factory par-user.
+- **État** : DÉCIDÉ le 18/06/2026 via **BACK-071** (spike technique validé E2E), **MERGÉ sur main le 19/06/2026** (PR #20, merge commit `707ef63`). À **APPLIQUER dans BACK-069** : les 3 garde-fous (compteur jour user, compteur minute serveur, bannière UI) sont à coder dans BACK-069 en même temps que la factory par-user.
 
 
 ---
