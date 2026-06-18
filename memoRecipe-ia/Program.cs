@@ -25,21 +25,51 @@ var host = new HostBuilder()
 
         // OCR
         services.AddSingleton<IOcrService, TesseractOcrService>();
+        
+        var aiProvider = Environment.GetEnvironmentVariable("AI_PROVIDER") ?? "Fake";
+        var environnement = Environment.GetEnvironmentVariable("AZURE_FUNCTIONS_ENVIRONMENT") ?? "Development";
+        
+        if (environnement == "Production" && aiProvider=="Fake") 
+        { 
+            throw new InvalidOperationException("AI_PROVIDER cannot be 'Fake' in Production. Set AI_PROVIDER to 'Mistral' or 'Gemini'."); 
+        }
 
-        // // LLM réel (Mistral)
-        // services.AddSingleton<IChatCompletionClient>(sp =>
-        // {
-        //     var factory = sp.GetRequiredService<IHttpClientFactory>();
-        //     var httpClient = factory.CreateClient();
+        switch (aiProvider)
+        {
+            case "Fake":
+                services.AddSingleton<IChatCompletionClient, FakeChatCompletionClient>();
+                break;
+            case "Gemini":
+                services.AddSingleton<IChatCompletionClient>(sp =>
+                {
+                    var factory = sp.GetRequiredService<IHttpClientFactory>();
+                    var httpClient = factory.CreateClient();
 
-        //     var apiKey = Environment.GetEnvironmentVariable("MISTRAL_API_KEY")
-        //                 ?? throw new InvalidOperationException("Missing MISTRAL_API_KEY");
+                    var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY")
+                                ?? throw new InvalidOperationException("Missing GEMINI_API_KEY");
 
-        //     return new MistralChatCompletionClient(httpClient, apiKey);
-        // });
+                    return new GeminiChatCompletionClient(httpClient, apiKey);
+                });
+                break;
+            case "Mistral":  
+                services.AddSingleton<IChatCompletionClient>(sp =>
+                {
+                    var factory = sp.GetRequiredService<IHttpClientFactory>();
+                    var httpClient = factory.CreateClient();
 
-        // Fake LLM
-        services.AddSingleton<IChatCompletionClient, FakeChatCompletionClient>();
+                    var apiKey = Environment.GetEnvironmentVariable("MISTRAL_API_KEY")
+                                ?? throw new InvalidOperationException("Missing MISTRAL_API_KEY");
+
+                    return new MistralChatCompletionClient(httpClient, apiKey);
+                });
+                break;
+            default:
+                var validValues = environnement == "Production"
+                    ? "'Mistral', 'Gemini'"
+                    : "'Fake', 'Mistral', 'Gemini'";
+                throw new InvalidOperationException(
+                    $"AI_PROVIDER '{aiProvider}' is unknown. Valid values: {validValues}.");
+        }
 
         // Parsing IA
         services.AddSingleton<IRecipeAiService, RecipeAiService>();
