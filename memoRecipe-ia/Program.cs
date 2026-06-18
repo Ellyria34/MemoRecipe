@@ -70,10 +70,22 @@ var host = new HostBuilder()
                     return new MistralChatCompletionClient(httpClient, apiKey);
                 });
                 break;
+            case "Groq":  
+                services.AddSingleton<IChatCompletionClient>(sp =>
+                {
+                    var factory = sp.GetRequiredService<IHttpClientFactory>();
+                    var httpClient = factory.CreateClient();
+
+                    var apiKey = Environment.GetEnvironmentVariable("GROQ_API_KEY")
+                                ?? throw new InvalidOperationException("Missing GROQ_API_KEY");
+
+                    return new GroqChatCompletionClient(httpClient, apiKey);
+                });
+                break;
             default:
                 var validValues = environnement == "Production"
-                    ? "'Mistral', 'Gemini'"
-                    : "'Fake', 'Mistral', 'Gemini'";
+                    ? "'Mistral', 'Gemini', 'Groq'"
+                    : "'Fake', 'Mistral', 'Gemini', 'Groq'";
                 throw new InvalidOperationException(
                     $"AI_PROVIDER '{aiProvider}' is unknown. Valid values: {validValues}.");
         }
