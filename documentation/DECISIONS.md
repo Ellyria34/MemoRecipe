@@ -538,6 +538,57 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **État** : DÉCIDÉ et appliqué le 11/06/2026. Fix tracé dans **BACK-068** (P2) avec étapes + critères d'acceptation. À réévaluer au moment du planning de **BACK-029** (recherche et filtres).
 
 
+### DEC-035 : Sélection du LLM provider via variable d'environnement (Factory Pattern)
+
+- **Date** : 18 juin 2026 (spike BACK-070 préparatoire à BACK-069)
+- **Choix** : Le provider LLM de l'Azure Function `memoRecipe-ia` est sélectionné dynamiquement au démarrage via la variable d'environnement **`AI_PROVIDER`** (valeurs valides : `Fake`, `Mistral`, `Gemini`). `Program.cs` lit cette valeur et instancie l'implémentation correspondante de `IChatCompletionClient` via un `switch` dans le `ConfigureServices` du `HostBuilder`. Un **garde-fou anti-Fake-en-Production** throw `InvalidOperationException` au démarrage si `AZURE_FUNCTIONS_ENVIRONMENT=Production` et `AI_PROVIDER=Fake` (fail-fast). En cas de provider inconnu, le message d'erreur du `default` du switch est **conditionnel selon l'environnement** (ne mentionne pas `Fake` comme valeur valide en Production).
+- **Pourquoi** :
+  - **Anti-pattern remplacé** : avant BACK-070, la sélection du provider se faisait en commentant/décommentant manuellement du code dans `Program.cs` (`// MistralChatCompletionClient` vs `services.AddSingleton<IChatCompletionClient, FakeChatCompletionClient>()`). Risque énorme de commit accidentel du mauvais code, impossible de switcher sans recompiler, pas auditable. **Inacceptable en pratique pro**.
+  - **12-Factor App — Factor III "Config in the environment"** : config externalisée via variable d'environnement, jamais en dur dans le code. Le même binaire tourne en dev, pré-prod, prod, sans recompilation — seules les valeurs d'env changent.
+  - **Open/Closed Principle (SOLID)** : ajouter un nouveau provider (ex: Anthropic, Groq) = nouvelle classe `XxxChatCompletionClient` + nouveau `case` dans le switch. **Zéro modification** des implémentations existantes ni du code métier (pipeline, RecipeAiService). Le code est "ouvert à l'extension, fermé à la modification".
+  - **Architecture hexagonale Port/Adapter respectée** : `IChatCompletionClient` est le Port (interface), chaque implémentation est un Adapter (Mistral, Gemini, Fake). Le code métier ne sait pas quel provider tourne — c'est la magie de la DI.
+  - **Fail-Fast Principle** : valider la config au démarrage (pas à la première requête HTTP). Un déploiement en Production avec `AI_PROVIDER=Fake` (oubli humain) **refuse de démarrer** avec un message explicite, plutôt que de retourner silencieusement la recette de cheesecake hardcodée du `FakeChatCompletionClient` à tous les utilisateurs. Le coût d'un bug détecté au boot < le coût d'un bug détecté en prod sous trafic.
+  - **Switch facile entre providers pour spike / debug / benchmark** : changer la valeur de `AI_PROVIDER` dans `local.settings.json` (dev) ou dans les Application Settings Azure (prod) + restart = swap du LLM en quelques secondes, sans toucher au code. Démontré dans BACK-070 pour comparer Mistral vs Gemini sur les mêmes recettes.
+  - **Préparation à BACK-069** : ce Factory Pattern simple (env var globale) est le **prélude pédagogique** au Factory Pattern par-utilisateur que BACK-069 va implémenter (`IChatCompletionClientFactory.GetForUserAsync(userId)` qui lit la config IA du user en BDD). Sarah apprend le pattern sur un cas simple avant de l'étendre.
+- **Pourquoi `AI_PROVIDER` plutôt qu'un fichier de config dédié** :
+  - **Cohérence avec le reste** : `MISTRAL_API_KEY`, `GEMINI_API_KEY`, `AZURE_FUNCTIONS_ENVIRONMENT` sont déjà des env vars → 1 mécanisme unique pour toute la config.
+  - **Compatible Azure Functions** : les Application Settings du portail Azure deviennent automatiquement des env vars dans le worker. Pas besoin de gérer un fichier de config à part en prod.
+  - **`Environment.GetEnvironmentVariable("X") ?? "default"`** : pattern C# idiomatique, 1 ligne, lisible.
+- **Pourquoi fail-fast plutôt que fallback silencieux sur Fake** :
+  - Un fallback silencieux (`if Production && Fake → utiliser Mistral à la place`) **masque le bug de config**. Le déploiement réussit, l'app tourne, mais quelqu'un découvre 3 semaines plus tard que l'env var n'était pas définie en prod. Entre-temps, des coûts API potentiellement non maîtrisés.
+  - Le fail-fast garantit qu'un déploiement mal configuré est détecté **dans la minute** par l'équipe ops, avec un message d'erreur explicite : "AI_PROVIDER cannot be 'Fake' in Production. Set AI_PROVIDER to 'Mistral' or 'Gemini'."
+- **Pourquoi message d'erreur du `default` conditionnel selon l'environnement** :
+  - En Production, lister `Fake` comme valeur valide dans le message d'erreur est trompeur (puisque le garde-fou la rejetterait juste après). Mieux : ne pas la mentionner du tout en Prod, pour éviter qu'un ops mal renseigné essaie de la set.
+  - En Dev, lister les 3 valeurs (`Fake`, `Mistral`, `Gemini`) est utile pour onboarder un nouveau dev.
+  - Implémentation : opérateur ternaire `environnement == "Production" ? "'Mistral', 'Gemini'" : "'Fake', 'Mistral', 'Gemini'"`.
+- **Alternative considérée — Configuration via fichier `appsettings.json`** :
+  - Avantage : standard ASP.NET, fortement typé via `IOptions<T>`, validation via Data Annotations.
+  - Inconvénients : Azure Functions Isolated utilise `local.settings.json` pour les env vars locales (pas un appsettings.json) → cohérence cassée. En prod, faut maintenir un appsettings.Production.json en plus des Application Settings Azure = duplication de config.
+  - **Rejetée** : trop lourd pour le besoin (1 seule valeur à lire).
+- **Alternative considérée — Multiple Function App déployées séparément (1 par provider)** :
+  - Avantage : isolation totale entre providers, peut router via une porte d'entrée.
+  - Inconvénients : multiplication des coûts d'infra (chaque Function App = ressource Azure facturable), maintenance triplée, configuration et déploiement multipliés.
+  - **Rejetée** : disproportionné pour un projet portfolio, et le Factory Pattern intra-process est suffisant.
+- **Sources** :
+  - [12-Factor App — Factor III : Config](https://12factor.net/config)
+  - [SOLID — Open/Closed Principle](https://en.wikipedia.org/wiki/Open%E2%80%93closed_principle)
+  - [Architecture hexagonale (Ports and Adapters) — Alistair Cockburn](https://alistair.cockburn.us/hexagonal-architecture/)
+  - [Microsoft.Extensions.DependencyInjection — Singleton lifetime](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection)
+  - [Azure Functions Isolated worker — local.settings.json vs Application Settings](https://learn.microsoft.com/en-us/azure/azure-functions/functions-develop-local#local-settings-file)
+- **Conséquences** :
+  - **3 implémentations de `IChatCompletionClient` cohabitent** dans `memoRecipe-ia/Infrastructure/AI/` : `FakeChatCompletionClient` (existant), `MistralChatCompletionClient` (existant, décommenté), `GeminiChatCompletionClient` (nouveau, BACK-070).
+  - **Nouvelle dépendance environnement** : `AI_PROVIDER` doit être défini explicitement dans `local.settings.json` en dev (default "Fake" si absent) et dans les Application Settings Azure en prod (sinon throw au démarrage).
+  - **Documentation** : la fiche `documentation/fiches/LANCEMENT-APP-DEV.md` (créée pendant BACK-070) explique comment switcher de provider en dev.
+  - **Compatibilité ascendante** : tout le code métier (`RecipePipeline`, `RecipeAiService`, `ExtractOcrFunction`) continue d'utiliser `IChatCompletionClient` sans modification. Le swap est totalement transparent pour ces couches.
+  - **Préparation BACK-069** : la factory globale env-var va être **étendue en factory par-utilisateur** au moment de BACK-069. Le `switch (aiProvider)` deviendra un `switch (userConfig.Provider)` après lecture de la config user en BDD. Architecture progressive maîtrisée.
+  - **Sécurité — risque identifié pendant BACK-070** : les requêtes HTTP sortantes vers les APIs LLM contiennent la clé en query string (cas Gemini) → loggées par défaut dans la console Function. Mitigation immédiate appliquée dans BACK-070 : `logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning)` dans `Program.cs` du worker. Mitigation complète à prévoir dans BACK-069 : scrubbing actif des patterns sensibles (`key=`, `token=`, `api_key=`, `password=`, `authorization=`) via Serilog Filter.
+- **Conditions qui invalideraient ce choix** :
+  - **Plus de 1 provider actif simultanément en prod** (ex: A/B testing entre Mistral et Gemini pour mesurer la qualité) → le switch global devient insuffisant, il faut une factory plus avancée (DEC-XXX future).
+  - **Provider par utilisateur** (= scope BACK-069) → la factory env-var est dépassée, mais elle reste valable comme **fallback serveur** (le user qui n'a pas configuré sa clé utilise le provider par défaut serveur).
+  - **Migration vers .NET Aspire (BACK-065)** → la configuration sera centralisée dans l'AppHost C#. Le pattern Factory reste, mais la source de configuration change.
+- **État** : APPLIQUÉ le 18/06/2026 via **BACK-070** (commits `0372c29` + `fb0c81b` + commit logging à venir). Spike validé E2E avec Mistral (scan recette OK) et Gemini (429 free tier mais code fonctionnel). Factory étendue par-user prévue dans **BACK-069**.
+
+
 ---
 
 ## A investiguer
