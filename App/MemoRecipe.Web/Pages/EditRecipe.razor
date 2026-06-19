@@ -2,7 +2,16 @@
 @attribute [Authorize]
 
 <MudContainer MaxWidth = "MaxWidth.ExtraSmall">
-    <MudPaper Elevation="3" Class="pa-8 mt-4" Align="Center" > 
+    <MudPaper Elevation="3" Class="pa-8 mt-4" >
+        @if (_isLoading)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="ma-4">@_errorMessage</MudAlert>
+        }
+
         @if (_recipe == null)
         {
             <MudProgressCircular Indeterminate="true" />

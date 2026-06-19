@@ -1,43 +1,21 @@
-<MudHidden Breakpoint= "Breakpoint.MdAndUp">
-    <MudPaper 
-        Elevation="1" 
-        Style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; border-top: 1px solid #e0e0e0;" 
-        Class="d-flex justify-space-around">
-        <MudTooltip 
-            Text="Accueil"
-            Color="Color.Primary"
-            Arrow="true"
-            >
-            <MudIconButton
-                aria-label="Accueil"
-                Href="/"
-                Icon="@Icons.Material.Filled.Home"
-                Color="Color.Primary"
-            />
+<MudHidden Breakpoint="Breakpoint.MdAndUp">
+    <MudPaper Elevation="1"
+              Style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; border-top: 1px solid #e0e0e0;"
+              Class="d-flex justify-space-around">
+        <MudTooltip Text="Accueil" Color="Color.Primary" Arrow="true">
+            <MudIconButton aria-label="Accueil" Href="/" Icon="@Icons.Material.Filled.Home" Color="Color.Primary" />
         </MudTooltip>
-        <MudTooltip 
-            Text="Recettes"
-            Color="Color.Primary"
-            Arrow="true"
-        >
-            <MudIconButton
-                aria-label="Recettes"
-                Href="/recipes"
-                Icon="@Icons.Material.Filled.Book"
-                Color="Color.Primary"
-            />
+        <MudTooltip Text="Recettes" Color="Color.Primary" Arrow="true">
+            <MudIconButton aria-label="Recettes" Href="/recipes" Icon="@Icons.Material.Filled.Book"
+                           Color="Color.Primary" />
         </MudTooltip>
-        <MudTooltip
-            Text="Ajouter une recette"
-            Color="Color.Primary"
-            Arrow="true"
-        >
-            <MudIconButton
-                aria-label="Ajouter une recette"
-                Href="/recipes/new"
-                Icon="@Icons.Material.Filled.Add"
-                Color="Color.Primary"
-            />
+        <MudTooltip Text="Ajouter une recette" Color="Color.Primary" Arrow="true">
+            <MudIconButton aria-label="Ajouter une recette" Href="/recipes/new" Icon="@Icons.Material.Filled.Add"
+                           Color="Color.Primary" />
+        </MudTooltip>
+        <MudTooltip Text="Scanner une recette" Color="Color.Primary" Arrow="true">
+            <MudIconButton aria-label="Scanner une recette" Href="/recipes/scan" Icon="@Icons.Material.Filled.AdfScanner"
+                           Color="Color.Primary" />
         </MudTooltip>
     </MudPaper>
 </MudHidden>

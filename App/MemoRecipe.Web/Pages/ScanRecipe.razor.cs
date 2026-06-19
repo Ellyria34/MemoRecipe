@@ -3,6 +3,7 @@ using MemoRecipe.Web.Models;
 using MemoRecipe.Web.Services;
 using MudBlazor;
 using Microsoft.AspNetCore.Components.Forms;
+using MemoRecipe.Web.Helpers;
 
 namespace MemoRecipe.Web.Pages;
 
@@ -22,7 +23,6 @@ public partial class ScanRecipe
     private string? _errorMessage;
     private IBrowserFile? _selectedFile;
     bool _isLoading = false;
-    bool _isValid = false;
     
     private void UploadFile(IBrowserFile file)
     {
@@ -42,7 +42,7 @@ public partial class ScanRecipe
         {
             var stream = _selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
             _extractedRecipe = await RecipeService.ScanImageAsync(stream, _selectedFile.ContentType, _selectedFile.Name);
-            _newRecipe = MapToFormModel(_extractedRecipe);
+            _newRecipe = RecipeMapper.MapExtractedRecipeDtoToFormModel(_extractedRecipe);
         }
         catch (Exception)
         {
@@ -56,7 +56,7 @@ public partial class ScanRecipe
 
     private async Task HandleCreation(RecipeFormModel recipeFormModel)
     {
-        var recipeCreateDto = MapToRecipeCreateDto (recipeFormModel);
+        var recipeCreateDto = RecipeMapper.MapToRecipeCreateDto (recipeFormModel);
         _isLoading = true;
         _errorMessage = null;
         
@@ -79,52 +79,5 @@ public partial class ScanRecipe
         {
             _isLoading = false;
         }
-    }
-
-    //Mapper
-    private RecipeFormModel MapToFormModel (ExtractedRecipeDto extractedRecipeDto)
-    {
-        RecipeFormModel recipe = new RecipeFormModel
-        {
-            Title = extractedRecipeDto.Title,
-            Servings = extractedRecipeDto.Servings > 0 ? extractedRecipeDto.Servings : 1,
-            PrepTimeMinutes = null,
-            Ingredients = extractedRecipeDto.Ingredients.Select(i => new IngredientFormModel
-            {
-                Name = i
-            }).ToList(),
-            Steps = extractedRecipeDto.Steps.Select((s, index) => new StepFormModel
-            {
-                Instruction = s,
-                Order = index + 1
-            }).ToList()
-        };
-        return recipe;
-    }
-
-    private RecipeCreateDto MapToRecipeCreateDto (RecipeFormModel recipeFormModel)
-    {
-        RecipeCreateDto recipeCreateDto = new RecipeCreateDto
-        {
-            Title = recipeFormModel.Title,
-            Description = recipeFormModel.Description,
-            Servings = recipeFormModel.Servings,
-            PrepTimeMinutes = recipeFormModel.PrepTimeMinutes,
-            CookTimeMinutes = recipeFormModel.CookTimeMinutes,
-            Difficulty = recipeFormModel.Difficulty,
-            IsPublic = recipeFormModel.IsPublic,
-            Ingredients = recipeFormModel.Ingredients.Select(i => new IngredientCreateDto
-            {
-                Name = i.Name,
-                Quantity = i.Quantity ?? 0,
-                Unit = i.Unit
-            }).ToList(),
-            Steps = recipeFormModel.Steps.Select(s => new StepCreateDto
-            {
-                Instruction = s.Instruction,
-                Order = s.Order
-            }).ToList()
-        };
-        return recipeCreateDto;
     }
 }
