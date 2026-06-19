@@ -23,7 +23,6 @@ public partial class ScanRecipe
     private string? _errorMessage;
     private IBrowserFile? _selectedFile;
     bool _isLoading = false;
-    bool _isValid = false;
     
     private void UploadFile(IBrowserFile file)
     {
