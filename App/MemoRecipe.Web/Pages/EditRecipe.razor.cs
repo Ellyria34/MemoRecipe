@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using MemoRecipe.Web.Models;
 using MemoRecipe.Web.Services;
 using MudBlazor;
+using MemoRecipe.Web.Helpers;
 
 namespace MemoRecipe.Web.Pages;
 
@@ -32,7 +33,7 @@ public partial class EditRecipe
         try
         {
             _recipe = await RecipeService.GetRecipeByIdAsync(Id);
-            _recipeForm = MapToFormModel (_recipe);
+            _recipeForm = RecipeMapper.MapRecipeDtoToFormModel (_recipe);
         }
         catch (Exception)
         {
@@ -52,7 +53,7 @@ public partial class EditRecipe
         
         try
         {
-            var updtatedRecipe = MapToRecipeUpdateDto(_recipeForm);
+            var updtatedRecipe = RecipeMapper.MapToRecipeUpdateDto(_recipeForm);
             await RecipeService.UpdateRecipeAsync(Id, updtatedRecipe);
             Snackbar.Add("Recette sauvegardée !", Severity.Success, config => 
             {
@@ -77,58 +78,4 @@ public partial class EditRecipe
         if (result != true) return;
         Navigation.NavigateTo($"/recipes/{Id}");
     }
-
-
-    //Mapper
-    private RecipeFormModel MapToFormModel (RecipeDto recipeDto)
-    {
-        RecipeFormModel recipe = new RecipeFormModel
-        {
-            Title = recipeDto.Title,
-            Description = recipeDto.Description,
-            Servings = recipeDto.Servings > 0 ? recipeDto.Servings : 1,
-            PrepTimeMinutes = recipeDto.PrepTimeMinutes,
-            CookTimeMinutes = recipeDto.CookTimeMinutes,
-            IsPublic = recipeDto.IsPublic,
-            Ingredients = recipeDto.Ingredients.Select(i => new IngredientFormModel
-            {
-                Name = i.Name,
-                Quantity = i.Quantity,
-                Unit = i.Unit
-            }).ToList(),
-            Steps = recipeDto.Steps.OrderBy(s => s.Order).Select((s, index) => new StepFormModel
-            {
-                Instruction = s.Instruction,
-                Order = s.Order
-            }).ToList()
-        };
-        return recipe;
-    }
-
-    private RecipeUpdateDto MapToRecipeUpdateDto (RecipeFormModel recipeFormModel)
-    {
-        RecipeUpdateDto recipeUpdateDto = new RecipeUpdateDto
-        {
-            Title = recipeFormModel.Title,
-            Description = recipeFormModel.Description,
-            Servings = recipeFormModel.Servings,
-            PrepTimeMinutes = recipeFormModel.PrepTimeMinutes,
-            CookTimeMinutes = recipeFormModel.CookTimeMinutes,
-            Difficulty = recipeFormModel.Difficulty,
-            IsPublic = recipeFormModel.IsPublic,
-            Ingredients = recipeFormModel.Ingredients.Select(i => new IngredientUpdateDto
-            {
-                Name = i.Name,
-                Quantity = i.Quantity,
-                Unit = i.Unit
-            }).ToList(),
-            Steps = recipeFormModel.Steps.Select(s => new StepUpdateDto
-            {
-                Instruction = s.Instruction,
-                Order = s.Order
-            }).ToList()
-        };
-        return recipeUpdateDto;
-    }
-
 }
