@@ -1,16 +1,16 @@
-@page "/recipes/new"
+@page "/recipes/scan"
 
 @attribute [Authorize]
 
 <MudContainer MaxWidth = "MaxWidth.ExtraSmall">        
-    <MudPaper Class="pa-4 pb-8 ma-4" Elevation="3" Align="Center">
+    <MudPaper Class="pa-4 pb-8 ma-4" Elevation="3">
         <MudText Typo="Typo.h5"
             Align="Align.Center"
             GutterBottom="true"
         >
             Importer une recette
         </MudText>
-        <div Align="Center" style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
+        <div style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
         <MudFileUpload T="IBrowserFile" Accept="image/jpeg, image/png, .jpg, .jpeg, .png" FilesChanged="@UploadFile">
             <CustomContent>
                 <MudButton Variant="Variant.Filled"
@@ -69,7 +69,7 @@
     @* // Previsialisation section     *@
     @if (_newRecipe != null)
     {
-        <MudPaper Class="pa-4 ma-4" Elevation="3" Align="Center">
+        <MudPaper Class="pa-4 ma-4" Elevation="3">
             <MudText Typo="Typo.h5"
                 Align="Align.Center"
                 GutterBottom="true"
