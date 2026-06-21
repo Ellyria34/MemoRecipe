@@ -1,0 +1,469 @@
+@page "/privacy"
+@layout AuthLayout
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="my-8">
+    <MudPaper Elevation="3" Class="pa-8">
+        <MudText Typo="Typo.h4" GutterBottom="true">Politique de confidentialité</MudText>
+        <MudText Typo="Typo.body2" Class="mb-6">Dernière mise à jour : 20/06/2026</MudText>
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">1. Responsable du traitement des données</MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Le responsable du traitement des données personnelles collectées via MemoRecipe est :
+        </MudText>
+        <MudText Typo="Typo.body1" Class="mb-3" Style="padding-left: 1.5rem;">
+            <strong><em>LEON Sarah</em></strong><br />
+            <em>Statut juridique si applicable — particulier</em><br />
+            Email de contact RGPD : <strong><em>contact@memorecipe.com</em></strong>
+        </MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Le responsable du traitement décide des finalités et des moyens du traitement
+            des données personnelles, conformément à l'article 4.7 du RGPD.
+            À ce titre, il est votre interlocuteur unique pour toute question relative
+            à vos données personnelles ou à l'exercice de vos droits (cf. sections 6 et 7).
+        </MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Hébergement technique</strong> : les serveurs sur lesquels MemoRecipe est hébergé
+            sont fournis par <strong>Infomaniak Network SA</strong>, société suisse
+            située à Genève (Rue Eugène-Marziano 25, 1227 Les Acacias, Suisse).
+            Infomaniak agit en tant que <strong>sous-traitant</strong> au sens de l'article 28 du RGPD.
+            Les centres de données utilisés sont situés en <strong>Suisse</strong>, pays reconnu
+            par la Commission européenne comme offrant un niveau de protection des données
+            adéquat (décision d'adéquation 2000/518/CE).
+        </MudText>
+        <MudText Typo="Typo.body1" Class="mb-4">
+            <strong>Pas de Délégué à la Protection des Données (DPO)</strong> :
+            MemoRecipe étant un service à taille personnelle non destiné à un traitement à grande
+            échelle de données sensibles, la nomination d'un DPO n'est pas obligatoire
+            (RGPD Art. 37). Toutes les demandes RGPD sont traitées directement par le responsable
+            du traitement à l'adresse email indiquée ci-dessus.
+        </MudText>
+
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">2. Données collectées</MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Pour assurer le fonctionnement du service, nous collectons UNIQUEMENT :
+        </MudText>
+        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+            <li class="mb-2">
+                <strong>Adresse email</strong> : sert d'identifiant unique et de canal de contact.
+            </li>
+            <li class="mb-2">
+                <strong>Pseudonyme</strong> : nom d'affichage choisi librement par l'utilisateur
+                (peut être fictif, aucune obligation d'utiliser une identité réelle).
+            </li>
+            <li class="mb-2">
+                <strong>Mot de passe</strong> : stocké uniquement sous forme HACHÉE
+                (algorithme PBKDF2 avec sel cryptographique).
+                Ni les administrateurs ni les processus automatiques ne peuvent reconstituer
+                le mot de passe original.
+            </li>
+            <li class="mb-2">
+                <strong>Recettes</strong> : titre, description, ingrédients, étapes,
+                temps de préparation/cuisson, difficulté, photos uploadées.
+            </li>
+            <li class="mb-2">
+                <strong>Texte OCR</strong> : texte brut extrait des images scannées
+                pour traitement par IA.
+            </li>
+            <li class="mb-2">
+                <strong>Métadonnées techniques</strong> : dates de création/modification,
+                statut du compte.
+            </li>
+        </ul>
+        <MudText Typo="Typo.body1" Class="mb-4">
+            Conformément au principe de <strong>minimisation des données</strong>
+            (RGPD Art. 5.1.c), aucune autre donnée personnelle n'est collectée
+            (pas de nom réel, pas d'adresse, pas de téléphone, pas de données de paiement,
+            pas de tracking analytique).
+        </MudText>
+
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">3. Finalités du traitement</MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Les données collectées sont utilisées exclusivement pour les finalités suivantes :
+        </MudText>
+        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+            <li class="mb-2">
+                <strong>Gestion du compte utilisateur</strong> : création, authentification (login),
+                gestion de la session et sécurisation de l'accès au service.
+            </li>
+            <li class="mb-2">
+                <strong>Stockage et organisation des recettes</strong> : sauvegarde, modification,
+                consultation et suppression des recettes personnelles de l'utilisateur.
+            </li>
+            <li class="mb-2">
+                <strong>Extraction automatisée par OCR et IA</strong> : traitement des photos de recettes
+                uploadées par l'utilisateur pour en extraire le texte (OCR) puis structurer le contenu
+                (titre, ingrédients, étapes) via un modèle d'intelligence artificielle.
+                Le résultat est présenté à l'utilisateur pour vérification avant sauvegarde
+                (cf. section 9 sur la transparence IA).
+            </li>
+            <li class="mb-2">
+                <strong>Communication de service</strong> : échange par email pour répondre aux demandes
+                de l'utilisateur concernant son compte ou ses droits RGPD
+                (uniquement en réponse à une demande de sa part, pas de prospection).
+            </li>
+        </ul>
+        <MudText Typo="Typo.body1" Class="mb-4">
+            Conformément au principe de <strong>limitation des finalités</strong> (RGPD Art. 5.1.b),
+            les données ne sont utilisées pour aucun autre usage :
+            pas de revente à des tiers, pas de profilage publicitaire, pas d'envoi de newsletter marketing.
+        </MudText>
+
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">4. Base légale du traitement</MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Conformément à l'article 6 du RGPD, le traitement de vos données repose sur deux
+            bases légales complémentaires :
+        </MudText>
+        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+            <li class="mb-2">
+                <strong>Consentement à l'inscription</strong> (RGPD Art. 6.1.a) : en créant un compte
+                sur MemoRecipe, vous donnez votre consentement explicite à la collecte et au traitement
+                de votre adresse email, pseudonyme et mot de passe (haché).
+                Ce consentement peut être retiré à tout moment par la suppression de votre compte
+                (cf. section 6 — Droits utilisateur).
+            </li>
+            <li class="mb-2">
+                <strong>Exécution du contrat de service</strong> (RGPD Art. 6.1.b) : le stockage
+                de vos recettes, l'extraction OCR/IA des images que vous uploadez, et la fourniture
+                du service de gestion de recettes sont nécessaires à l'exécution du contrat conclu
+                avec vous lors de votre inscription.
+            </li>
+        </ul>
+        <MudText Typo="Typo.body1" Class="mb-4">
+            Aucun traitement n'est fondé sur un <strong>intérêt légitime</strong> (Art. 6.1.f),
+            une <strong>obligation légale</strong> (Art. 6.1.c), la <strong>sauvegarde d'intérêts vitaux</strong>
+            (Art. 6.1.d) ou une <strong>mission d'intérêt public</strong> (Art. 6.1.e).
+            Vous gardez ainsi un contrôle total sur le maintien du traitement de vos données.
+        </MudText>
+
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">5. Durée de conservation des données</MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Les données sont conservées pendant les durées suivantes :
+        </MudText>
+        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+            @* <li class="mb-2">
+                <strong>Données du compte</strong> (email, pseudonyme, mot de passe haché) :
+                conservées <strong>tant que le compte est actif</strong>, c'est-à-dire jusqu'à
+                la demande de suppression par l'utilisateur.
+            </li> *@
+            <li class="mb-2">
+                <strong>Données du compte</strong> (email, pseudonyme, mot de passe haché) :
+                conservées tant que le compte existe.
+            </li>
+
+            @* <li class="mb-2">
+                <strong>Recettes et contenus associés</strong> (titre, ingrédients, étapes, photos,
+                texte OCR) : conservés <strong>tant que le compte existe</strong>.
+                Supprimés en cascade lors de la suppression du compte.
+            </li> *@
+            <li class="mb-2">
+                <strong>Recettes et contenus associés</strong> (titre, ingrédients, étapes, photos,
+                texte OCR) : conservés tant que le compte existe.
+                <strong>Supprimés automatiquement en cascade</strong> lors de la suppression du compte
+                (relation EF Core <code>OnDelete.Cascade</code>).
+            </li>
+            @* <li class="mb-2">
+                <strong>Délai de grâce après suppression du compte</strong> :
+                à compter de la demande de suppression, les données sont conservées pendant
+                <strong>30 jours en état "soft delete"</strong> (compte désactivé mais récupérable).
+                Passé ce délai, toutes les données sont <strong>définitivement effacées</strong>
+                de la base de données de production.
+            </li> *@
+            <li class="mb-2">
+                <strong>Demande de suppression du compte</strong> : pour l'instant,
+                la suppression doit être demandée par email à
+                <em>contact@memorecipe.com</em>.
+                Une fonctionnalité de suppression en self-service avec délai de grâce de 30 jours
+                (soft delete) <strong>sera prochainement disponible</strong>
+                (cf. roadmap interne BACK-005).
+            </li>
+            @* <li class="mb-2">
+                <strong>Logs techniques anonymisés</strong> (horodatage des connexions, erreurs serveur) :
+                conservés au maximum <strong>12 mois</strong> à des fins de sécurité et de diagnostic,
+                puis supprimés automatiquement. Ces logs ne contiennent ni mot de passe,
+                ni contenu de recettes.
+            </li> *@
+            <li class="mb-2">
+                <strong>Logs techniques</strong> : les logs serveur (horodatage des connexions,
+                erreurs) sont conservés sur les serveurs d'hébergement le temps nécessaire au diagnostic
+                et à la sécurité. Ils ne contiennent ni mot de passe, ni contenu de recettes.
+            </li>
+        </ul>
+        <MudText Typo="Typo.body1" Class="mb-4">
+            Conformément au principe de <strong>limitation de la conservation</strong>
+            (RGPD Art. 5.1.e), aucune donnée n'est conservée au-delà de ce qui est strictement
+            nécessaire à la finalité du traitement.
+        </MudText>
+
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">6. Vos droits sur vos données</MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Conformément aux articles 15 à 22 du RGPD, vous disposez des droits suivants
+            sur vos données personnelles :
+        </MudText>
+        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+            <li class="mb-2">
+                <strong>Droit d'accès</strong> (Art. 15) : obtenir confirmation que vos données sont traitées
+                et en recevoir une copie.
+            </li>
+            <li class="mb-2">
+                <strong>Droit de rectification</strong> (Art. 16) : faire corriger des données
+                inexactes ou incomplètes.
+            </li>
+            <li class="mb-2">
+                <strong>Droit à l'effacement</strong> (Art. 17, dit "droit à l'oubli") : faire supprimer
+                l'ensemble de vos données personnelles.
+            </li>
+            <li class="mb-2">
+                <strong>Droit à la limitation</strong> (Art. 18) : faire suspendre temporairement le traitement
+                de vos données.
+            </li>
+            <li class="mb-2">
+                <strong>Droit à la portabilité</strong> (Art. 20) : recevoir vos données dans un format
+                structuré, couramment utilisé et lisible par machine (JSON).
+            </li>
+            <li class="mb-2">
+                <strong>Droit d'opposition</strong> (Art. 21) : vous opposer, pour des raisons tenant
+                à votre situation particulière, au traitement de vos données.
+            </li>
+            <li class="mb-2">
+                <strong>Droit de retirer votre consentement</strong> (Art. 7.3) : à tout moment,
+                sans que cela affecte la licéité du traitement effectué avant ce retrait.
+            </li>
+        </ul>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Comment exercer ces droits</strong> : pour l'instant, ces droits s'exercent
+            par email à <em>contact@memorecipe.com</em>.
+            Nous nous engageons à répondre dans un délai maximum de <strong>30 jours</strong>
+            conformément à l'article 12.3 du RGPD.
+        </MudText>
+        @*
+        // À RÉACTIVER POST-IMPLÉMENTATION (BACK-005 + BACK-018) :
+        //
+        // Une fois ces tickets mergés en production, remplacer le paragraphe ci-dessus par :
+        //
+        // <strong>Comment exercer ces droits :</strong>
+        // - Droit d'accès, rectification : depuis votre page "Mon profil" dans l'application.
+        // - Droit à l'effacement : depuis votre page "Paramètres → Supprimer mon compte"
+        // (cf. BACK-005, délai de grâce 30 jours).
+        // - Droit à la portabilité : depuis votre page "Paramètres → Exporter mes données"
+        // (cf. BACK-018, format JSON téléchargeable).
+        // - Autres droits (limitation, opposition, retrait consentement) : par email à contact@memorecipe.com.
+        *@
+        <MudText Typo="Typo.body1" Class="mb-4">
+            Vous disposez également du droit d'introduire une réclamation auprès de la
+            <strong>Commission Nationale de l'Informatique et des Libertés (CNIL)</strong>
+            si vous estimez que le traitement de vos données ne respecte pas la réglementation.
+            Plus d'informations : <MudLink Href="https://www.cnil.fr" Target="_blank" rel="noopener noreferrer">
+            www.cnil.fr</MudLink>.
+        </MudText>
+
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">7. Contact pour exercer vos droits</MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Pour toute demande relative à vos données personnelles ou à l'exercice de vos droits
+            (cf. section 6), vous pouvez nous contacter par email :
+        </MudText>
+        <MudText Typo="Typo.body1" Class="mb-3" Style="text-align: center;">
+            <strong>📧 <em>contact@memorecipe.com</em></strong>
+        </MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Modalités</strong> : votre demande doit préciser clairement :
+        </MudText>
+        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+            <li class="mb-2">
+                L'<strong>adresse email</strong> associée à votre compte (pour identifier votre dossier).
+            </li>
+            <li class="mb-2">
+                Le ou les <strong>droits que vous souhaitez exercer</strong>
+                (accès, rectification, effacement, portabilité, etc.).
+            </li>
+            <li class="mb-2">
+                Pour le droit de rectification : la <strong>modification précise</strong> souhaitée.
+            </li>
+        </ul>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Justification d'identité</strong> : en cas de doute raisonnable sur l'identité
+            du demandeur, des informations complémentaires peuvent être requises
+            pour vérifier que la demande émane bien du titulaire du compte
+            (RGPD Art. 12.6). Aucun justificatif n'est demandé par défaut pour préserver
+            le pseudonymat de l'utilisateur.
+        </MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Délai de réponse</strong> : nous nous engageons à vous répondre dans un délai
+            maximum de <strong>1 mois</strong> à compter de la réception de votre demande
+            (RGPD Art. 12.3). Ce délai peut être prolongé de 2 mois supplémentaires si nécessaire
+            en raison de la complexité ou du nombre de demandes, auquel cas vous serez informé(e)
+            des motifs du report.
+        </MudText>
+        <MudText Typo="Typo.body1" Class="mb-4">
+            <strong>Gratuité</strong> : l'exercice de vos droits est gratuit.
+            Toutefois, en cas de demandes manifestement infondées ou excessives
+            (notamment en raison de leur caractère répétitif), nous nous réservons le droit
+            de demander des frais raisonnables ou de refuser de donner suite (RGPD Art. 12.5).
+        </MudText>
+
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">8. Cookies utilisés</MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            MemoRecipe utilise <strong>un seul cookie</strong>, indispensable au fonctionnement du service :
+        </MudText>
+        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+            <li class="mb-2">
+                <strong>Cookie de connexion</strong> (nom technique : <code>authCookie</code>) :
+                sert à vous maintenir connecté(e) pendant que vous utilisez l'application.
+                Sans ce cookie, vous devriez ressaisir votre mot de passe à chaque clic,
+                ce qui rendrait le service inutilisable.
+            </li>
+        </ul>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Ce cookie est <strong>sécurisé selon les meilleures pratiques actuelles</strong>
+            pour protéger votre compte contre les tentatives de vol de session.
+            Il est automatiquement supprimé <strong>1 heure après votre connexion</strong>
+            (vous devez alors vous reconnecter), ou immédiatement lorsque vous cliquez sur
+            « Se déconnecter ».
+        </MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Pas de bannière de consentement cookies ?</strong>
+            Effectivement, et c'est <strong>conforme à la réglementation</strong>
+            (directive ePrivacy et recommandations CNIL).
+            Un cookie strictement nécessaire au fonctionnement d'un service ne requiert pas
+            de consentement préalable. Seuls les cookies de mesure d'audience, de publicité
+            ou de tracking exigent une bannière — et MemoRecipe n'en utilise aucun.
+        </MudText>
+        <MudText Typo="Typo.body1" Class="mb-4">
+            <strong>Nos engagements concrets</strong> :
+        </MudText>
+        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+            <li class="mb-2">Pas de Google Analytics ni d'outil de mesure similaire.</li>
+            <li class="mb-2">Pas de pixel Facebook, ni de tracker publicitaire.</li>
+            <li class="mb-2">Pas de partage de vos données de navigation avec des tiers.</li>
+            <li class="mb-2">Pas d'identification de votre appareil par empreinte numérique (« fingerprinting »).</li>
+        </ul>
+        <MudText Typo="Typo.body1" Class="mb-4">
+            Si cette politique devait évoluer (par exemple ajout d'un outil de statistiques),
+            une bannière de consentement serait alors mise en place et cette page serait mise à jour.
+        </MudText>
+
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">9. Utilisation de l'intelligence artificielle</MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Lorsque vous utilisez la <strong>fonctionnalité de scan</strong> pour numériser une
+            recette à partir d'une photo, MemoRecipe fait appel à des technologies
+            d'<strong>intelligence artificielle</strong> pour vous faire gagner du temps.
+            Vous avez le droit d'être informé(e) précisément de ce qui se passe.
+        </MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Étapes du traitement par IA</strong> :
+        </MudText>
+
+        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+            <li class="mb-2">
+                <strong>1. Lecture du texte sur l'image (OCR)</strong> : un outil installé sur notre
+                propre serveur (Tesseract, logiciel libre) analyse votre photo pour en extraire
+                le texte. Aucun autre service externe n'est utilisé à cette étape.
+            </li>
+            <li class="mb-2">
+                <strong>2. Structuration du texte par IA</strong> : le texte extrait est ensuite
+                envoyé à un service d'intelligence artificielle qui identifie le titre,
+                les ingrédients et les étapes ... pour vous proposer une recette pré-remplie.
+                Le fournisseur actuellement utilisé est <strong>Groq Cloud</strong>
+                (détails et garanties contractuelles ci-dessous).
+                D'autres fournisseurs (Mistral AI, Google Gemini) restent compatibles
+                mais ne sont pas activés.
+            </li>
+            <li class="mb-2">
+                <strong>3. Vérification par vous</strong> : le résultat de l'IA vous est présenté
+                dans un formulaire éditable. <strong>RIEN n'est sauvegardé tant que vous n'avez
+                pas cliqué sur « Sauvegarder »</strong>. Vous pouvez tout modifier ou tout annuler.
+            </li>
+        </ul>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Aucune décision automatisée</strong> : conformément à l'article 22 du RGPD
+            et à l'article 50 de l'EU AI Act (Règlement européen sur l'intelligence artificielle),
+            aucune décision produisant des effets juridiques ou vous affectant de manière significative
+            n'est prise automatiquement par l'IA. Vous restez à tout moment le décideur final
+            de ce qui est sauvegardé dans votre compte.
+        </MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Ce que reçoit le fournisseur d'IA</strong> :
+        </MudText>
+        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+            <li class="mb-2">
+                Le <strong>texte brut</strong> extrait de votre photo (titre, ingrédients, étapes).
+            </li>
+            <li class="mb-2">
+                <strong>PAS</strong> votre photo originale (elle reste sur notre serveur).
+            </li>
+            <li class="mb-2">
+                <strong>PAS</strong> votre email, votre pseudonyme, ni aucune autre donnée
+                de votre compte.
+            </li>
+            <li class="mb-2">
+                <strong>PAS</strong> votre adresse IP ni d'identifiant permettant de vous identifier
+                directement (l'appel est effectué depuis notre serveur, pas depuis votre navigateur).
+            </li>
+        </ul>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Hébergement et engagements du fournisseur d'IA utilisé</strong> :
+            MemoRecipe utilise actuellement le service <strong>Groq Cloud</strong>
+            (société Groq Inc., basée aux États-Unis). Le texte extrait de votre photo est donc
+            traité aux États-Unis pendant quelques secondes avant de vous revenir sous forme
+            de formulaire pré-rempli.
+        </MudText>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Garanties contractuelles de Groq</strong> (sources :
+            <MudLink Href="https://console.groq.com/docs/legal/services-agreement" Target="_blank"
+                     rel="noopener noreferrer">Services Agreement</MudLink>
+            +
+            <MudLink Href="https://console.groq.com/docs/legal/customer-data-processing-addendum" Target="_blank"
+                     rel="noopener noreferrer">Data Processing Addendum</MudLink>) :
+        </MudText>
+
+        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+            <li class="mb-2">
+                <strong>Vos contenus ne sont PAS utilisés pour entraîner les modèles d'IA</strong>
+                (engagement explicite dans la Services Agreement : « Groq is not permitted to use
+                Inputs or Outputs for training or fine-tuning any AI Model Services or other models,
+                unless explicitly granted permission »).
+            </li>
+            <li class="mb-2">
+                <strong>Pas de stockage</strong> des contenus envoyés au-delà du temps strictement
+                nécessaire au traitement (« Groq does not access, use, store, or retain Inputs
+                or Outputs except as necessary to provide the Cloud Services »).
+            </li>
+            <li class="mb-2">
+                <strong>Vous restez propriétaire</strong> des contenus envoyés et reçus
+                (droits de propriété intellectuelle conservés).
+            </li>
+            <li class="mb-2">
+                <strong>Transferts encadrés</strong> : les données transitent vers les États-Unis
+                sous le cadre juridique des <strong>Clauses Contractuelles Types (SCC) de l'Union européenne</strong>
+                + adhésion au <strong>Data Privacy Framework</strong> UE-USA.
+            </li>
+        </ul>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Si nous changeons de fournisseur d'IA à l'avenir</strong> (par exemple Mistral AI
+            basé en France, Google Gemini, ou autre), cette page sera mise à jour pour refléter
+            les nouvelles conditions. <strong>Attention</strong> : les conditions d'utilisation
+            des contenus varient selon le fournisseur et l'offre choisie (free tier vs payant).
+            Sur certaines offres gratuites comme Google Gemini, les contenus envoyés
+            <strong>peuvent</strong> être utilisés pour améliorer les modèles.
+            Nous nous engageons à privilégier les fournisseurs offrant les meilleures garanties
+            de protection des données.
+        </MudText>
+        <MudText Typo="Typo.body1" Class="mb-4">
+            <strong>Vous préférez ne pas utiliser l'IA ?</strong>
+            Vous pouvez créer vos recettes <strong>manuellement</strong> via la fonctionnalité
+            « Créer une recette » (sans scan, sans IA). Aucun traitement par IA n'a lieu
+            pour cette option.
+        </MudText>
+
+
+
+    </MudPaper>
+</MudContainer>

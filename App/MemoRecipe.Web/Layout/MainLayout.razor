@@ -1,15 +1,16 @@
 ﻿@inherits LayoutComponentBase
 
-<MudThemeProvider Theme="_theme"/>
+<MudThemeProvider Theme="_theme" />
 <MudPopoverProvider />
 <MudSnackbarProvider />
 <MudDialogProvider />
 <MudLayout>
-        <NavBar />
-        <SideBar/>
-        <BottomNavBar />
+    <NavBar />
+    <SideBar />
+    <BottomNavBar />
     <MudMainContent style="padding-bottom: 50px">
         @Body
+        <Footer />
     </MudMainContent>
 </MudLayout>
 

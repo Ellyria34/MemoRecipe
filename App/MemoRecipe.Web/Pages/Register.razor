@@ -12,62 +12,25 @@
         </MudText>
 
         <MudForm @bind-IsValid="_isValid">
-            <MudTextField
-                T="string"
-                Label="Email"
-                Variant="Variant.Outlined"
-                InputType="InputType.Email"
-                Adornment="Adornment.Start"
-                AdornmentIcon="@Icons.Material.Filled.Email"
-                Class="mb-4"
-                @bind-Value="_email"
-                Required="true"
-                Validation="@((string v) => ValidateEmail(v))"
-            />
+            <MudTextField T="string" Label="Email" Variant="Variant.Outlined" InputType="InputType.Email"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" Class="mb-4"
+                          @bind-Value="_email" Required="true" Validation="@((string v) => ValidateEmail(v))" />
 
-            <MudTextField
-                T="string"
-                Label="Nom d'utilisateur"
-                Variant="Variant.Outlined"
-                InputType="InputType.Text"
-                Adornment="Adornment.Start"
-                AdornmentIcon="@Icons.Material.Filled.Person"
-                Class="mb-4"
-                @bind-Value="_userName"
-                Required="true"
-                Validation="@((string v) => ValidateUserName(v))"
-            />
+            <MudTextField T="string" Label="Nom d'utilisateur" Variant="Variant.Outlined" InputType="InputType.Text"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person" Class="mb-4"
+                          @bind-Value="_userName" Required="true" Validation="@((string v) => ValidateUserName(v))" />
 
-            <MudTextField
-                T="string"
-                ShrinkLabel="true" 
-                Label="Mot de passe"
-                Variant="Variant.Outlined"
-                InputType="@(_showPassword ? InputType.Text : InputType.Password)"
-                Adornment="Adornment.End"
-                AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
-                OnAdornmentClick="() => _showPassword = !_showPassword"
-                Class="mb-4"
-                @bind-Value="_password"
-                Immediate="true"
-                Required="true"
-                Validation="@((string v) => ValidatePassword(v))"
-            />
+            <MudTextField T="string" ShrinkLabel="true" Label="Mot de passe" Variant="Variant.Outlined"
+                          InputType="@(_showPassword ? InputType.Text : InputType.Password)" Adornment="Adornment.End"
+                          AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                          OnAdornmentClick="() => _showPassword = !_showPassword" Class="mb-4" @bind-Value="_password"
+                          Immediate="true" Required="true" Validation="@((string v) => ValidatePassword(v))" />
 
-            <MudTextField
-                T="string"
-                ShrinkLabel="true" 
-                Label="Confirmer le mot de passe"
-                Variant="Variant.Outlined"
-                InputType="@(_showPassword ? InputType.Text : InputType.Password)"
-                Adornment="Adornment.End"
-                AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
-                OnAdornmentClick="() => _showPassword = !_showPassword"
-                Class="mb-6"
-                @bind-Value="_passwordConfirmation"
-                Required="true"
-                Validation="@((string v) => ValidatePasswordConfirmation(v))"
-            />
+            <MudTextField T="string" ShrinkLabel="true" Label="Confirmer le mot de passe" Variant="Variant.Outlined"
+                          InputType="@(_showPassword ? InputType.Text : InputType.Password)" Adornment="Adornment.End"
+                          AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                          OnAdornmentClick="() => _showPassword = !_showPassword" Class="mb-6" @bind-Value="_passwordConfirmation"
+                          Required="true" Validation="@((string v) => ValidatePasswordConfirmation(v))" />
         </MudForm>
 
         @if (!string.IsNullOrEmpty(_errorMessage))
@@ -75,13 +38,14 @@
             <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
         }
 
-        <MudButton
-            Variant="Variant.Filled"
-            Color="Color.Primary"
-            FullWidth="true"
-            Class="mb-4"
-            OnClick="HandleRegister"
-        >
+        <MudText Typo="Typo.caption" Align="Align.Center" Class="mb-3" Style="color: #6C757D;">
+            En créant un compte, vous acceptez notre
+            <MudLink Href="/privacy" Target="_blank" rel="noopener noreferrer">politique de confidentialité</MudLink>
+            et nos <MudLink Href="/legal" Target="_blank" rel="noopener noreferrer">mentions légales</MudLink>.
+        </MudText>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mb-4 mt-4"
+                   OnClick="HandleRegister">
             S'inscrire
         </MudButton>
 

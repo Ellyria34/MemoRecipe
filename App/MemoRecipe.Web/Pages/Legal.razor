@@ -1,0 +1,187 @@
+@page "/legal"
+@layout AuthLayout
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="my-8">
+    <MudPaper Elevation="3" Class="pa-8">
+        <MudText Typo="Typo.h4" GutterBottom="true">Mentions légales</MudText>
+        <MudText Typo="Typo.body2" Class="mb-6">Dernière mise à jour : 21/06/2026</MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-4">
+            Conformément aux dispositions des articles 6-III et 19 de la 
+            <strong>Loi pour la Confiance dans l'Économie Numérique (LCEN) du 21 juin 2004</strong>, 
+            il est précisé aux utilisateurs du site MemoRecipe l'identité des différents intervenants 
+            dans le cadre de sa réalisation et de son suivi.
+        </MudText>
+
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">1. Éditeur du site</MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-3" Style="padding-left: 1.5rem;">
+            <strong>LEON Sarah</strong><br />
+            Statut : particulier (projet personnel non commercial)<br />
+            Email de contact : <strong>contact@memorecipe.com</strong>
+        </MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-4">
+            L'éditeur est responsable du contenu publié sur le site et du traitement des données 
+            personnelles des utilisateurs (cf. <MudLink Href="/privacy" Target="_blank" rel="noopener noreferrer">Politique de confidentialité</MudLink>).
+        </MudText>
+
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">2. Hébergeur du site</MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-3" Style="padding-left: 1.5rem;">
+            <strong>Infomaniak Network SA</strong><br />
+            Rue Eugène-Marziano 25<br />
+            1227 Les Acacias — Genève, Suisse<br />
+            Site web : <MudLink Href="https://www.infomaniak.com" Target="_blank" rel="noopener noreferrer">www.infomaniak.com</MudLink>
+        </MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-4">
+            Les centres de données utilisés sont situés en <strong>Suisse</strong>, pays reconnu 
+            par la Commission européenne comme offrant un niveau de protection des données 
+            adéquat (décision d'adéquation 2000/518/CE).
+        </MudText>
+
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">3. Propriété intellectuelle</MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Code source de l'application</strong> : MemoRecipe est un logiciel libre 
+            distribué sous licence <strong>GNU Affero General Public License v3.0 (AGPL-3.0)</strong>. 
+            Le code source est disponible publiquement sur 
+            <MudLink Href="https://github.com/Ellyria34/MemoRecipe" Target="_blank" rel="noopener noreferrer">GitHub</MudLink>. 
+            Toute réutilisation du code doit respecter les conditions de la licence AGPL-3.0 
+            (notamment l'obligation de redistribuer sous la même licence et de publier le code 
+            source modifié si le service est rendu accessible au public en réseau).
+        </MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Recettes des utilisateurs</strong> : les recettes, photos, ingrédients, étapes 
+            et autres contenus saisis par les utilisateurs restent leur <strong>propriété exclusive</strong>. 
+            L'éditeur ne revendique aucun droit sur ces contenus. Les utilisateurs en gardent 
+            l'entier contrôle (modification, suppression, export — cf. 
+            <MudLink Href="/privacy" Target="_blank" rel="noopener noreferrer">Politique de confidentialité</MudLink> sections 6 et 7).
+        </MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-4">
+            <strong>Marques tierces</strong> : les marques citées dans le site 
+            (Tesseract, Groq, Mistral AI, Google Gemini, MudBlazor, .NET, PostgreSQL, etc.) 
+            appartiennent à leurs propriétaires respectifs. Leur mention sur le site n'implique 
+            aucun lien commercial ni partenariat.
+        </MudText>
+
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">4. Conditions d'utilisation</MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-3">
+            L'utilisation de MemoRecipe est <strong>gratuite</strong> et destinée à un usage 
+            <strong>personnel non commercial</strong> (gestion de recettes de cuisine privées). 
+            L'utilisateur s'engage à ne pas utiliser le service pour :
+        </MudText>
+
+        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+            <li class="mb-2">Stocker du contenu illégal, diffamatoire ou portant atteinte aux droits de tiers.</li>
+            <li class="mb-2">Tenter d'accéder à des comptes d'autres utilisateurs ou de compromettre la sécurité du service.</li>
+            <li class="mb-2">Surcharger volontairement le service (attaques de déni de service, scraping massif, etc.).</li>
+            <li class="mb-2">Revendre, redistribuer ou commercialiser tout ou partie du service sans autorisation.</li>
+        </ul>
+
+        <MudText Typo="Typo.body1" Class="mb-4">
+            L'éditeur se réserve le droit de <strong>suspendre ou supprimer un compte</strong> 
+            en cas de manquement à ces conditions.
+        </MudText>
+
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">5. Responsabilité des contenus utilisateurs</MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-3">
+            En sauvegardant une recette sur MemoRecipe (manuellement ou via la fonctionnalité de scan), 
+            l'utilisateur <strong>garantit qu'il dispose des droits nécessaires</strong> sur le contenu 
+            importé (texte, photos, mise en forme). Il est <strong>seul responsable</strong> en cas 
+            de violation de droits de propriété intellectuelle, notamment dans le cas de recettes 
+            copiées intégralement depuis un livre, un magazine, un site web ou toute autre œuvre 
+            protégée par le droit d'auteur.
+        </MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Recettes publiques — vigilance renforcée</strong> : l'utilisateur qui choisit 
+            de rendre une recette <strong>publique</strong> (toggle « Recette publique » activé) 
+            garantit expressément ne pas reproduire de contenu protégé sans accord de l'ayant droit. 
+            L'éditeur se réserve le droit de retirer <strong>proactivement et sans préavis</strong> 
+            toute recette publique manifestement copiée depuis une source protégée par le droit 
+            d'auteur (extrait de livre, magazine, blog professionnel, etc.).
+        </MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Statut d'hébergeur</strong> : MemoRecipe agit en qualité d'<strong>hébergeur</strong> 
+            au sens de l'article 6-I-2° de la <strong>Loi pour la Confiance dans l'Économie Numérique (LCEN)</strong>. 
+            Conformément à ce statut, l'éditeur ne contrôle pas a priori les contenus stockés 
+            par les utilisateurs mais s'engage à retirer <strong>promptement</strong> tout contenu 
+            illicite signalé selon la procédure décrite ci-dessous.
+        </MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-3">
+            <strong>Signalement d'un contenu litigieux</strong> (procédure de notification 
+            et retrait, dite « notice & takedown ») : tout ayant droit, titulaire de droits 
+            ou tiers concerné peut signaler un contenu illicite en envoyant un email à 
+            <strong>contact@memorecipe.com</strong> en précisant les éléments suivants :
+        </MudText>
+
+        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+            <li class="mb-2">
+                Identification du déclarant (nom, qualité d'ayant droit ou de représentant).
+            </li>
+            <li class="mb-2">
+                URL ou identifiant précis du contenu litigieux sur MemoRecipe.
+            </li>
+            <li class="mb-2">
+                Justification détaillée des droits invoqués 
+                (extrait de la source originale, mention du copyright, ISBN si livre, etc.).
+            </li>
+            <li class="mb-2">
+                Coordonnées de contact (email, téléphone, adresse postale optionnelle).
+            </li>
+            <li class="mb-2">
+                Déclaration sur l'honneur de la véracité des informations fournies.
+            </li>
+        </ul>
+
+        <MudText Typo="Typo.body1" Class="mb-4">
+            Sur signalement étayé, l'éditeur s'engage à examiner la demande et à retirer 
+            le contenu litigieux dans un délai maximum de <strong>72 heures ouvrées</strong>, 
+            en application des dispositions de la LCEN. En cas de signalement abusif 
+            (volonté de censurer indûment un contenu légal), l'éditeur se réserve le droit 
+            de poursuivre le déclarant conformément à l'article 6-I-4° de la LCEN 
+            (sanction du faux signalement).
+        </MudText>
+
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">6. Limitation de responsabilité</MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-3">
+            MemoRecipe est mis à disposition <strong>« en l'état »</strong>, sans garantie 
+            de fonctionnement ininterrompu ou exempt d'erreurs. L'éditeur s'efforce d'assurer 
+            la qualité et la fiabilité du service mais ne peut être tenu responsable :
+        </MudText>
+
+        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+            <li class="mb-2">Des erreurs ou omissions dans le contenu généré par l'intelligence artificielle 
+                (cf. <MudLink Href="/privacy" Target="_blank" rel="noopener noreferrer">Politique de confidentialité</MudLink> section 9 — 
+                l'utilisateur doit toujours vérifier le résultat avant sauvegarde).</li>
+            <li class="mb-2">De la perte de données en cas d'incident technique majeur 
+                (l'utilisateur est invité à conserver une copie de ses recettes importantes).</li>
+            <li class="mb-2">De l'indisponibilité temporaire du service (maintenance, panne du fournisseur d'hébergement).</li>
+        </ul>
+
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">7. Droit applicable</MudText>
+
+        <MudText Typo="Typo.body1" Class="mb-4">
+            Les présentes mentions légales et l'utilisation du service sont régies par le 
+            <strong>droit français</strong>. En cas de litige, et après tentative de résolution amiable, 
+            les tribunaux français seront seuls compétents.
+        </MudText>
+
+    </MudPaper>
+</MudContainer>
