@@ -32,7 +32,7 @@ public class Recipe
     public DifficultyLevel? Difficulty { get; set; }
 
     // Public or private recipe
-    public bool IsPublic { get; set; } = true;
+    public bool IsPublic { get; set; } = false;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

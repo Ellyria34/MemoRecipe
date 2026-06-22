@@ -254,6 +254,42 @@ public class RecipeServiceTests
         Assert.Equal(2, result.Steps[1].Order);
         Assert.Equal("instruction2", result.Steps[1].Instruction);
     }
+
+    [Fact]
+    public async Task CreateAsync_WithoutIsPublicInDto_DefaultsToFalse()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var dto = new RecipeCreateDto
+        {
+            Title = "TestWithoutIsPublic",
+        };
+
+        // Act
+        var result = await _service.CreateAsync(dto, userId);
+
+        // Assert
+        Assert.False(result.IsPublic);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithIsPublicTrueInDto_PersistsTrue()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var dto = new RecipeCreateDto
+        {
+            Title = "TestWithoutIsPublic",
+            IsPublic = true,
+        };
+
+        // Act
+        var result = await _service.CreateAsync(dto, userId);
+
+        // Assert
+        Assert.True(result.IsPublic);
+    }
+
     #endregion
 
     #region UpdateAsync

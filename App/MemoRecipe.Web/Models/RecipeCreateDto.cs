@@ -8,7 +8,7 @@ public class RecipeCreateDto
     public int? PrepTimeMinutes { get; set; }
     public int? CookTimeMinutes { get; set; }
     public DifficultyLevel? Difficulty { get; set; }
-    public bool IsPublic { get; set; } = true;
+    public bool IsPublic { get; set; } = false;
 
     public List<IngredientCreateDto> Ingredients { get; set; } = new();
     public List<StepCreateDto> Steps { get; set; } = new();
