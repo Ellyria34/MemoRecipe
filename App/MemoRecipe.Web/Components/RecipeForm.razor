@@ -11,52 +11,54 @@
         }
     </MudSelect>
     <MudSwitch T="bool" @bind-Value="Recipe.IsPublic" Label="Recette publique" Color="Color.Primary" />
-</div>
-<div style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
-    <MudText Class="pb-4">Ingredients</MudText>
-    @for (int i = 0; i < Recipe.Ingredients.Count; i++)
+    @if (Recipe.IsPublic)
     {
-        var index = i;
-        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-            <MudTextField Style="flex: 1" @bind-Value="Recipe.Ingredients[index].Name" />
-            <MudIconButton Icon="@Icons.Material.Filled.Delete" Title="Supprimer"
-                           OnClick="() => Recipe.Ingredients.RemoveAt(index)" />
-        </MudStack>
+        <MudAlert Severity="Severity.Warning" Class="pa-4 ma-4" Elevation="3">Attention : Si vous ne disposez pas des droits
+            sur ce contenu, conservez la recette en privé. Voir nos <MudLink Href="/legal" Target="_blank"
+                                                                             rel="noopener noreferrer">mentions légales</MudLink>.</MudAlert>
+        }
+    </div>
+    <div style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
+        <MudText Class="pb-4">Ingredients</MudText>
+        @for (int i = 0; i < Recipe.Ingredients.Count; i++)
+        {
+            var index = i;
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudTextField Style="flex: 1" @bind-Value="Recipe.Ingredients[index].Name" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Title="Supprimer"
+                               OnClick="() => Recipe.Ingredients.RemoveAt(index)" />
+            </MudStack>
 
-    }
-    @if (Recipe.Ingredients.Count < 50)
-    {
-        <MudIconButton Icon="@Icons.Material.Filled.Add" Title="Ajouter"
-                       OnClick="() => Recipe.Ingredients.Add(new IngredientFormModel())" />
-    }
-</div>
-<div style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
-    <MudText Class="pb-4">Etapes</MudText>
-    @for (int i = 0; i < Recipe.Steps.Count; i++)
-    {
-        var index = i;
-        var stepNumber = i + 1;
+        }
+        @if (Recipe.Ingredients.Count < 50)
+        {
+            <MudIconButton Icon="@Icons.Material.Filled.Add" Title="Ajouter"
+                           OnClick="() => Recipe.Ingredients.Add(new IngredientFormModel())" />
+        }
+    </div>
+    <div style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
+        <MudText Class="pb-4">Etapes</MudText>
+        @for (int i = 0; i < Recipe.Steps.Count; i++)
+        {
+            var index = i;
+            var stepNumber = i + 1;
 
-        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-            <MudTextField @bind-Value="Recipe.Steps[index].Instruction" Label="@stepNumber.ToString()" />
-            <MudIconButton Icon="@Icons.Material.Filled.Delete" Title="Supprimer"
-                           OnClick="() => Recipe.Steps.RemoveAt(index)" />
-        </MudStack>
-    }
-    @if (Recipe.Steps.Count < 50)
-    {
-        <MudIconButton Icon="@Icons.Material.Filled.Add" Title="Ajouter"
-                       OnClick="() => Recipe.Steps.Add(new StepFormModel())" />
-    }
-</div>
-<div>
-    <MudButton Class="mt-8" 
-        Variant="Variant.Filled" 
-        Color="Color.Primary" 
-        FullWidth="true" 
-        Disabled="@(!IsFormValid())"
-        OnClick="HandleSave">
-        Sauvegarder
-    </MudButton>
-</div>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                <MudTextField @bind-Value="Recipe.Steps[index].Instruction" Label="@stepNumber.ToString()" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Title="Supprimer"
+                               OnClick="() => Recipe.Steps.RemoveAt(index)" />
+            </MudStack>
+        }
+        @if (Recipe.Steps.Count < 50)
+        {
+            <MudIconButton Icon="@Icons.Material.Filled.Add" Title="Ajouter"
+                           OnClick="() => Recipe.Steps.Add(new StepFormModel())" />
+        }
+    </div>
+    <div>
+        <MudButton Class="mt-8" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Disabled="@(!IsFormValid())"
+                   OnClick="HandleSave">
+            Sauvegarder
+        </MudButton>
+    </div>
 
