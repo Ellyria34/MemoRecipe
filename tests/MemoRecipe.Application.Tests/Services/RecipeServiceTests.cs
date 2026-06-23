@@ -567,7 +567,7 @@ public class RecipeServiceTests
             Id = userId,
             Email = "marked@example.com",
             Username = "marked",
-            DeleteRequestedAt = DateTime.UtcNow   // ← marqué pour suppression
+            DeleteRequestedAt = DateTime.UtcNow
         };
         await _userRepository.AddAsync(user);
 
