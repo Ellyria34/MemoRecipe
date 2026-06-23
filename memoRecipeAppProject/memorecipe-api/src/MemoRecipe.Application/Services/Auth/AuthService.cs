@@ -81,15 +81,25 @@ public class AuthService : IAuthService
 
         _cache.Remove($"login-fail:{email}");
 
-        // Cancel pending account deletion if user re-logs in within the 30-day grace period
+        // Check account deletion state
         var wasDeletionCancelled = false;
         if (user.DeleteRequestedAt != null)
         {
+            if (user.DeleteRequestedAt.Value < DateTime.UtcNow.AddDays(-30))
+            {
+                // Grace period expired → purge account definitively
+                _userRepository.Delete(user);
+                await _userRepository.SaveChangesAsync();
+                return new LoginResult { Token = null };
+            }
+
+            // Within grace period → cancel deletion
             user.DeleteRequestedAt = null;
             _userRepository.Update(user);
             await _userRepository.SaveChangesAsync();
             wasDeletionCancelled = true;
         }
+
 
         return new LoginResult
         {
