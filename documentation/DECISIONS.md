@@ -693,6 +693,35 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 
 ---
 
+### DEC-037 : Soft delete RGPD Art. 17 avec login-check seul pour MVP, cron auto reporté à BACK-077 (Observability-Before-Features)
+
+- **Contexte** : BACK-005 (RGPD Suppression de compte utilisateur) implémente le pattern soft delete avec délai de grâce de 30 jours. Deux mécanismes possibles pour purger définitivement les comptes expirés : (a) un check au login (l'user qui se reconnecte après J+30 déclenche la purge à ce moment-là), (b) un cron en arrière-plan (`IHostedService`) qui tourne 1× par jour et purge tous les comptes dont `DeleteRequestedAt < NOW() - 30 days`.
+
+- **Choix** : Pour la version MVP de BACK-005, on implémente UNIQUEMENT le **login-check** (a). Le **cron auto** (b) est reporté à un nouveau ticket dédié **BACK-077**, lui-même bloqué par 3 prérequis : **BACK-078** (backup PostgreSQL automatique), **BACK-010** (logging structuré Serilog), **BACK-079** (monitoring + alertes sur opérations critiques).
+
+- **Pourquoi cette décision** :
+  1. **Principe SRE "Observability before features"** : on ne déploie pas une opération AUTOMATIQUE et DESTRUCTIVE (suppression de users en cascade) sans filets de sécurité solides. Un bug logique dans le cron (mauvais `WHERE`, race condition, etc.) pourrait supprimer des données users massivement sans qu'on s'en rende compte avant des heures voire des jours.
+  2. **Backup obligatoire** : sans `pg_dump` automatique quotidien (BACK-078), toute erreur du cron = perte définitive de données users. Inacceptable pour un projet conforme RGPD.
+  3. **Logging structuré obligatoire** : sans Serilog (BACK-010), impossible de tracer correctement chaque exécution du cron (combien de users purgés, lesquels, pourquoi, erreurs partielles, etc.).
+  4. **Monitoring/alertes obligatoires** : sans alertes (BACK-079), un cron qui supprime 1000 users par erreur ne déclencherait aucune notification → on ne s'en rendrait compte que des jours plus tard via plaintes users.
+  5. **Pas de prod publique actuellement** : MemoRecipe est en dev, pas d'users réels à protéger immédiatement. Le login-check seul couvre 80% des cas (users qui reviennent) et suffit pour MVP fonctionnel. La conformité RGPD totale (couvrir les 20% restants = users fantômes qui ne reviennent jamais) sera activée AVANT la mise en prod publique via BACK-077.
+  6. **Apprentissage progressif** : Sarah découvre `IHostedService` dans BACK-077 sans la pression du temps, après avoir mis en place les filets (BACK-078/010/079). Plus pédagogique et plus sûr.
+
+- **Alternatives écartées** :
+  - **Tout faire dans BACK-005** (soft delete + login-check + cron auto + backup + monitoring) → PR énorme, risque qualité élevé, mélange de plusieurs préoccupations (RGPD + Infra + Observabilité).
+  - **Login-check seul de manière permanente** → viole RGPD Art. 17 ("dans les meilleurs délais") car les users fantômes restent indéfiniment en BDD.
+  - **Cron auto sans backup ni monitoring** → joue à la roulette russe avec les données users. À proscrire absolument.
+
+- **Conséquences** :
+  - BACK-005 mergeable rapidement avec un scope clair et testable.
+  - 3 tickets séparés (BACK-077/078/079) avec des responsabilités claires, mergeables indépendamment dans le bon ordre.
+  - **Avant la mise en prod publique** : BACK-078 → BACK-010 → BACK-079 → BACK-077 → ensuite seulement on déploie.
+  - Documentation utilisateur : la `Privacy.razor` section 5 mentionne déjà que "vos données sont supprimées dans les 30 jours", et précisera "via un processus automatisé quotidien" une fois BACK-077 mergé.
+
+- **Date** : 2026-06-23, identifié pendant l'implémentation de BACK-005 quand Sarah a soulevé la question de la sécurité d'une opération destructive automatique en l'absence de backup/monitoring.
+
+---
+
 ## Dette technique
 
 ### DEBT-001 : Structure de dossiers redondante (voir DEC-006)
