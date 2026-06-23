@@ -6,26 +6,29 @@ using MemoRecipe.Domain.Entities.Categories;
 using MemoRecipe.Domain.Entities.Ingredients;
 using MemoRecipe.Domain.Entities.Steps;
 using MemoRecipe.Application.Mappings.Profiles;
+using MemoRecipe.Application.Exceptions;
 
 namespace MemoRecipe.Application.Services.Recipes;
- 
+
 public class RecipeService : IRecipeService
 {
     private readonly IRecipeRepository _repository;
+    private readonly IUserRepository _userRepository;
 
-    public RecipeService(IRecipeRepository repository)
+    public RecipeService(IRecipeRepository repository, IUserRepository userRepository)
     {
         _repository = repository;
+        _userRepository = userRepository;
     }
 
     public async Task<RecipeDto?> GetByIdAsync(Guid id, Guid userId)
     {
         var recipe = await _repository.GetByIdAsync(id);
-        if(recipe == null || (recipe.UserId != userId && !recipe.IsPublic)) 
+        if (recipe == null || (recipe.UserId != userId && !recipe.IsPublic))
         {
             return null;
         }
-        return recipe.ToDto();	    
+        return recipe.ToDto();
     }
 
     public async Task<List<RecipeDto>> GetAllByUserAsync(Guid userId, RecipeQueryParams queryParams)
@@ -36,6 +39,8 @@ public class RecipeService : IRecipeService
 
     public async Task<RecipeDto> CreateAsync(RecipeCreateDto dto, Guid userId)
     {
+        await EnsureAccountActiveAsync(userId);
+
         var newRecipe = dto.ToEntity();
         newRecipe.Id = Guid.NewGuid();
         newRecipe.UserId = userId;
@@ -70,7 +75,7 @@ public class RecipeService : IRecipeService
         await _repository.SaveChangesAsync();
 
         var recipeCreated = await _repository.GetByIdAsync(newRecipe.Id);
-        if(recipeCreated == null)
+        if (recipeCreated == null)
         {
             throw new InvalidOperationException("Recipe was not found after creation");
         }
@@ -79,21 +84,22 @@ public class RecipeService : IRecipeService
 
     public async Task<RecipeDto?> UpdateAsync(Guid id, RecipeUpdateDto dto, Guid userId)
     {
+        await EnsureAccountActiveAsync(userId);
 
         var recipe = await _repository.GetByIdAsync(id);
-        if (recipe == null || recipe.UserId != userId) 
+        if (recipe == null || recipe.UserId != userId)
         {
             return null;
         }
 
-        if(dto.Title != null) recipe.Title = dto.Title;
-        if(dto.Description != null) recipe.Description = dto.Description;
-        if(dto.Servings != null) recipe.Servings = dto.Servings;
-        if(dto.PrepTimeMinutes != null) recipe.PrepTimeMinutes = dto.PrepTimeMinutes;
-        if(dto.CookTimeMinutes != null) recipe.CookTimeMinutes = dto.CookTimeMinutes;
-        if(dto.Difficulty != null) recipe.Difficulty = dto.Difficulty;
-        if(dto.IsPublic != null) recipe.IsPublic = dto.IsPublic.Value;
-        if(dto.Ingredients != null)
+        if (dto.Title != null) recipe.Title = dto.Title;
+        if (dto.Description != null) recipe.Description = dto.Description;
+        if (dto.Servings != null) recipe.Servings = dto.Servings;
+        if (dto.PrepTimeMinutes != null) recipe.PrepTimeMinutes = dto.PrepTimeMinutes;
+        if (dto.CookTimeMinutes != null) recipe.CookTimeMinutes = dto.CookTimeMinutes;
+        if (dto.Difficulty != null) recipe.Difficulty = dto.Difficulty;
+        if (dto.IsPublic != null) recipe.IsPublic = dto.IsPublic.Value;
+        if (dto.Ingredients != null)
         {
             recipe.Ingredients.Clear();
             recipe.Ingredients = dto.Ingredients.Select(i => new Ingredient
@@ -104,10 +110,10 @@ public class RecipeService : IRecipeService
                 Unit = i.Unit
             }).ToList();
         }
-        if(dto.Steps != null)
+        if (dto.Steps != null)
         {
             recipe.Steps.Clear();
-            recipe.Steps = dto.Steps.Select((s,index) => new Step
+            recipe.Steps = dto.Steps.Select((s, index) => new Step
             {
                 RecipeId = recipe.Id,
                 Instruction = s.Instruction,
@@ -116,7 +122,7 @@ public class RecipeService : IRecipeService
         }
 
         recipe.UpdatedAt = DateTime.UtcNow;
-        if(dto.CategoryIds != null)
+        if (dto.CategoryIds != null)
         {
             recipe.RecipeCategories.Clear();
             recipe.RecipeCategories = dto.CategoryIds.Select(categoryId => new RecipeCategory
@@ -128,14 +134,16 @@ public class RecipeService : IRecipeService
 
         _repository.Update(recipe);
         await _repository.SaveChangesAsync();
-        
+
         return recipe.ToDto();
     }
 
     public async Task<bool> DeleteAsync(Guid id, Guid userId)
     {
+        await EnsureAccountActiveAsync(userId);
+
         var recipe = await _repository.GetByIdAsync(id);
-        if(recipe == null || recipe.UserId != userId) 
+        if (recipe == null || recipe.UserId != userId)
         {
             return false;
         }
@@ -147,10 +155,20 @@ public class RecipeService : IRecipeService
     public async Task<int> CountByUserAsync(Guid userId)
     {
         var result = await _repository.CountByUserAsync(userId);
-        if (result == null) 
+        if (result == null)
         {
             return 0;
         }
         return result;
     }
+
+    private async Task EnsureAccountActiveAsync(Guid userId)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user?.DeleteRequestedAt != null)
+        {
+            throw new AccountMarkedForDeletionException();
+        }
+    }
+
 }
