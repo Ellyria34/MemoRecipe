@@ -72,18 +72,33 @@ public class AuthService : IAuthService
         }
 
         if (_passwordHasher.NeedsRehash(user.PasswordSalt))
-            {
-                user.PasswordHash = _passwordHasher.HashPassword(user, password);
-                user.PasswordSalt = "";
-                _userRepository.Update(user);
-                await _userRepository.SaveChangesAsync();
-            }
+        {
+            user.PasswordHash = _passwordHasher.HashPassword(user, password);
+            user.PasswordSalt = "";
+            _userRepository.Update(user);
+            await _userRepository.SaveChangesAsync();
+        }
 
         _cache.Remove($"login-fail:{email}");
-        return new LoginResult { Token = _jwtService.GenerateToken(user) };
+
+        // Cancel pending account deletion if user re-logs in within the 30-day grace period
+        var wasDeletionCancelled = false;
+        if (user.DeleteRequestedAt != null)
+        {
+            user.DeleteRequestedAt = null;
+            _userRepository.Update(user);
+            await _userRepository.SaveChangesAsync();
+            wasDeletionCancelled = true;
+        }
+
+        return new LoginResult
+        {
+            Token = _jwtService.GenerateToken(user),
+            WasDeletionCancelled = wasDeletionCancelled
+        };
     }
 
-   public async Task<AuthUserDto?> GetCurrentUserAsync(ClaimsPrincipal user)
+    public async Task<AuthUserDto?> GetCurrentUserAsync(ClaimsPrincipal user)
     {
         var userId = user.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
         if (userId == null)
@@ -102,4 +117,21 @@ public class AuthService : IAuthService
             Username = entity.Username,
         };
     }
+
+    public async Task<bool> RequestAccountDeletionAsync(Guid userId, string password)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null) { return false; }
+        if (!_passwordHasher.Verify(user, user.PasswordHash, password, user.PasswordSalt))
+        {
+            return false;
+        }
+
+        user.DeleteRequestedAt = DateTime.UtcNow;
+        _userRepository.Update(user);
+        await _userRepository.SaveChangesAsync();
+
+        return true;
+    }
+
 }
