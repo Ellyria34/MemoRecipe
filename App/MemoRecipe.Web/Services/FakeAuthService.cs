@@ -35,4 +35,9 @@ public class FakeAuthService : IAuthService
     {
         return Task.FromResult(_isAuthenticated);
     }
+
+    public Task<bool> RequestAccountDeletionAsync(string password)
+    {
+        return Task.FromResult(password == "password");
+    }
 }

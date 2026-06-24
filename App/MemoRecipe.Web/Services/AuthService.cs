@@ -52,4 +52,14 @@ public class AuthService : IAuthService
 
         return true;
     }
+
+    public async Task<bool> RequestAccountDeletionAsync(string password)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, "api/auth/account")
+        {
+            Content = JsonContent.Create(new {password})
+        };
+        var response = await _httpClient.SendAsync(request);
+        return response.IsSuccessStatusCode;
+    }
 }

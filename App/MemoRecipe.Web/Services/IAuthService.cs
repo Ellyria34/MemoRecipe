@@ -6,4 +6,5 @@ public interface IAuthService
     Task<bool> RegisterAsync(string email , string userName, string password);
     Task LogoutAsync();
     Task<bool> IsAuthenticatedAsync();
+    Task<bool> RequestAccountDeletionAsync(string password);
 }
