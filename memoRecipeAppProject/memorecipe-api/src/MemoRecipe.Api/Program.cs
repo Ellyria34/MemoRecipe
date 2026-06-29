@@ -170,6 +170,7 @@ builder.Services.AddScoped<IValidator<RecipeCreateDto>, RecipeCreateDtoValidator
 builder.Services.AddScoped<IValidator<RecipeUpdateDto>, RecipeUpdateDtoValidator>();
 builder.Services.AddScoped<IValidator<LoginDto>, LoginDtoValidator>();
 builder.Services.AddScoped<IValidator<RegisterDto>, RegisterDtoValidator>();
+builder.Services.AddScoped<IValidator<DeleteAccountDto>, DeleteAccountDtoValidator>();
 builder.Services.AddHttpClient<IOcrScanService, OcrScanService>();
 builder.Services.AddScoped<PasswordHasher>();
 builder.Services.AddHealthChecks();

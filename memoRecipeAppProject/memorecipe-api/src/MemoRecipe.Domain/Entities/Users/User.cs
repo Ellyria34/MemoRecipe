@@ -19,6 +19,7 @@ public class User
 
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public DateTime? DeleteRequestedAt{get; set;}
 
     // Navigation
     public List<Recipe> Recipes { get; set; } = new();

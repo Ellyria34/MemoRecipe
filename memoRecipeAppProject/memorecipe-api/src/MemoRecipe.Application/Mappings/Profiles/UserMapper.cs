@@ -18,6 +18,7 @@ public static partial class UserMapper
     [MapperIgnoreSource(nameof(User.Recipes))]
     [MapperIgnoreSource(nameof(User.Comments))]
     [MapperIgnoreSource(nameof(User.Favorites))]
+    [MapperIgnoreSource(nameof(User.DeleteRequestedAt))]
     public static partial UserDto ToDto(this User user);
 
     [MapperIgnoreSource(nameof(RegisterDto.Password))]
@@ -31,5 +32,6 @@ public static partial class UserMapper
     [MapperIgnoreTarget(nameof(User.Recipes))]
     [MapperIgnoreTarget(nameof(User.Comments))]
     [MapperIgnoreTarget(nameof(User.Favorites))]
+    [MapperIgnoreTarget(nameof(User.DeleteRequestedAt))] 
     public static partial User ToEntity(this RegisterDto dto);
 }

@@ -4,6 +4,8 @@ using MemoRecipe.Application.DTOs.Steps;
 using MemoRecipe.Application.Services.Recipes;
 using MemoRecipe.Application.Tests.Fakes;
 using MemoRecipe.Domain.Entities.Recipes;
+using MemoRecipe.Domain.Entities.Users;
+using MemoRecipe.Application.Exceptions;
 
 
 
@@ -12,13 +14,16 @@ namespace MemoRecipe.Application.Tests.Services;
 public class RecipeServiceTests
 {
     private readonly FakeRecipeRepository _repository;
+    private readonly FakeUserRepository _userRepository;
     private readonly RecipeService _service;
+
 
     public RecipeServiceTests()
     {
         _repository = new FakeRecipeRepository();
+        _userRepository = new FakeUserRepository();
 
-        _service = new RecipeService(_repository);
+        _service = new RecipeService(_repository, _userRepository);
     }
 
     #region GetByIdAsync
@@ -551,4 +556,26 @@ public class RecipeServiceTests
         Assert.Equal(2, result);
     }
     #endregion
+
+        [Fact]
+    public async Task CreateAsync_WhenAccountIsMarkedForDeletion_ThrowsException()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var user = new User
+        {
+            Id = userId,
+            Email = "marked@example.com",
+            Username = "marked",
+            DeleteRequestedAt = DateTime.UtcNow
+        };
+        await _userRepository.AddAsync(user);
+
+        var dto = new RecipeCreateDto { Title = "Should fail" };
+
+        // Act + Assert
+        await Assert.ThrowsAsync<AccountMarkedForDeletionException>(
+            () => _service.CreateAsync(dto, userId)
+        );
+    }
 }

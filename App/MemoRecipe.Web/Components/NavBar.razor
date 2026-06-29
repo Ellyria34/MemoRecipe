@@ -2,17 +2,14 @@
     <MudLink Href="/">
         <img src="logo.svg" alt="MemoRecipe" style="height:60px;" />
     </MudLink>
-        <MudSpacer />
-            <MudTooltip
-                Text="Se déconnecter"
-                Color="Color.Primary"
-                Arrow="true"
-            >
-                <MudIconButton
-                    aria-label="Se déconnecter"
-                    Icon="@Icons.Material.Filled.Logout"
-                    Color="Color.Primary"
-                    @onclick="LogOut"
-                />
-            </MudTooltip>
+    <MudSpacer />
+    <MudTooltip Text="Mon profil" Color="Color.Primary" Arrow="true">
+        <MudIconButton aria-label="Mon profil" Icon="@Icons.Material.Filled.AccountCircle" Href="/profile"
+                       Color="Color.Primary" />
+    </MudTooltip>
+
+    <MudTooltip Text="Se déconnecter" Color="Color.Primary" Arrow="true">
+        <MudIconButton aria-label="Se déconnecter" Icon="@Icons.Material.Filled.Logout" Color="Color.Primary"
+                       @onclick="LogOut" />
+    </MudTooltip>
 </MudAppBar>

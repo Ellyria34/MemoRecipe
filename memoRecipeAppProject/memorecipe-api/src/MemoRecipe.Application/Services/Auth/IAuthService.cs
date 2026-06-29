@@ -8,4 +8,5 @@ public interface IAuthService
     Task<string?> RegisterAsync(RegisterDto dto);
     Task<LoginResult> LoginAsync(string email, string password);
     Task<AuthUserDto?> GetCurrentUserAsync(ClaimsPrincipal user);
+    Task<bool> RequestAccountDeletionAsync(Guid userId, string password);
 }

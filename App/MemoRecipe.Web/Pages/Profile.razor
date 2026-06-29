@@ -1,0 +1,47 @@
+@page "/profile"
+@attribute [Authorize]
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="my-8">
+    <MudPaper Elevation="3" Class="pa-8">
+        <MudText Typo="Typo.h4" GutterBottom="true">Mon profil</MudText>
+
+        <MudDivider Class="my-6" />
+
+        <MudForm>
+            <MudText Typo="Typo.h6" GutterBottom="true">Suppression du compte</MudText>
+            <MudText Typo="Typo.body2" Class="mb-4">
+                La suppression de votre compte est définitive après <strong>30 jours</strong>.
+                Pendant ce délai, vous pouvez annuler en vous reconnectant.
+            </MudText>
+            <MudText Typo="Typo.body2" Class="mb-4">
+                Toutes vos recettes, ingrédients, étapes et favoris seront définitivement supprimés à l'issue du délai.
+            </MudText>
+            <MudTextField T="string" Label="Mot de Passe" Variant="Variant.Outlined"
+                          InputType="@(_showPassword ? InputType.Text : InputType.Password)" Adornment="Adornment.End"
+                          AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                          OnAdornmentClick="() => _showPassword = !_showPassword" Class="mb-6" @bind-Value="_password"
+                          Validation="@((string v) => ValidatePassword(v))" Required="true" />
+            <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever"
+                       Disabled="@string.IsNullOrEmpty(_password)" OnClick="OpenDeleteDialog">
+                Supprimer mon compte
+            </MudButton>
+        </MudForm>
+
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_errorMessage</MudAlert>
+
+        }
+        <MudMessageBox @ref="_confirmDialog" Title="Supprimer mon compte" CancelText="Non, annuler">
+            <MessageContent>
+                Cette action marque votre compte pour suppression définitive dans <strong>30 jours</strong>.
+                Vous pourrez encore annuler en vous reconnectant pendant ce délai.
+            </MessageContent>
+            <YesButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Error">Oui, supprimer</MudButton>
+            </YesButton>
+        </MudMessageBox>
+
+    </MudPaper>
+</MudContainer>
