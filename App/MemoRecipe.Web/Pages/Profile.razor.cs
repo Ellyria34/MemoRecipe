@@ -45,7 +45,11 @@ public partial class Profile
         }
         else
         {
-            _errorMessage = "Échec de la suppression. Veuillez réessayer.";
+            Snackbar.Add("Mot de passe incorrect.", Severity.Error, config =>
+            {
+                config.VisibleStateDuration = 5000;
+                config.ShowCloseIcon = true;
+            });
         }
     }
 }
