@@ -1,10 +1,13 @@
 # MemoRecipe Deployment Guide
 
 This document describes how to build, publish, deploy, and rollback the
-MemoRecipe stack (API + Frontend) using GitHub Container Registry (GHCR).
+MemoRecipe stack (API + Frontend + Backup) using GitHub Container Registry
+(GHCR) for the API and Frontend images, and a locally-built image for the
+Backup service (part 1 — see BACK-078 / DEC-038 for the rationale).
 
 It follows DEC-031 (Registry GHCR over on-VPS build) and DEC-027
-(Frontend served via nginx custom Dockerfile).
+(Frontend served via nginx custom Dockerfile), and DEC-038 (backup with
+GPG asymmetric encryption + 3-2-1 rule, split in two parts).
 
 Placeholders used in this guide:
 - `<owner>` -> the GitHub user or organization that owns the repo
@@ -53,16 +56,19 @@ a publish phase on the dev machine, and a deploy phase on the VPS.
  +---------------------------------------------------------------------+
 ```
 
-### Two artefacts flow through the pipeline
+### Three artefacts flow through the pipeline
 
-| Artefact                          | Source        | Pulled on VPS via       |
-|-----------------------------------|---------------|-------------------------|
-| Code + compose + .env.example     | GitHub repo   | `git pull origin main`  |
-| Docker images (API + Frontend)    | GHCR          | `docker compose pull`   |
+| Artefact                          | Source        | Pulled/built on VPS via                        |
+|-----------------------------------|---------------|------------------------------------------------|
+| Code + compose + .env.example     | GitHub repo   | `git pull origin main`                         |
+| Docker images (API + Frontend)    | GHCR          | `docker compose pull`                          |
+| Backup image (part 1)             | Local build   | `docker compose build backup` (uses `infra/backup/` from the repo) |
 
 The GitHub repo and GHCR are two separate services that both live under
 the same GitHub account, but store different things (source code vs
-built container images).
+built container images). The Backup image is built locally in part 1
+(BACK-078 part 1); pushing it to GHCR is deferred to part 2 (or when
+adding a CI/CD pipeline in BACK-008) to keep the initial scope focused.
 
 ### Versioning & rollback
 
@@ -202,17 +208,26 @@ nano .env
 # -> API_IMAGE_TAG=v1.0.1
 # -> WEB_IMAGE_TAG=v1.0.1
 
-# 3. Pull the new images from GHCR and recreate the containers
-docker compose -f docker-compose.prod.yml pull
+# 3. Pull the new API + Frontend images from GHCR
+docker compose -f docker-compose.prod.yml pull api web
+
+# 4. Build the backup image locally (uses infra/backup/ from the repo).
+#    Only needed on first deploy or after changes to backup scripts / Dockerfile.
+docker compose -f docker-compose.prod.yml build backup
+
+# 5. Recreate all containers
 docker compose -f docker-compose.prod.yml up -d
 
-# 4. Check health
+# 6. Check health
 docker compose -f docker-compose.prod.yml ps
 docker compose -f docker-compose.prod.yml logs -f --tail=50
 ```
 
 Healthchecks (postgres / api / web) ensure dependent containers wait
 for their dependencies. Allow ~45-60s for the API to become healthy.
+The `backup` service does not have a healthcheck — it runs cron in the
+background and only becomes active once a day at 3am UTC. Verify it
+runs via `docker logs memorecipe_backup` and `docker exec memorecipe_backup ls /backups`.
 
 ---
 
@@ -269,6 +284,151 @@ Expected. Docker named volumes are scoped per compose project. The
 dev compose volume and the prod compose volume are separate. To
 migrate data between them, use `pg_dump` / `pg_restore` (see BACK-068
 for the documented procedure).
+
+---
+
+## Backup & Restore (PostgreSQL)
+
+> ⚠️ **PART 1 ONLY — NOT PROD-READY**. This section documents the local backup pipeline implemented in BACK-078 part 1. Backups are stored **only on the VPS** (violates the 3-2-1 rule). Off-site copy (Swiss Backup or Backblaze B2) will be added in BACK-078 part 2 before the app is deployed to public production. See **DEC-038** for the full architectural rationale (GPG asymmetric encryption, 3-2-1 rule, part 1/2 split).
+
+### Architecture
+
+- **Container `backup`** (`infra/backup/Dockerfile`) built from `postgres:16-alpine` + `gnupg` + `busybox-suid` (cron).
+- **Daily cron job** at 3am UTC runs `/usr/local/bin/backup.sh` (`infra/backup/backup.sh`).
+- **`pg_dump` piped through `gpg --encrypt`** — the plaintext dump never touches disk, only the encrypted `.dump.gpg` is written.
+- **Asymmetric encryption**: the container holds only the GPG public key. The private key stays on Sarah's laptop + Bitwarden + USB key. Compromising the VPS does NOT compromise the backups.
+- **Retention 30 days** locally (`RETENTION_DAYS` env var). Old backups auto-deleted at each run.
+- **Volume `backup_data`** persists the encrypted files across container restarts.
+
+### One-time setup (already done — reference)
+
+1. Generate the GPG key pair on Sarah's laptop:
+   ```bash
+   gpg --full-generate-key
+   # Type: ECC (curve25519 = Ed25519)
+   # Real name: Sarah MemoRecipe Backup
+   # Email: backup@memorecipe.com
+   # Passphrase: strong random passphrase from Bitwarden
+   ```
+2. Export the **public key** to the repo:
+   ```bash
+   gpg --export --armor -o infra/backup/memorecipe-backup-pubkey.asc backup@memorecipe.com
+   ```
+3. Export the **private key** for safekeeping (never commit!):
+   ```bash
+   gpg --export-secret-keys --armor -o memorecipe-privkey-BACKUP.asc backup@memorecipe.com
+   ```
+   - Store the content in **Bitwarden** as a secure note.
+   - Optionally copy the file to a physical USB key.
+   - **Delete the local `.asc` file after backup** (`rm memorecipe-privkey-BACKUP.asc`).
+4. The passphrase is stored in **Bitwarden** as a login entry (with the "master password re-prompt" flag enabled for extra safety).
+
+### Automatic backups
+
+The `backup` service is defined in `docker-compose.prod.yml` with:
+- `depends_on: postgres (service_healthy)` — waits for Postgres to be healthy.
+- Environment variables mapping `.env` `POSTGRES_*` to the standard PostgreSQL `PG*` names (`PGHOST`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`).
+- `restart: unless-stopped` — the container stays alive between backups (cron waits inside).
+
+Once the compose stack is up:
+```bash
+docker compose -f docker-compose.prod.yml up -d
+```
+
+The cron inside the `backup` container will run `backup.sh` every day at 3am UTC. Encrypted files land in the `backup_data` volume as `memorecipe_YYYY-MM-DD_HH-MM-SS.dump.gpg`.
+
+### Manual backup (on-demand)
+
+To trigger a backup immediately without waiting for the cron:
+```bash
+docker exec memorecipe_backup /usr/local/bin/backup.sh
+```
+
+Then verify the file was written:
+```bash
+docker exec memorecipe_backup ls -lh /backups
+```
+
+### Restore procedure (disaster recovery)
+
+Prerequisites:
+- Sarah's laptop with the **GPG private key imported** (via Kleopatra or `gpg --import`).
+- Access to the **passphrase** (Bitwarden).
+
+Step 1 — Copy the encrypted backup from the container to the laptop:
+```bash
+docker exec memorecipe_backup ls /backups
+# Pick the file to restore, e.g. memorecipe_2026-07-07_16-24-10.dump.gpg
+docker cp memorecipe_backup:/backups/memorecipe_2026-07-07_16-24-10.dump.gpg ./
+```
+
+Step 2 — Decrypt with the private key (passphrase prompted by GPG):
+```bash
+gpg --decrypt --output backup-to-restore.dump memorecipe_2026-07-07_16-24-10.dump.gpg
+```
+- On Windows/PowerShell, `gpg` uses Gpg4win/Kleopatra which shows a passphrase prompt window.
+- On Linux/macOS, the passphrase is prompted in the terminal.
+
+Step 3 — Copy the plaintext dump into the Postgres container:
+```bash
+docker cp backup-to-restore.dump memorecipe_postgres:/tmp/backup-to-restore.dump
+```
+
+Step 4 — Restore the database (`--clean --if-exists` = drop objects before recreating):
+```bash
+docker exec memorecipe_postgres pg_restore \
+    -U memorecipe -d memorecipe \
+    --clean --if-exists \
+    /tmp/backup-to-restore.dump
+```
+
+Step 5 — Verify the data is restored (adapt the query to your actual tables):
+```bash
+docker exec memorecipe_postgres psql -U memorecipe -d memorecipe -c "SELECT COUNT(*) FROM \"Users\";"
+```
+
+Step 6 — Clean up the plaintext file (**contains all user data in the clear — do NOT leave it around**):
+```bash
+docker exec memorecipe_postgres rm /tmp/backup-to-restore.dump
+rm backup-to-restore.dump
+```
+
+### Alternative: inspect a backup without restoring
+
+To see what's inside a backup without applying it:
+```bash
+# List of objects in the dump
+docker exec memorecipe_postgres pg_restore --list /tmp/backup-to-restore.dump
+
+# Convert back to plain SQL for inspection
+docker exec memorecipe_postgres pg_restore --file=- /tmp/backup-to-restore.dump > backup-content.sql
+```
+
+### Monitoring / verification
+
+Check that the backup container is running and cron is alive:
+```bash
+docker compose -f docker-compose.prod.yml ps backup
+docker logs memorecipe_backup
+```
+
+Check the latest backups in the volume:
+```bash
+docker exec memorecipe_backup ls -lh /backups
+```
+
+Check the age of the latest backup (should be < 25h):
+```bash
+docker exec memorecipe_backup sh -c 'ls -lt /backups/memorecipe_*.dump.gpg | head -1'
+```
+
+Alerts on backup failure / staleness will be implemented in **BACK-079** (monitoring + alerts).
+
+### Known issues / caveats
+
+- **GPG keybox lock in container** (fixed in `backup.sh`): the script uses a fresh temporary `GNUPGHOME` for each run to avoid stale `keyboxd` socket locks left over by previous `docker exec` invocations. Do NOT remove that logic without re-testing end-to-end.
+- **Postgres version mismatch**: the backup container uses `postgres:16-alpine` as its base image, guaranteeing the exact same `pg_dump` binary version as the server. When bumping Postgres to a new major version, bump both containers together.
+- **Retention is local only** in part 1: 30 days rolling window on the VPS. If the VPS goes down, everything is lost. Off-site copy will land in BACK-078 part 2 (Swiss Backup or Backblaze B2).
 
 ---
 
