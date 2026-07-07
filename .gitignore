@@ -36,3 +36,7 @@ Thumbs.db
 
 # Node (global safety net)
 **/node_modules/
+
+# Local test backup files (never commit these)
+backup-test.*
+
