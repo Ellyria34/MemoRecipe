@@ -1,0 +1,2 @@
+# MemoRecipe daily backup at 3am UTC
+0 3 * * * /usr/local/bin/backup.sh

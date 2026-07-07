@@ -74,6 +74,31 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  backup:
+    build:
+      context: .
+      dockerfile: infra/backup/Dockerfile
+    container_name: memorecipe_backup
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      GPG_RECIPIENT: backup@memorecipe.com
+      BACKUP_DIR: /backups
+      RETENTION_DAYS: "30"
+    volumes:
+      - backup_data:/backups
+    networks:
+      - backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 256m
+    cpus: '0.5'
+    security_opt:
+      - no-new-privileges:true
   
 networks:
   backend:
@@ -81,4 +106,6 @@ networks:
   
 volumes:
   postgres_data:
+    driver: local
+  backup_data:
     driver: local
