@@ -46,6 +46,12 @@ log INFO "Backup dir: ${BACKUP_DIR}"
 log INFO "GPG recipient: ${GPG_RECIPIENT}"
 log INFO "Retention: ${RETENTION_DAYS} days"
 
+# Use a fresh temporary GPG homedir for each backup (avoids keyboxd lock issues in container)
+GNUPGHOME=$(mktemp -d)
+export GNUPGHOME
+trap 'rm -rf "${GNUPGHOME}"' EXIT
+gpg --batch --import /keys/memorecipe-backup-pubkey.asc 2>/dev/null
+
 # ------------------------------------------------------------
 # Section 4 - Generate timestamp and filename
 # ------------------------------------------------------------
