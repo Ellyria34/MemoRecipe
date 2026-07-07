@@ -240,7 +240,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **Mapperly devient commercial** lui aussi (peu probable, OSS MIT avec gouvernance communautaire — mais on a un précédent récent avec AutoMapper)
   - **Besoin de mock dynamique du mapper** dans les tests (ex : passage à Moq) → revenir au pattern instance + interface (Style 2). Aujourd'hui non pertinent : tests via `FakeRepository`.
   - **Émergence d'un nouveau standard** dans l'écosystème .NET pour le mapping (ex : feature native EF Core ou primitive de runtime) → réévaluer.
-- **État** : DÉCIDÉ le 23/05/2026 — implémentation en cours sur la branche `feature/BACK-046-migrate-to-mapperly`. Sera marqué DONE quand BACK-046 sera complètement clôturé.
+- **État** : APPLIQUÉ via **BACK-046** (mergé). Migration AutoMapper → Mapperly terminée : 5 profiles convertis en static partial classes (`UserMapper`, `RecipeMapper`, `IngredientMapper`, `StepMapper`, `CategoryMapper`), 2 services simplifiés (`AuthService`, `RecipeService` — retrait du paramètre `IMapper` du constructeur), `Program.cs` nettoyé (`AddAutoMapper` retiré, pas de DI à enregistrer pour Mapperly statique), packages NuGet swappés. Convention `[MapperIgnoreSource]` / `[MapperIgnoreTarget]` explicite préférée à `RequiredMappingStrategy.None` (cf. feedback projet : meilleure documentation des exclusions). Warning licence AutoMapper supprimé, perf mapping 30-50× plus rapide, erreurs typo désormais détectées au build. **Aucun rollback nécessaire à ce jour**, l'expérience est positive.
 
 
 ### DEC-027 : nginx:alpine pour servir le Blazor WASM (au lieu d'aspnet runtime)
@@ -586,7 +586,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **Plus de 1 provider actif simultanément en prod** (ex: A/B testing entre Mistral et Gemini pour mesurer la qualité) → le switch global devient insuffisant, il faut une factory plus avancée (DEC-XXX future).
   - **Provider par utilisateur** (= scope BACK-069) → la factory env-var est dépassée, mais elle reste valable comme **fallback serveur** (le user qui n'a pas configuré sa clé utilise le provider par défaut serveur).
   - **Migration vers .NET Aspire (BACK-065)** → la configuration sera centralisée dans l'AppHost C#. Le pattern Factory reste, mais la source de configuration change.
-- **État** : APPLIQUÉ le 18/06/2026 via **BACK-070** (commits `0372c29` + `fb0c81b` + commit logging à venir). Spike validé E2E avec Mistral (scan recette OK) et Gemini (429 free tier mais code fonctionnel). Factory étendue par-user prévue dans **BACK-069**.
+- **État** : APPLIQUÉ le 18/06/2026 via **BACK-070** (Mistral + Gemini) puis **étendu le 19/06/2026 via BACK-071** (ajout Groq Llama 3.3 70B comme 3e provider, PR #20 merge commit `707ef63`). 3 implémentations de `IChatCompletionClient` cohabitent dans `memoRecipe-ia/Infrastructure/AI/` : `MistralChatCompletionClient`, `GeminiChatCompletionClient`, `GroqChatCompletionClient` (+ `FakeChatCompletionClient` pour tests). Le switch dans `Program.cs` les sélectionne via `AI_PROVIDER` env var (`Mistral` | `Gemini` | `Groq` | `Fake`). Open/Closed Principle vérifié en pratique : ajout du 3e provider sans modification des 2 existants ni du code métier. Factory étendue par-user prévue dans **BACK-069**.
 
 
 ### DEC-036 : Choix de Groq (Llama 3.3 70B) comme provider de fallback serveur pour la stratégie freemium de BACK-069
@@ -719,6 +719,64 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - Documentation utilisateur : la `Privacy.razor` section 5 mentionne déjà que "vos données sont supprimées dans les 30 jours", et précisera "via un processus automatisé quotidien" une fois BACK-077 mergé.
 
 - **Date** : 2026-06-23, identifié pendant l'implémentation de BACK-005 quand Sarah a soulevé la question de la sécurité d'une opération destructive automatique en l'absence de backup/monitoring.
+
+- **État** : APPLIQUÉ le 29/06/2026 via **BACK-005** (PR #25 `feature/BACK-005-soft-delete-account`, merge commit `c2480ac`). 12 commits atomiques. Test E2E exhaustif validé (7 scénarios + purge >30j simulée via `UPDATE` SQL manuel). Stratégie login-check seule retenue pour MVP. Cron auto (BACK-077) reste à implémenter APRÈS BACK-078 (backup) + BACK-010 (Serilog) + BACK-079 (monitoring) avant mise en prod publique.
+
+---
+
+### DEC-038 : Stratégie backup PostgreSQL — GPG asymétrique + règle 3-2-1 + découpage BACK-078 en 2 parties
+
+- **Date** : 06 juillet 2026 (identifié pendant le cadrage de BACK-078)
+
+- **Choix** : La stratégie backup de MemoRecipe repose sur 4 décisions clés :
+  1. **Format `pg_dump` custom** (`.dump` binaire compressé) plutôt que plain SQL — plus compact (~30-50%), restauration plus rapide, sélective possible.
+  2. **Chiffrement asymétrique GPG** (paire de clés publique/privée) plutôt que symétrique (mot de passe partagé) — évite le paradoxe "clé co-localisée avec le backup".
+     - **Clé publique GPG** stockée sur le VPS Infomaniak (sert uniquement à chiffrer).
+     - **Clé privée GPG** stockée mais JAMAIS sur le VPS.
+     - **Passphrase de la clé privée** dans un gestionnaire de mots de passe.
+     - Résultat : compromise du VPS = attaquant vole des `.dump.gpg` illisibles sans la clé privée.
+  3. **Règle 3-2-1** appliquée : 3 copies des données (BDD prod + backup local VPS + backup externe), 2 supports différents (disque VPS + service externe), 1 copie hors-site (Swiss Backup Infomaniak ou Backblaze B2 selon disponibilité pas encore définit).
+  4. **Découpage BACK-078 en 2 parties** :
+     - **Partie 1 (à traiter maintenant)** : script `backup.sh` sur VPS = `pg_dump` + chiffrement GPG + stockage local `/backups/` + rétention 30j + cron quotidien 3h du matin. Débloque le principal filet de sécurité (permet de restaurer en cas de bug BDD ou migration foireuse). **Autonome, faisable en local sans VPS opérationnel.**
+     - **Partie 2 (avant mise en prod publique)** : script `upload.sh` = copie hors-site sur un autre support non définit encore (Swiss Backup ou Backblaze B2 en fallback) via `rsync`/`rclone`/`sftp` + rétention 90j côté externe + cron hebdomadaire. Complète la conformité RGPD Art. 32 (portabilité + résilience).
+
+- **Pourquoi ces choix** :
+  - **`pg_dump` custom vs plain SQL** : compression native pgdump, restore sélectif possible (`pg_restore --table=...`), plus rapide sur grosses BDD. Pas d'inconvénient pour une BDD MemoRecipe (~quelques Go maxi).
+  - **GPG asymétrique vs symétrique** : le paradoxe classique "où stocker le mot de passe de déchiffrement" est résolu — clé privée SÉPARÉE du serveur qui produit les backups. Compromise du VPS n'expose PAS les données. Défense en profondeur (RGPD Art. 32).
+  - **Découpage 2 parties** : la partie 1 SEULE (backup + chiffrement local) apporte 90% de la valeur métier (résilience contre bug/migration/incident logiciel). La partie 2 ajoute la protection contre incident matériel/physique du VPS (crash disque, incendie datacenter, hébergeur indisponible). Séparer les 2 permet un cycle d'apprentissage progressif (backup basique → sécurisation avancée) et 2 PRs plus reviewables.
+  - **PAS de `uploads.tar.gpg`** : MemoRecipe ne persiste actuellement aucun fichier sur disque (les entités `RecipeImage` et `OCRExtraction` stockent uniquement des URLs). À rajouter QUAND un vrai stockage d'images (Cloud Storage, CDN) sera ajouté au projet (nouveau ticket futur).
+  - **PAS de `env.gpg`** : les secrets sont dans `.env` (gitignored) et déjà backupés dans un gestionnaire de mots de passe. Redondance inutile. En cas de recovery, le `.env` se recrée à partir du gestionnaire de mots de passe.
+
+- **Alternatives écartées** :
+  - **Chiffrement symétrique GPG (mot de passe partagé)** : simple à mettre en place mais paradoxal — si on stocke le mot de passe sur le VPS pour l'automatisation, un attaquant qui compromet le VPS déchiffre les backups.Ecartée à juste titre par Sarah.
+  - **`age` au lieu de GPG** : moderne (2019), syntaxe plus simple, sécurité solide (Ed25519 + ChaCha20-Poly1305). MAIS compétence moins universelle que GPG, moins portable sur les serveurs Linux "old school". GPG retenu pour valeur portfolio et universalité.
+  - **Chiffrement au niveau du volume Docker (LUKS)** : protège seulement au repos local. Ne couvre PAS les backups qui sortent du volume (copies vers external storage). Insuffisant seul.
+  - **Skip BACK-078 en s'appuyant sur les backups Infomaniak** : envisageable si un service backup managé est activé (Auto Backup VPS, snapshots). MAIS conformité RGPD Art. 32 exige que le responsable de traitement (Sarah) prouve son contrôle sur les backups — un backup managé Infomaniak seul ne suffit pas (dépendance sous-traitant, portabilité limitée, restauration granulaire absente).
+  - **Backup dans Swiss Backup dès la partie 1** : possible mais complexifie la partie 1 avec setup Swiss Backup + rclone/sftp. Découpage 2 parties permet de valider le cœur (backup + restore local) avant d'ajouter la couche transport.
+
+- **Sources** :
+  - [PostgreSQL Docs — pg_dump / pg_restore](https://www.postgresql.org/docs/16/backup-dump.html)
+  - [GPG Handbook (Free Software Foundation)](https://www.gnupg.org/documentation/manuals/gnupg/)
+  - [Règle 3-2-1 backup — US-CERT](https://www.cisa.gov/uscert/ncas/tips/ST19-006)
+  - [RGPD Art. 32 — Sécurité du traitement](https://gdpr-info.eu/art-32-gdpr/)
+  - Swiss Backup Infomaniak — [https://www.infomaniak.com/fr/swiss-backup](https://www.infomaniak.com/fr/swiss-backup)
+  - Alternatives externes : [Backblaze B2](https://www.backblaze.com/b2/cloud-storage.html) (S3-compatible, ~0.005$/Go/mois)
+
+- **Conséquences** :
+  - **Setup 1× (30 min)** : générer paire de clés GPG sur laptop, exporter la clé publique, sauvegarder la clé privée dans Bitwarden + clé USB.
+  - **Nouveau dossier `infra/backup/`** dans le repo avec les scripts `backup.sh` + `restore.sh` + `Dockerfile` du container backup.
+  - **Nouveau service `backup`** dans `docker-compose.prod.yml` (alpine + pg_dump + gpg + cron).
+  - **Fiche `POSTGRES-BACKUP-CHEATSHEET.md`** ajoutée à `documentation/fiches/` pour référence rapide (chiffrer, déchiffrer, restaurer).
+  - **Section "Backup & Restore"** ajoutée à `DEPLOYMENT.md`.
+  - **PR partie 1 non prod-ready** : mention explicite dans le commit et la PR que la mise en prod publique nécessite la partie 2 (règle 3-2-1 complète).
+  - **BACK-077 (cron purge auto) débloqué** dès que partie 1 + partie 2 sont mergées (car opération destructive automatisée nécessite filet backup + monitoring).
+
+- **Conditions qui invalideraient ce choix** :
+  - **Ajout d'un stockage de fichiers persistants** (images uploadées, PDF, etc.) → étendre BACK-078 avec `uploads.tar.gpg`.
+  - **BDD très grosse** (>100 Go) → passer à un backup incrémental (WAL archiving) au lieu de full `pg_dump` quotidien.
+  - **Multi-tenant avec conformité stricte** → migrer vers une solution managée type Barman ou pgBackRest avec point-in-time recovery.
+
+- **État** : DÉCIDÉ le 06/07/2026. **PARTIE 1** à implémenter dans `feature/BACK-078p1-backup-basic`. **PARTIE 2** à implémenter dans `feature/BACK-078p2-backup-offsite` avant la mise en prod publique.
 
 ---
 
