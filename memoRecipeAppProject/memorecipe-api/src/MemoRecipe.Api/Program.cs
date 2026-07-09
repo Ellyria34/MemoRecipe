@@ -17,15 +17,21 @@ using MemoRecipe.Infrastructure.ExternalServices;
 using MemoRecipe.Application.Services.OcrScan;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddSerilog((services, lc) => lc
+    .ReadFrom.Configuration(builder.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext());
 
 // Limite globale Kestrel — empêche les uploads > 15 Mo au niveau transport
 // (BACK-041 défense en profondeur, couche 1)
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.MaxRequestBodySize = 15 * 1024 * 1024; // 15 Mo
-    options.AddServerHeader = false; // OWAPS recommendation (limit fingerprinting)
+    options.AddServerHeader = false; // OWASP recommendation (limit fingerprinting)
 });
 
 
@@ -199,6 +205,7 @@ app.UseCors("AllowFrontend");
 app.UseRateLimiter();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
+app.UseSerilogRequestLogging();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
