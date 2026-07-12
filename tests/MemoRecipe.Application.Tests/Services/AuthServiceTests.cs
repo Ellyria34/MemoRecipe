@@ -1,3 +1,4 @@
+using MemoRecipe.Application.DTOs.Auth;
 using MemoRecipe.Application.Services.Auth;
 using MemoRecipe.Application.Tests.Fakes;
 using MemoRecipe.Domain.Entities.Users;
@@ -22,6 +23,7 @@ public class AuthServiceTests
         _service = new AuthService(_userRepository, jwtService, _passwordHasher, cache);
     }
 
+    #region LoginTest
     [Fact]
     public async Task RequestAccountDeletionAsync_WithCorrectPassword_SetsDeleteRequestedAt()
     {
@@ -116,5 +118,75 @@ public class AuthServiceTests
         Assert.True(result.WasDeletionCancelled);
         Assert.Null(user.DeleteRequestedAt);
     }
+    #endregion
 
+    #region ResgisterTest
+    [Fact]
+    public async Task RegisterAsync_WithNewEmail_ReturnsTokenAndPersistsUser()
+    {
+        // Arrange
+        var dto = new RegisterDto
+        {
+            Email = "newuser@example.com",
+            Username = "newuser",
+            Password = "StrongPass123!"
+        };
+
+        // Act
+        var token = await _service.RegisterAsync(dto, TestIpAddress);
+
+        // Assert
+        Assert.NotNull(token);
+        Assert.Contains(_userRepository.All, u => u.Email == dto.Email);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WithExistingEmail_ReturnsNullAndDoesNotAddUser()
+    {
+        // Arrange : ajouter un user avec l'email
+        var existingUser = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "taken@example.com",
+            Username = "existing",
+            PasswordHash = "",
+            PasswordSalt = ""
+        };
+        await _userRepository.AddAsync(existingUser);
+
+        var dto = new RegisterDto
+        {
+            Email = "taken@example.com",  // même email
+            Username = "newattempt",
+            Password = "SomePass123!"
+        };
+
+        // Act
+        var token = await _service.RegisterAsync(dto, TestIpAddress);
+
+        // Assert
+        Assert.Null(token);
+        Assert.Single(_userRepository.All);  // seul le user existant est là
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WithValidDto_StoresHashedPassword()
+    {
+        // Arrange
+        var dto = new RegisterDto
+        {
+            Email = "hashtest@example.com",
+            Username = "hashtest",
+            Password = "MySecret123!"
+        };
+
+        // Act
+        await _service.RegisterAsync(dto, TestIpAddress);
+
+        // Assert
+        var createdUser = _userRepository.All.Single(u => u.Email == dto.Email);
+        Assert.NotEqual(dto.Password, createdUser.PasswordHash);
+        Assert.True(_passwordHasher.Verify(createdUser, createdUser.PasswordHash, dto.Password, createdUser.PasswordSalt));
+    }
+    #endregion
 }
