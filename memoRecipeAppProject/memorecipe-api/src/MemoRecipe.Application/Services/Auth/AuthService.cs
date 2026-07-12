@@ -3,6 +3,7 @@ using MemoRecipe.Application.DTOs.Auth;
 using MemoRecipe.Application.Repositories;
 using MemoRecipe.Domain.Entities.Users;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 
 namespace MemoRecipe.Application.Services.Auth;
 
@@ -22,7 +23,7 @@ public class AuthService : IAuthService
         _cache = cache;
     }
 
-    public async Task<string?> RegisterAsync(RegisterDto dto)
+    public async Task<string?> RegisterAsync(RegisterDto dto, string ipAddress)
     {
         var user = new User
         {
@@ -47,7 +48,7 @@ public class AuthService : IAuthService
         return _jwtService.GenerateToken(user);
     }
 
-    public async Task<LoginResult> LoginAsync(string email, string password)
+    public async Task<LoginResult> LoginAsync(string email, string password, string ipAddress)
     {
         if (_cache.TryGetValue($"login-fail:{email}", out int failCount) && failCount >= 5)
         {
@@ -128,7 +129,7 @@ public class AuthService : IAuthService
         };
     }
 
-    public async Task<bool> RequestAccountDeletionAsync(Guid userId, string password)
+    public async Task<bool> RequestAccountDeletionAsync(Guid userId, string password, string ipAddress)
     {
         var user = await _userRepository.GetByIdAsync(userId);
         if (user == null) { return false; }

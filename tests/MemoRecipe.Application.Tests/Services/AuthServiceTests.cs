@@ -7,6 +7,7 @@ namespace MemoRecipe.Application.Tests.Services;
 
 public class AuthServiceTests
 {
+    private const string TestIpAddress = "127.0.0.1";
     private readonly FakeUserRepository _userRepository;
     private readonly PasswordHasher _passwordHasher;
     private readonly AuthService _service;
@@ -37,7 +38,7 @@ public class AuthServiceTests
         await _userRepository.AddAsync(user);
 
         // Act
-        var result = await _service.RequestAccountDeletionAsync(userId, "GoodPass123!");
+        var result = await _service.RequestAccountDeletionAsync(userId, "GoodPass123!", TestIpAddress);
 
         // Assert
         Assert.True(result);
@@ -60,7 +61,7 @@ public class AuthServiceTests
         await _userRepository.AddAsync(user);
 
         // Act
-        var result = await _service.RequestAccountDeletionAsync(userId, "NoGoodPass123!");
+        var result = await _service.RequestAccountDeletionAsync(userId, "NoGoodPass123!", TestIpAddress);
 
         // Assert
         Assert.False(result);
@@ -84,7 +85,7 @@ public class AuthServiceTests
 
 
         // Act
-        var result = await _service.LoginAsync(user.Email, "MyPassword");
+        var result = await _service.LoginAsync(user.Email, "MyPassword", TestIpAddress);
 
         // Assert
         Assert.Null(result.Token);
@@ -108,7 +109,7 @@ public class AuthServiceTests
         await _userRepository.AddAsync(user);
 
         // Act
-        var result = await _service.LoginAsync(user.Email, password);
+        var result = await _service.LoginAsync(user.Email, password, TestIpAddress);
 
         // Assert
         Assert.NotNull(result.Token);
