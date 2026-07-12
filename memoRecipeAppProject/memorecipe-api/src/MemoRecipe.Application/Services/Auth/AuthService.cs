@@ -12,15 +12,16 @@ public class AuthService : IAuthService
     private readonly IUserRepository _userRepository;
     private readonly IJwtService _jwtService;
     private readonly PasswordHasher _passwordHasher;
-
     private readonly IMemoryCache _cache;
+    private readonly ILogger<AuthService> _logger;
 
-    public AuthService(IUserRepository userRepository, IJwtService jwtService, PasswordHasher passwordHasher, IMemoryCache cache)
+    public AuthService(IUserRepository userRepository, IJwtService jwtService, PasswordHasher passwordHasher, IMemoryCache cache, ILogger<AuthService> logger)
     {
         _userRepository = userRepository;
         _jwtService = jwtService;
         _passwordHasher = passwordHasher;
         _cache = cache;
+        _logger = logger;
     }
 
     public async Task<string?> RegisterAsync(RegisterDto dto, string ipAddress)

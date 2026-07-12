@@ -3,6 +3,7 @@ using MemoRecipe.Application.Services.Auth;
 using MemoRecipe.Application.Tests.Fakes;
 using MemoRecipe.Domain.Entities.Users;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MemoRecipe.Application.Tests.Services;
 
@@ -13,14 +14,19 @@ public class AuthServiceTests
     private readonly PasswordHasher _passwordHasher;
     private readonly AuthService _service;
 
+
     public AuthServiceTests()
     {
         _userRepository = new FakeUserRepository();
         _passwordHasher = new PasswordHasher();
         var jwtService = new FakeJwtService();
         var cache = new MemoryCache(new MemoryCacheOptions());
-
-        _service = new AuthService(_userRepository, jwtService, _passwordHasher, cache);
+        _service = new AuthService(
+            _userRepository,
+            jwtService,
+            _passwordHasher,
+            cache,
+            NullLogger<AuthService>.Instance);
     }
 
     #region LoginTest
