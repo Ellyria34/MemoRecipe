@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using MemoRecipe.Application.DTOs.Auth;
+using MemoRecipe.Application.Helpers;
 using MemoRecipe.Application.Repositories;
 using MemoRecipe.Domain.Entities.Users;
 using Microsoft.Extensions.Caching.Memory;
@@ -36,15 +37,22 @@ public class AuthService : IAuthService
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
-        // Vérifier email déjà utilisé ?
+        // Check if the email address is already in use?
         if (await _userRepository.EmailExistsAsync(dto.Email))
+        {
+            _logger.LogWarning("{EventType} — masked email {MaskedEmail} from {IpAddress}",
+                "RegisterFailedEmailTaken", EmailMasker.Mask(dto.Email), ipAddress);
             return null;
+        }
 
-        // Hash du mot de passe
+        // Password hash
         user.PasswordHash = _passwordHasher.HashPassword(user, dto.Password);
 
         await _userRepository.AddAsync(user);
         await _userRepository.SaveChangesAsync();
+
+        _logger.LogInformation("{EventType} — user {UserId} masked email {MaskedEmail} from {IpAddress}",
+            "RegisterSuccess", user.Id, EmailMasker.Mask(dto.Email), ipAddress);
 
         return _jwtService.GenerateToken(user);
     }
@@ -133,9 +141,17 @@ public class AuthService : IAuthService
     public async Task<bool> RequestAccountDeletionAsync(Guid userId, string password, string ipAddress)
     {
         var user = await _userRepository.GetByIdAsync(userId);
-        if (user == null) { return false; }
+        if (user == null)
+        {
+            _logger.LogWarning("{EventType} — user {UserId} from {IpAddress}",
+                "AccountDeletionUserNotFound", userId, ipAddress);
+            return false;
+        }
+        
         if (!_passwordHasher.Verify(user, user.PasswordHash, password, user.PasswordSalt))
         {
+            _logger.LogWarning("{EventType} — user {UserId} from {IpAddress}",
+                "AccountDeletionFailedWrongPassword", userId, ipAddress);
             return false;
         }
 
@@ -143,7 +159,10 @@ public class AuthService : IAuthService
         _userRepository.Update(user);
         await _userRepository.SaveChangesAsync();
 
+        _logger.LogWarning("{EventType} — user {UserId} from {IpAddress}",
+            "AccountDeletionRequested", userId, ipAddress);
         return true;
+
     }
 
 }
