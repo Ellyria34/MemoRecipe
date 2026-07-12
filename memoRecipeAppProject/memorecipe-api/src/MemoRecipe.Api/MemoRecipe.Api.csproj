@@ -20,6 +20,9 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 
@@ -29,8 +32,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ContainerPort Include="8080" Type="tcp"/>
-    <ContainerEnvironmentVariable Include="ASPNETCORE_ENVIRONMENT" Value="Production"/>
+    <ContainerPort Include="8080" Type="tcp" />
+    <ContainerEnvironmentVariable Include="ASPNETCORE_ENVIRONMENT" Value="Production" />
     <ContainerLabel Include="org.opencontainers.image.source" Value="https://github.com/Ellyria34/MemoRecipe" />
     <ContainerLabel Include="org.opencontainers.image.description" Value="MemoRecipe API - personal recipe management with AI parsing" />
     <ContainerLabel Include="org.opencontainers.image.licenses" Value="AGPL-3.0" />

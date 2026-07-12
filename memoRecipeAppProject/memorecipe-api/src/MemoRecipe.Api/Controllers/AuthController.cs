@@ -35,14 +35,14 @@ public class AuthController : ControllerBase
     [EnableRateLimiting("auth")]
     public async Task<IActionResult> Register(RegisterDto dto)
     {
-
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         var validation = await _registerDtoValidator.ValidateAsync(dto);
         if (!validation.IsValid)
         {
             return BadRequest(validation.Errors);
         }
 
-        var token = await _authService.RegisterAsync(dto);
+        var token = await _authService.RegisterAsync(dto, ipAddress);
 
         if (token == null)
             return BadRequest("Email already exists.");
@@ -69,8 +69,9 @@ public class AuthController : ControllerBase
         {
             return BadRequest(validation.Errors);
         }
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-        var result = await _authService.LoginAsync(dto.Email, dto.Password);
+        var result = await _authService.LoginAsync(dto.Email, dto.Password, ipAddress);
         if (result.IsLockedOut)
         {
             return StatusCode(429, new { message = "Trop de tentative, votre compte et momentanément bloqué." });
@@ -103,14 +104,15 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountDto dto)
     {
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
-        
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+       
         var validation = await _deleteAccountValidator.ValidateAsync(dto);
         if (!validation.IsValid)
         {
             return BadRequest(validation.Errors);
         }
 
-        var authAccepted = await _authService.RequestAccountDeletionAsync(userId, dto.Password);
+        var authAccepted = await _authService.RequestAccountDeletionAsync(userId, dto.Password, ipAddress);
         if (!authAccepted)
         {
             return Unauthorized();
