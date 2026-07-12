@@ -61,6 +61,8 @@ public class AuthService : IAuthService
     {
         if (_cache.TryGetValue($"login-fail:{email}", out int failCount) && failCount >= 5)
         {
+            _logger.LogWarning("{EventType} — masked email {MaskedEmail} from {IpAddress}",
+                "AccountLocked", EmailMasker.Mask(email), ipAddress);
             return new LoginResult { IsLockedOut = true };
         }
 
@@ -70,6 +72,8 @@ public class AuthService : IAuthService
             var newCount = failCount + 1;
             _cache.Set($"login-fail:{email}", newCount, TimeSpan.FromMinutes(15));
 
+            _logger.LogWarning("{EventType} — masked email {MaskedEmail} from {IpAddress}",
+                "LoginFailedUserNotFound", EmailMasker.Mask(email), ipAddress);
             return new LoginResult { Token = null };
         }
 
@@ -78,6 +82,8 @@ public class AuthService : IAuthService
             var newCount = failCount + 1;
             _cache.Set($"login-fail:{email}", newCount, TimeSpan.FromMinutes(15));
 
+            _logger.LogWarning("{EventType} — user {UserId} masked email {MaskedEmail} from {IpAddress}",
+                "LoginFailedWrongPassword", user.Id, EmailMasker.Mask(email), ipAddress);
             return new LoginResult { Token = null };
         }
 
@@ -100,6 +106,8 @@ public class AuthService : IAuthService
                 // Grace period expired → purge account definitively
                 _userRepository.Delete(user);
                 await _userRepository.SaveChangesAsync();
+                _logger.LogWarning("{EventType} — user {UserId} from {IpAddress}",
+                    "AccountAutoPurged", user.Id, ipAddress);
                 return new LoginResult { Token = null };
             }
 
@@ -108,8 +116,12 @@ public class AuthService : IAuthService
             _userRepository.Update(user);
             await _userRepository.SaveChangesAsync();
             wasDeletionCancelled = true;
+            _logger.LogInformation("{EventType} — user {UserId} from {IpAddress}", 
+                "AccountDeletionCancelled", user.Id, ipAddress);
         }
 
+        _logger.LogInformation("{EventType} — user {UserId} from {IpAddress}",
+            "LoginSuccess", user.Id, ipAddress);
 
         return new LoginResult
         {
@@ -147,7 +159,7 @@ public class AuthService : IAuthService
                 "AccountDeletionUserNotFound", userId, ipAddress);
             return false;
         }
-        
+
         if (!_passwordHasher.Verify(user, user.PasswordHash, password, user.PasswordSalt))
         {
             _logger.LogWarning("{EventType} — user {UserId} from {IpAddress}",
