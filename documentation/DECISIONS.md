@@ -780,6 +780,52 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 
 ---
 
+### DEC-039 : Canal d'alerting — Telegram Bot API + abstraction `INotificationChannel`
+
+- **Date** : 13 juillet 2026 (identifiée pendant le cadrage de BACK-079)
+
+- **Choix** : Pour l'alerting critique du projet MemoRecipe (BACK-079), on retient **2 décisions couplées** :
+  1. **Telegram Bot API** comme canal d'alerte instantanée par défaut. Setup en 5 min via `@BotFather` sur Telegram — récupération d'un `BotToken` + création d'un canal privé "MemoRecipe Alerts" pour récupérer un `ChatId`. Envoi via simple `POST https://api.telegram.org/bot<TOKEN>/sendMessage` avec `chat_id` + `text` (support Markdown/HTML basique).
+  2. **Abstraction `INotificationChannel`** dans `MemoRecipe.Application/Notifications/` implémentée par `TelegramNotificationChannel` dans `MemoRecipe.Infrastructure/Notifications/` (pattern Ports/Adapters cohérent avec le reste de la Clean Architecture). Le service métier `AlertingService` dépend uniquement de l'interface — le canal réel est injecté via DI. Résultat : swap Telegram → Discord/Slack/Teams/email = **ajouter 1 classe adapter + changer 1 ligne DI dans `Program.cs`**, aucun changement dans le code métier.
+
+- **Pourquoi ces choix** :
+  - **Telegram Bot API** : setup ~5 min via `@BotFather` (aucun SDK, aucun OAuth, aucun renouvellement de token), simple `POST` HTTP, rate limit 30 msg/sec largement au-delà du volume prévu (~10-50 alertes/jour), notification push mobile instantanée, gratuit sans quota mensuel (contrairement à Slack free tier 10k msg/mois), canal privé possible pour isoler les alertes du projet des autres notifications.
+  - **Discord écarté** : moins courant en contexte entreprise (parfois bloqué en réseau pro, perçu comme "app gaming" par certaines DSI). Pas de gain net vs Telegram pour un projet mono-mainteneur.
+  - **Email écarté** : latency imprévisible (SMTP, greylist, spam), risque élevé de finir en spam, pas d'organisation par thread, tronqué sur mobile. Adapté aux rapports périodiques archivables, pas aux alertes temps réel.
+  - **PagerDuty / OpsGenie écartés** : coût significatif (~15-25$/user/mois), overkill pour un projet mono-mainteneur.
+  - **Abstraction `INotificationChannel` (Ports/Adapters)** : le canal réel est un détail d'infrastructure qui peut évoluer selon le contexte de déploiement. Le service métier `AlertingService` doit rester agnostique du canal pour garantir la portabilité (swap vers Slack/Teams/email en contexte entreprise) + la testabilité (via `FakeNotificationChannel` en tests unitaires). Coût du pattern = ~20 lignes de plus, bénéfice = swap trivial + isolation du métier vs infra.
+
+- **Alternatives écartées** :
+  - **Câbler Serilog directement à un sink Discord/Telegram** (via `Serilog.Sinks.Discord` ou équivalent) : rapide mais **anti-pattern SRP** — Serilog est un logger, pas un système d'alerting. Un logger doit tout logger (Info/Warning/Error), un système d'alerting doit **filtrer** (seulement Warning+ ou selon règles métier), **débouncer** (éviter le spam si 100 erreurs 500 en 1 min), **enrichir** (contexte, seuil dépassé, historique) et **router** (canaux différents selon sévérité). Ces concerns métier n'ont rien à faire dans un sink de log. `AlertingService` reste une couche métier dédiée qui consomme les événements et décide s'il faut alerter — Serilog capture les événements, `AlertingService` décide quoi en faire.
+  - **Push notification directe (FCM/APNs)** : demande un compte développeur Google/Apple + une app cliente installée côté récepteur. Overkill pour un projet solo.
+  - **Webhook vers un service tiers de routing d'alertes (n8n, Zapier)** : introduit une dépendance externe supplémentaire + un point de latence. Utile en équipe multi-outils, pas pour un solo dev.
+
+- **Sources** :
+  - [Telegram Bot API](https://core.telegram.org/bots/api) — documentation officielle
+  - [Telegram Bot tutorial (@BotFather)](https://core.telegram.org/bots/tutorial) — création d'un bot en 3 clics
+  - [Ports and Adapters pattern (Alistair Cockburn)](https://alistair.cockburn.us/hexagonal-architecture/) — origine du pattern qui justifie l'abstraction `INotificationChannel`
+  - [OWASP A09:2025 Security Logging and Alerting Failures](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) — obligation d'alerter sur événements critiques
+  - [Comparaison canaux d'alerting DevOps](https://sre.google/sre-book/monitoring-distributed-systems/) — Google SRE Book chapitre monitoring (les canaux d'alerte doivent être choisis pour maximiser la réactivité, pas la commodité de l'outil)
+
+- **Conséquences** :
+  - **Setup 1× (~10 min)** : créer bot Telegram via `@BotFather`, récupérer `BotToken`, créer canal privé "MemoRecipe Alerts", récupérer `ChatId` (via `getUpdates` API après ajout du bot au canal).
+  - **Nouveau namespace `MemoRecipe.Application.Notifications`** (interface + enum `AlertLevel` Info/Warning/Critical).
+  - **Nouveau namespace `MemoRecipe.Infrastructure.Notifications`** (`TelegramNotificationChannel` avec `HttpClient` injecté via `AddHttpClient<>`).
+  - **Nouveau service `AlertingService`** dans `MemoRecipe.Application.Services.Monitoring` qui décide **quand** alerter (règles métier : purge > 50 users, login fail > 100/5min, erreurs 500 > 10/5min, backup > 25h).
+  - **Configuration `appsettings.json`** : sections `Alerting` (seuils par règle) + `Telegram` (`BotToken`, `ChatId` en placeholders `CHANGE_ME`).
+  - **Secrets** : vraies valeurs `BotToken` + `ChatId` dans `appsettings.Development.json` (gitignored) + variables d'environnement `Telegram__BotToken` / `Telegram__ChatId` en prod. Fail-fast au démarrage si absentes (via `RequireConfig` déjà en place — BACK-004).
+  - **Tests unitaires** : `AlertingService` testé avec un `FakeNotificationChannel` (implémentation qui capture les envois en mémoire), permet d'asserter "après 51 users purgés, un envoi de niveau Critical a été déclenché".
+  - **Pattern documenté dans `AlertingService`** pour ne pas leaker le `BotToken` : jamais logué, jamais retourné dans une réponse HTTP, jamais dans un message d'erreur. Discipline no-leak cohérente avec BACK-010.
+
+- **Conditions qui invalideraient ce choix** :
+  - **Passage en équipe (multi-devs on-call)** : Telegram individuel devient insuffisant — nécessité de router les alertes vers un canal partagé Slack/Teams avec système d'astreinte/rotation. À ce moment-là, ajouter un `SlackNotificationChannel` en parallèle du `TelegramNotificationChannel` (le pattern `INotificationChannel` supporte plusieurs canaux simultanés) OU migrer vers PagerDuty/OpsGenie pour la gestion des rotations.
+  - **Volume d'alertes explose (>1000/jour)** : rate limit Telegram (30 msg/sec) deviendrait le bottleneck — nécessité de débouncer/aggréger côté `AlertingService` avant envoi, OU passer à un système dédié comme Grafana Alerting.
+  - **Compliance stricte (banque, santé)** : Telegram (serveurs hors UE) pourrait poser un problème RGPD/résidence des données si les alertes contiennent des données utilisateurs. À ce moment-là, migrer vers un canal européen (Slack EU tier, email SMTP français, ou solution self-hosted comme Mattermost).
+
+- **État** : DÉCIDÉ le 13/07/2026 pendant le cadrage de BACK-079. **À APPLIQUER dans `feature/BACK-079-monitoring-alerts`** (cette semaine).
+
+---
+
 ## Dette technique
 
 ### DEBT-001 : Structure de dossiers redondante (voir DEC-006)
