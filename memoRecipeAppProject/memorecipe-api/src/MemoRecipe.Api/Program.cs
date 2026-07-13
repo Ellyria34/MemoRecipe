@@ -54,6 +54,8 @@ builder.Services.AddCors(options =>
 RequireConfig(builder.Configuration, "JwtSettings:Secret", "Set the JwtSettings__Secret environment variable in production or update appsettings.Development.json (local dev).");
 RequireConfig(builder.Configuration, "ConnectionStrings:DefaultConnection", "Set the ConnectionStrings__DefaultConnection environment variable in production or update appsettings.Development.json (local dev).");
 RequireConfig(builder.Configuration, "OcrScan:BaseUrl", "Set the OcrScan__BaseUrl environment variable in production or update appsettings.Development.json (local dev).");
+RequireConfig(builder.Configuration, "Telegram:BotToken", "Set the Telegram__BotToken environment variable in production or update appsettings.Development.json (local dev).");
+RequireConfig(builder.Configuration, "Telegram:ChatId", "Set the Telegram__ChatId environment variable in production or update appsettings.Development.json (local dev).");
 
 builder.Services.AddDbContext<MemoRecipeDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
