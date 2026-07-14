@@ -1,14 +1,17 @@
 using MemoRecipe.Application.Notifications;
 using MemoRecipe.Application.Services.Alerting;
 using MemoRecipe.Application.Tests.Fakes;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
 namespace MemoRecipe.Application.Tests.Services;
 
 public class AlertingServiceTests
 {
-    private const int Threshold = 10;
+    private const int MassPurgeThreshold = 10;
+    private const int LoginFailThreshold = 5;
 
+    #region Mass Purge Alert
     [Fact]
     public async Task NotifyMassPurgeAsync_WhenBelowThreshold_DoesNotSendAlert()
     {
@@ -17,7 +20,7 @@ public class AlertingServiceTests
         var sut = CreateSut(channel);
 
         // Act
-        await sut.NotifyMassPurgeAsync(Threshold - 1);
+        await sut.NotifyMassPurgeAsync(MassPurgeThreshold - 1);
 
         // Assert
         Assert.Empty(channel.SentAlerts);
@@ -31,7 +34,7 @@ public class AlertingServiceTests
         var sut = CreateSut(channel);
 
         // Act
-        await sut.NotifyMassPurgeAsync(Threshold);
+        await sut.NotifyMassPurgeAsync(MassPurgeThreshold);
 
         // Assert — at threshold triggers the alert (>=, not >)
         var alert = Assert.Single(channel.SentAlerts);
@@ -54,12 +57,80 @@ public class AlertingServiceTests
         Assert.Equal(AlertLevel.Critical, alert.Level);
         Assert.Equal("Mass purge alert", alert.Title);
         Assert.Contains(deletedCount.ToString(), alert.Message);
-        Assert.Contains($"threshold: {Threshold}", alert.Message);
+        Assert.Contains($"threshold: {MassPurgeThreshold}", alert.Message);
     }
+    #endregion
+
+    #region Login fail
+    [Fact]
+    public async Task NotifyLoginFailAsync_WhenBelowThreshold_DoesNotSendAlert()
+    {
+        // Arrange
+        var channel = new FakeNotificationChannel();
+        var sut = CreateSut(channel);
+
+        // Act — 4 fails (seuil = 5)
+        for (var i = 0; i < LoginFailThreshold - 1; i++)
+        {
+            await sut.NotifyLoginFailAsync();
+        }
+
+        // Assert
+        Assert.Empty(channel.SentAlerts);
+    }
+
+    [Fact]
+    public async Task NotifyLoginFailAsync_WhenReachingThresholdExactly_SendsCriticalAlert()
+    {
+        // Arrange
+        var channel = new FakeNotificationChannel();
+        var sut = CreateSut(channel);
+
+        // Act — 5 fails (seuil = 5)
+        for (var i = 0; i < LoginFailThreshold; i++)
+        {
+            await sut.NotifyLoginFailAsync();
+        }
+
+        // Assert
+        var alert = Assert.Single(channel.SentAlerts);
+        Assert.Equal(AlertLevel.Critical, alert.Level);
+        Assert.Equal("Login fail storm detected", alert.Title);
+        Assert.Contains(LoginFailThreshold.ToString(), alert.Message);
+        Assert.Contains("5 min", alert.Message);
+    }
+
+    [Fact]
+    public async Task NotifyLoginFailAsync_WhenAboveThreshold_DoesNotSpam()
+    {
+        // Arrange
+        var channel = new FakeNotificationChannel();
+        var sut = CreateSut(channel);
+
+        // Act — 7 fails (seuil = 5)
+        for (var i = 0; i < LoginFailThreshold +2; i++)
+        {
+            await sut.NotifyLoginFailAsync();
+        }
+        // Assert
+        var alert = Assert.Single(channel.SentAlerts);
+        Assert.Equal(AlertLevel.Critical, alert.Level);
+        Assert.Equal("Login fail storm detected", alert.Title);
+        Assert.Contains(LoginFailThreshold.ToString(), alert.Message);
+        Assert.Contains("5 min", alert.Message);
+    }
+    #endregion
+
 
     private static AlertingService CreateSut(FakeNotificationChannel channel)
     {
-        var options = Options.Create(new AlertingOptions { MassPurgeCritical = Threshold });
-        return new AlertingService(channel, options);
+        var options = Options.Create(new AlertingOptions
+        {
+            MassPurgeCritical = MassPurgeThreshold,
+            LoginFailStormCritical = LoginFailThreshold
+        });
+        var cache = new MemoryCache(new MemoryCacheOptions());
+
+        return new AlertingService(channel, options, cache);
     }
 }

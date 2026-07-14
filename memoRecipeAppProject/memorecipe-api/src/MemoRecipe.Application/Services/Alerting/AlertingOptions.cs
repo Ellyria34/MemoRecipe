@@ -4,5 +4,6 @@ public class AlertingOptions
 {
     public const string SectionName = "Alerting";
     public int MassPurgeCritical {get; set;} = 10;
-    public AlertingOptions? Value { get; internal set; }
+    public int LoginFailStormCritical {get; set;} = 50;
+    public TimeSpan LoginFailStormWindow {get; set;} = TimeSpan.FromMinutes(5);
 }
