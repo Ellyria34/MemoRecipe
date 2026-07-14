@@ -73,7 +73,42 @@ public class AlertingService : IAlertingService
         Alert alert = new Alert(
             AlertLevel.Critical,
             "Server error spike detected",
-            $"{count} server error failures {_options.ServerErrorSpikeWindow.TotalMinutes:F0} min",
+            $"{count} server error failures in the last {_options.ServerErrorSpikeWindow.TotalMinutes:F0} min",
+            DateTimeOffset.UtcNow);
+
+        await _notificationChannel.SendAsync(alert, cancellationToken);
+    }
+
+    public async Task NotifyBackupStaleAsync(CancellationToken cancellationToken = default)
+    {
+        DateTime mostRecentUtc = DateTime.MinValue;
+
+        if (Directory.Exists(_options.BackupPath))
+        {
+            foreach (var file in Directory.EnumerateFiles(_options.BackupPath))
+            {
+                var writeTime = File.GetLastWriteTimeUtc(file);
+                if (writeTime > mostRecentUtc)
+                {
+                    mostRecentUtc = writeTime;
+                }
+            }
+        }
+
+        var age = DateTime.UtcNow - mostRecentUtc;
+        if (age <= _options.BackupStaleAfter)
+        {
+            return;
+        }
+
+        var message = mostRecentUtc == DateTime.MinValue
+        ? $"No backup file found in {_options.BackupPath}"
+        : $"Latest backup is {age.TotalHours:F0}h old (threshold: {_options.BackupStaleAfter.TotalHours:F0}h)";
+
+        var alert = new Alert(
+            AlertLevel.Critical,
+            "Backup stale",
+            message,
             DateTimeOffset.UtcNow);
 
         await _notificationChannel.SendAsync(alert, cancellationToken);

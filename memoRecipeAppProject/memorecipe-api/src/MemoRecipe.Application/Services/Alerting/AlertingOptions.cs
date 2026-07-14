@@ -8,5 +8,6 @@ public class AlertingOptions
     public TimeSpan LoginFailStormWindow { get; set; } = TimeSpan.FromMinutes(5);
     public int ServerErrorSpikeCritical { get; set; } = 20;
     public TimeSpan ServerErrorSpikeWindow { get; set; } = TimeSpan.FromMinutes(5);
-
+    public string BackupPath {get; set;} = "/backups";
+    public TimeSpan BackupStaleAfter {get; set;} = TimeSpan.FromHours(26);
 }

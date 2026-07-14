@@ -1,6 +1,7 @@
 using MemoRecipe.Application.Notifications;
 using MemoRecipe.Application.Services.Alerting;
 using MemoRecipe.Application.Tests.Fakes;
+using MemoRecipe.Application.Tests.Helpers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
@@ -10,7 +11,6 @@ public class AlertingServiceTests
 {
     private const int MassPurgeThreshold = 10;
     private const int LoginFailThreshold = 5;
-
     private const int ServerErrorSpikeThreshold = 5;
 
     #region Mass Purge Alert
@@ -181,17 +181,97 @@ public class AlertingServiceTests
         Assert.Contains(ServerErrorSpikeThreshold.ToString(), alert.Message);
         Assert.Contains("5 min", alert.Message);
     }
-
-
     #endregion
 
-    private static AlertingService CreateSut(FakeNotificationChannel channel)
+    #region Backup Stale
+    [Fact]
+    public async Task NotifyBackupStaleAsync_WhenRecentBackupExists_DoesNotSendAlert()
+    {
+        // Arrange
+        using var tempDir = new TempDirectory();
+        var backupFile = Path.Combine(tempDir.Path, "backup.gpg");
+        File.WriteAllText(backupFile, "fake");
+
+        var channel = new FakeNotificationChannel();
+        var sut = CreateSut(channel, tempDir.Path);
+
+        // Act
+        await sut.NotifyBackupStaleAsync();
+
+        // Assert
+        Assert.Empty(channel.SentAlerts);
+    }
+
+    [Fact]
+    public async Task NotifyBackupStaleAsync_WhenOldBackupExists_SendsCriticalAlert()
+    {
+        // Arrange
+        using var tempDir = new TempDirectory();
+        var backupFile = Path.Combine(tempDir.Path, "backup.gpg");
+        File.WriteAllText(backupFile, "fake");
+        File.SetLastWriteTimeUtc(backupFile, DateTime.UtcNow.AddHours(-30));
+
+        var channel = new FakeNotificationChannel();
+        var sut = CreateSut(channel, tempDir.Path);
+
+        // Act
+        await sut.NotifyBackupStaleAsync();
+
+        // Assert
+        var alert = Assert.Single(channel.SentAlerts);
+        Assert.Equal(AlertLevel.Critical, alert.Level);
+        Assert.Equal("Backup stale", alert.Title);
+        Assert.Contains("30h old", alert.Message);
+        Assert.Contains("threshold: 26h", alert.Message);
+
+    }
+
+    [Fact]
+    public async Task NotifyBackupStaleAsync_WhenBackupEmptyFolder_SendsCriticalAlert()
+    {
+        // Arrange
+        using var tempDir = new TempDirectory();
+
+        var channel = new FakeNotificationChannel();
+        var sut = CreateSut(channel, tempDir.Path);
+
+        // Act
+        await sut.NotifyBackupStaleAsync();
+
+        // Assert
+        var alert = Assert.Single(channel.SentAlerts);
+        Assert.Equal(AlertLevel.Critical, alert.Level);
+        Assert.Equal("Backup stale", alert.Title);
+        Assert.Contains("No backup file found", alert.Message);
+    }
+
+    [Fact]
+    public async Task NotifyBackupStaleAsync_WhenBackupFolderNotExist_SendsCriticalAlert()
+    {
+        // Arrange
+        var nonExistentPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var channel = new FakeNotificationChannel();
+        var sut = CreateSut(channel, nonExistentPath);
+
+        // Act
+        await sut.NotifyBackupStaleAsync();
+
+        // Assert
+        var alert = Assert.Single(channel.SentAlerts);
+        Assert.Equal(AlertLevel.Critical, alert.Level);
+        Assert.Equal("Backup stale", alert.Title);
+        Assert.Contains("No backup file found", alert.Message);
+    }
+    #endregion
+
+    private static AlertingService CreateSut(FakeNotificationChannel channel, string? backupPath = null)
     {
         var options = Options.Create(new AlertingOptions
         {
             MassPurgeCritical = MassPurgeThreshold,
             LoginFailStormCritical = LoginFailThreshold,
             ServerErrorSpikeCritical = ServerErrorSpikeThreshold,
+            BackupPath = backupPath ?? "/backups"
         });
         var cache = new MemoryCache(new MemoryCacheOptions());
 
