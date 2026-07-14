@@ -48,11 +48,32 @@ public class AlertingService : IAlertingService
         {
             return;
         }
-        
+
         Alert alert = new Alert(
             AlertLevel.Critical,
             "Login fail storm detected",
             $"{count} login failures in the last {_options.LoginFailStormWindow.TotalMinutes:F0} min",
+            DateTimeOffset.UtcNow);
+
+        await _notificationChannel.SendAsync(alert, cancellationToken);
+    }
+
+    public async Task NotifyServerErrorAsync(CancellationToken cancellationToken = default)
+    {
+        const string cacheKey = "alerting:server-error-spike-count";
+        var count = _cache.Get<int>(cacheKey);
+        count++;
+        _cache.Set(cacheKey, count, _options.ServerErrorSpikeWindow);
+
+        if (count != _options.ServerErrorSpikeCritical)
+        {
+            return;
+        }
+
+        Alert alert = new Alert(
+            AlertLevel.Critical,
+            "Server error spike detected",
+            $"{count} server error failures {_options.ServerErrorSpikeWindow.TotalMinutes:F0} min",
             DateTimeOffset.UtcNow);
 
         await _notificationChannel.SendAsync(alert, cancellationToken);

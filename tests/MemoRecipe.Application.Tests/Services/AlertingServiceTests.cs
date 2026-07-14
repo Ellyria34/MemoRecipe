@@ -11,6 +11,8 @@ public class AlertingServiceTests
     private const int MassPurgeThreshold = 10;
     private const int LoginFailThreshold = 5;
 
+    private const int ServerErrorSpikeThreshold = 5;
+
     #region Mass Purge Alert
     [Fact]
     public async Task NotifyMassPurgeAsync_WhenBelowThreshold_DoesNotSendAlert()
@@ -108,7 +110,7 @@ public class AlertingServiceTests
         var sut = CreateSut(channel);
 
         // Act — 7 fails (seuil = 5)
-        for (var i = 0; i < LoginFailThreshold +2; i++)
+        for (var i = 0; i < LoginFailThreshold + 2; i++)
         {
             await sut.NotifyLoginFailAsync();
         }
@@ -121,13 +123,75 @@ public class AlertingServiceTests
     }
     #endregion
 
+    #region Server Error
+    [Fact]
+    public async Task NotifyServerErrorAsync_WhenBelowThreshold_DoesNotSendAlert()
+    {
+        // Arrange
+        var channel = new FakeNotificationChannel();
+        var sut = CreateSut(channel);
+
+        // Act — 4 errors (seuil = 5)
+        for (var i = 0; i < ServerErrorSpikeThreshold - 1; i++)
+        {
+            await sut.NotifyServerErrorAsync();
+        }
+
+        // Assert
+        Assert.Empty(channel.SentAlerts);
+    }
+
+    [Fact]
+    public async Task NotifyServerErrorAsync_WhenReachingThresholdExactly_SendsCriticalAlert()
+    {
+        // Arrange
+        var channel = new FakeNotificationChannel();
+        var sut = CreateSut(channel);
+
+        // Act — 4 errors (seuil = 5)
+        for (var i = 0; i < ServerErrorSpikeThreshold; i++)
+        {
+            await sut.NotifyServerErrorAsync();
+        }
+
+        // Assert
+        var alert = Assert.Single(channel.SentAlerts);
+        Assert.Equal(AlertLevel.Critical, alert.Level);
+        Assert.Equal("Server error spike detected", alert.Title);
+        Assert.Contains(ServerErrorSpikeThreshold.ToString(), alert.Message);
+        Assert.Contains("5 min", alert.Message);
+    }
+    [Fact]
+    public async Task NotifyServerErrorAsync_WhenAboveThreshold_DoesNotSpam()
+    {
+        // Arrange
+        var channel = new FakeNotificationChannel();
+        var sut = CreateSut(channel);
+
+        // Act — 7 errors (seuil = 5)
+        for (var i = 0; i < ServerErrorSpikeThreshold + 2; i++)
+        {
+            await sut.NotifyServerErrorAsync();
+        }
+
+        // Assert — still only 1 alert despite 7 calls
+        var alert = Assert.Single(channel.SentAlerts);
+        Assert.Equal(AlertLevel.Critical, alert.Level);
+        Assert.Equal("Server error spike detected", alert.Title);
+        Assert.Contains(ServerErrorSpikeThreshold.ToString(), alert.Message);
+        Assert.Contains("5 min", alert.Message);
+    }
+
+
+    #endregion
 
     private static AlertingService CreateSut(FakeNotificationChannel channel)
     {
         var options = Options.Create(new AlertingOptions
         {
             MassPurgeCritical = MassPurgeThreshold,
-            LoginFailStormCritical = LoginFailThreshold
+            LoginFailStormCritical = LoginFailThreshold,
+            ServerErrorSpikeCritical = ServerErrorSpikeThreshold,
         });
         var cache = new MemoryCache(new MemoryCacheOptions());
 
