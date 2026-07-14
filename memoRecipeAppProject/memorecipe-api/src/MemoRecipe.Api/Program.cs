@@ -20,6 +20,7 @@ using MemoRecipe.Application.Services.OcrScan;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using Serilog;
+using MemoRecipe.Application.Services.Alerting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -183,6 +184,9 @@ builder.Services.AddScoped<IValidator<RegisterDto>, RegisterDtoValidator>();
 builder.Services.AddScoped<IValidator<DeleteAccountDto>, DeleteAccountDtoValidator>();
 builder.Services.AddHttpClient<IOcrScanService, OcrScanService>();
 builder.Services.AddHttpClient<INotificationChannel, TelegramNotificationChannel>();
+builder.Services.Configure<AlertingOptions>(
+    builder.Configuration.GetSection(AlertingOptions.SectionName));
+builder.Services.AddScoped<IAlertingService, AlertingService>();
 builder.Services.AddScoped<PasswordHasher>();
 builder.Services.AddHealthChecks();
 builder.Services.AddMemoryCache();
