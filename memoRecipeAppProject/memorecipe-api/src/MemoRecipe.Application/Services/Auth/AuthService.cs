@@ -5,6 +5,7 @@ using MemoRecipe.Application.Repositories;
 using MemoRecipe.Domain.Entities.Users;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using MemoRecipe.Application.Services.Alerting;
 
 namespace MemoRecipe.Application.Services.Auth;
 
@@ -15,14 +16,16 @@ public class AuthService : IAuthService
     private readonly PasswordHasher _passwordHasher;
     private readonly IMemoryCache _cache;
     private readonly ILogger<AuthService> _logger;
+    private readonly IAlertingService _alertingService;
 
-    public AuthService(IUserRepository userRepository, IJwtService jwtService, PasswordHasher passwordHasher, IMemoryCache cache, ILogger<AuthService> logger)
+    public AuthService(IUserRepository userRepository, IJwtService jwtService, PasswordHasher passwordHasher, IMemoryCache cache, ILogger<AuthService> logger, IAlertingService alertingService)
     {
         _userRepository = userRepository;
         _jwtService = jwtService;
         _passwordHasher = passwordHasher;
         _cache = cache;
         _logger = logger;
+        _alertingService = alertingService;
     }
 
     public async Task<string?> RegisterAsync(RegisterDto dto, string ipAddress)
@@ -74,6 +77,7 @@ public class AuthService : IAuthService
 
             _logger.LogWarning("{EventType} — masked email {MaskedEmail} from {IpAddress}",
                 "LoginFailedUserNotFound", EmailMasker.Mask(email), ipAddress);
+            await _alertingService.NotifyLoginFailAsync();
             return new LoginResult { Token = null };
         }
 
@@ -84,6 +88,7 @@ public class AuthService : IAuthService
 
             _logger.LogWarning("{EventType} — user {UserId} masked email {MaskedEmail} from {IpAddress}",
                 "LoginFailedWrongPassword", user.Id, EmailMasker.Mask(email), ipAddress);
+            await _alertingService.NotifyLoginFailAsync();
             return new LoginResult { Token = null };
         }
 

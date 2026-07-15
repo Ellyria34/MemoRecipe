@@ -13,7 +13,7 @@ public class AuthServiceTests
     private readonly FakeUserRepository _userRepository;
     private readonly PasswordHasher _passwordHasher;
     private readonly AuthService _service;
-
+    private readonly FakeAlertingService _alertingService;
 
     public AuthServiceTests()
     {
@@ -21,12 +21,14 @@ public class AuthServiceTests
         _passwordHasher = new PasswordHasher();
         var jwtService = new FakeJwtService();
         var cache = new MemoryCache(new MemoryCacheOptions());
+        _alertingService = new FakeAlertingService();
         _service = new AuthService(
             _userRepository,
             jwtService,
             _passwordHasher,
             cache,
-            NullLogger<AuthService>.Instance);
+            NullLogger<AuthService>.Instance,
+            _alertingService);
     }
 
     #region LoginTest
@@ -124,6 +126,28 @@ public class AuthServiceTests
         Assert.True(result.WasDeletionCancelled);
         Assert.Null(user.DeleteRequestedAt);
     }
+
+    [Fact]
+    public async Task LoginAsync_WithWrongPassword_TriggersLoginFailAlert()
+    {
+        // Arrange
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "test@example.com",
+            Username = "test",
+            PasswordSalt = ""
+        };
+        user.PasswordHash = _passwordHasher.HashPassword(user, "GoodPass123!");
+        await _userRepository.AddAsync(user);
+
+        // Act
+        await _service.LoginAsync("test@example.com", "WrongPass456!", TestIpAddress);
+
+        // Assert
+        Assert.Equal(1, _alertingService.LoginFailCallCount);
+    }
+
     #endregion
 
     #region ResgisterTest
