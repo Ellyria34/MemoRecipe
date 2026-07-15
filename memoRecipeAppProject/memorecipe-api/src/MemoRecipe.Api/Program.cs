@@ -59,9 +59,11 @@ RequireConfig(builder.Configuration, "ConnectionStrings:DefaultConnection", "Set
 RequireConfig(builder.Configuration, "OcrScan:BaseUrl", "Set the OcrScan__BaseUrl environment variable in production or update appsettings.Development.json (local dev).");
 RequireConfig(builder.Configuration, "Telegram:BotToken", "Set the Telegram__BotToken environment variable in production or update appsettings.Development.json (local dev).");
 RequireConfig(builder.Configuration, "Telegram:ChatId", "Set the Telegram__ChatId environment variable in production or update appsettings.Development.json (local dev).");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required.");
 
 builder.Services.AddDbContext<MemoRecipeDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
 //Authentication service
 builder.Services.AddAuthentication(options =>
@@ -188,7 +190,8 @@ builder.Services.Configure<AlertingOptions>(
     builder.Configuration.GetSection(AlertingOptions.SectionName));
 builder.Services.AddScoped<IAlertingService, AlertingService>();
 builder.Services.AddScoped<PasswordHasher>();
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddNpgSql(connectionString);
 builder.Services.AddMemoryCache();
 
 var app = builder.Build();
