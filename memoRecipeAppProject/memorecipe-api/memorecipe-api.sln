@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoRecipe.Infrastructure.T
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoRecipe.Application.Tests", "..\..\tests\MemoRecipe.Application.Tests\MemoRecipe.Application.Tests.csproj", "{31B39B9B-1E2B-45E5-A069-E011903ED90B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoRecipe.Api.Tests", "..\..\tests\MemoRecipe.Api.Tests\MemoRecipe.Api.Tests.csproj", "{86BDD699-EA1F-4B77-9BA2-A2F8DE039A75}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -99,6 +101,18 @@ Global
 		{31B39B9B-1E2B-45E5-A069-E011903ED90B}.Release|x64.Build.0 = Release|Any CPU
 		{31B39B9B-1E2B-45E5-A069-E011903ED90B}.Release|x86.ActiveCfg = Release|Any CPU
 		{31B39B9B-1E2B-45E5-A069-E011903ED90B}.Release|x86.Build.0 = Release|Any CPU
+		{86BDD699-EA1F-4B77-9BA2-A2F8DE039A75}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{86BDD699-EA1F-4B77-9BA2-A2F8DE039A75}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{86BDD699-EA1F-4B77-9BA2-A2F8DE039A75}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{86BDD699-EA1F-4B77-9BA2-A2F8DE039A75}.Debug|x64.Build.0 = Debug|Any CPU
+		{86BDD699-EA1F-4B77-9BA2-A2F8DE039A75}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{86BDD699-EA1F-4B77-9BA2-A2F8DE039A75}.Debug|x86.Build.0 = Debug|Any CPU
+		{86BDD699-EA1F-4B77-9BA2-A2F8DE039A75}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{86BDD699-EA1F-4B77-9BA2-A2F8DE039A75}.Release|Any CPU.Build.0 = Release|Any CPU
+		{86BDD699-EA1F-4B77-9BA2-A2F8DE039A75}.Release|x64.ActiveCfg = Release|Any CPU
+		{86BDD699-EA1F-4B77-9BA2-A2F8DE039A75}.Release|x64.Build.0 = Release|Any CPU
+		{86BDD699-EA1F-4B77-9BA2-A2F8DE039A75}.Release|x86.ActiveCfg = Release|Any CPU
+		{86BDD699-EA1F-4B77-9BA2-A2F8DE039A75}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
