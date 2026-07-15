@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoRecipe.Infrastructure",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoRecipe.Infrastructure.Tests", "..\..\tests\MemoRecipe.Infrastructure.Tests\MemoRecipe.Infrastructure.Tests.csproj", "{38FBBC2C-784B-45E0-85A0-F92E2D505D05}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoRecipe.Application.Tests", "..\..\tests\MemoRecipe.Application.Tests\MemoRecipe.Application.Tests.csproj", "{31B39B9B-1E2B-45E5-A069-E011903ED90B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -85,6 +87,18 @@ Global
 		{38FBBC2C-784B-45E0-85A0-F92E2D505D05}.Release|x64.Build.0 = Release|Any CPU
 		{38FBBC2C-784B-45E0-85A0-F92E2D505D05}.Release|x86.ActiveCfg = Release|Any CPU
 		{38FBBC2C-784B-45E0-85A0-F92E2D505D05}.Release|x86.Build.0 = Release|Any CPU
+		{31B39B9B-1E2B-45E5-A069-E011903ED90B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{31B39B9B-1E2B-45E5-A069-E011903ED90B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{31B39B9B-1E2B-45E5-A069-E011903ED90B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{31B39B9B-1E2B-45E5-A069-E011903ED90B}.Debug|x64.Build.0 = Debug|Any CPU
+		{31B39B9B-1E2B-45E5-A069-E011903ED90B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{31B39B9B-1E2B-45E5-A069-E011903ED90B}.Debug|x86.Build.0 = Debug|Any CPU
+		{31B39B9B-1E2B-45E5-A069-E011903ED90B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{31B39B9B-1E2B-45E5-A069-E011903ED90B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{31B39B9B-1E2B-45E5-A069-E011903ED90B}.Release|x64.ActiveCfg = Release|Any CPU
+		{31B39B9B-1E2B-45E5-A069-E011903ED90B}.Release|x64.Build.0 = Release|Any CPU
+		{31B39B9B-1E2B-45E5-A069-E011903ED90B}.Release|x86.ActiveCfg = Release|Any CPU
+		{31B39B9B-1E2B-45E5-A069-E011903ED90B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
