@@ -14,10 +14,13 @@ using MemoRecipe.Application.DTOs.Recipes;
 using MemoRecipe.Application.DTOs.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using MemoRecipe.Infrastructure.ExternalServices;
+using MemoRecipe.Application.Notifications;
+using MemoRecipe.Infrastructure.Notifications;
 using MemoRecipe.Application.Services.OcrScan;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using Serilog;
+using MemoRecipe.Application.Services.Alerting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,9 +57,13 @@ builder.Services.AddCors(options =>
 RequireConfig(builder.Configuration, "JwtSettings:Secret", "Set the JwtSettings__Secret environment variable in production or update appsettings.Development.json (local dev).");
 RequireConfig(builder.Configuration, "ConnectionStrings:DefaultConnection", "Set the ConnectionStrings__DefaultConnection environment variable in production or update appsettings.Development.json (local dev).");
 RequireConfig(builder.Configuration, "OcrScan:BaseUrl", "Set the OcrScan__BaseUrl environment variable in production or update appsettings.Development.json (local dev).");
+RequireConfig(builder.Configuration, "Telegram:BotToken", "Set the Telegram__BotToken environment variable in production or update appsettings.Development.json (local dev).");
+RequireConfig(builder.Configuration, "Telegram:ChatId", "Set the Telegram__ChatId environment variable in production or update appsettings.Development.json (local dev).");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required.");
 
 builder.Services.AddDbContext<MemoRecipeDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
 //Authentication service
 builder.Services.AddAuthentication(options =>
@@ -178,8 +185,13 @@ builder.Services.AddScoped<IValidator<LoginDto>, LoginDtoValidator>();
 builder.Services.AddScoped<IValidator<RegisterDto>, RegisterDtoValidator>();
 builder.Services.AddScoped<IValidator<DeleteAccountDto>, DeleteAccountDtoValidator>();
 builder.Services.AddHttpClient<IOcrScanService, OcrScanService>();
+builder.Services.AddHttpClient<INotificationChannel, TelegramNotificationChannel>();
+builder.Services.Configure<AlertingOptions>(
+    builder.Configuration.GetSection(AlertingOptions.SectionName));
+builder.Services.AddScoped<IAlertingService, AlertingService>();
 builder.Services.AddScoped<PasswordHasher>();
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddNpgSql(connectionString);
 builder.Services.AddMemoryCache();
 
 var app = builder.Build();

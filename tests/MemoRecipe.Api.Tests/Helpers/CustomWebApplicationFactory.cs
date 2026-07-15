@@ -10,15 +10,18 @@ using Testcontainers.PostgreSql;
 namespace MemoRecipe.Api.Tests.Helpers;
 public class CustomWebApplicationFactory<Program> : WebApplicationFactory<Program>, IAsyncLifetime where Program : class
 {
-    static CustomWebApplicationFactory()
-    {
-        Environment.SetEnvironmentVariable("DOTNET_TEST_MODE", "true");
-        Environment.SetEnvironmentVariable("JwtSettings__Secret", 
-        "TEST_JWT_SECRET_AT_LEAST_64_CHARS_FOR_INTEGRATION_TESTS_PURPOSES_XXX");
-        Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", 
-        "Host=fake;Database=fake;Username=fake;Password=fake");
-        Environment.SetEnvironmentVariable("OcrScan__BaseUrl", "http://fake-ocr/");
-    }
+static CustomWebApplicationFactory()
+{
+    Environment.SetEnvironmentVariable("DOTNET_TEST_MODE", "true");
+    Environment.SetEnvironmentVariable("JwtSettings__Secret", 
+    "TEST_JWT_SECRET_AT_LEAST_64_CHARS_FOR_INTEGRATION_TESTS_PURPOSES_XXX");
+    Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", 
+    "Host=fake;Database=fake;Username=fake;Password=fake");
+    Environment.SetEnvironmentVariable("OcrScan__BaseUrl", "http://fake-ocr/");
+    Environment.SetEnvironmentVariable("Telegram__BotToken", "FAKE_TEST_TOKEN_NOT_USED");   // ← ajout
+    Environment.SetEnvironmentVariable("Telegram__ChatId", "0");                            // ← ajout
+}
+
 
     // Spin up a PostgreSQL container shared across all tests of this class.
     private readonly PostgreSqlContainer _postgresContainer = new PostgreSqlBuilder("postgres:16-alpine").Build();
