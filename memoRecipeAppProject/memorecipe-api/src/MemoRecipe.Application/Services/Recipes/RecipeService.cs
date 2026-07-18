@@ -1,12 +1,11 @@
 using MemoRecipe.Application.DTOs.Recipes;
 using MemoRecipe.Application.Repositories;
-using MemoRecipe.Application.Services.Recipes;
-using MemoRecipe.Domain.Entities.Recipes;
 using MemoRecipe.Domain.Entities.Categories;
 using MemoRecipe.Domain.Entities.Ingredients;
 using MemoRecipe.Domain.Entities.Steps;
 using MemoRecipe.Application.Mappings.Profiles;
 using MemoRecipe.Application.Exceptions;
+using Microsoft.Extensions.Logging;
 
 namespace MemoRecipe.Application.Services.Recipes;
 
@@ -14,20 +13,31 @@ public class RecipeService : IRecipeService
 {
     private readonly IRecipeRepository _repository;
     private readonly IUserRepository _userRepository;
+    private readonly ILogger<RecipeService> _logger;
 
-    public RecipeService(IRecipeRepository repository, IUserRepository userRepository)
+
+    public RecipeService(IRecipeRepository repository, IUserRepository userRepository, ILogger<RecipeService> logger)
     {
         _repository = repository;
         _userRepository = userRepository;
+        _logger = logger;
     }
 
     public async Task<RecipeDto?> GetByIdAsync(Guid id, Guid userId)
     {
         var recipe = await _repository.GetByIdAsync(id);
-        if (recipe == null || (recipe.UserId != userId && !recipe.IsPublic))
+        if (recipe == null)
         {
             return null;
         }
+
+        if (recipe.UserId != userId && !recipe.IsPublic)
+        {
+            _logger.LogWarning("{EventType} — user {UserId} attempted to access private recipe {RecipeId} owned by another user",
+                "UnauthorizedRecipeRead", userId, id);
+            return null;
+        }
+        
         return recipe.ToDto();
     }
 
@@ -87,8 +97,14 @@ public class RecipeService : IRecipeService
         await EnsureAccountActiveAsync(userId);
 
         var recipe = await _repository.GetByIdAsync(id);
-        if (recipe == null || recipe.UserId != userId)
+        if (recipe == null)
         {
+            return null;
+        }
+        if (recipe.UserId != userId)
+        {
+            _logger.LogWarning("{EventType} — user {UserId} attempted to update recipe {RecipeId} owned by another user",
+                "UnauthorizedRecipeUpdate", userId, id);
             return null;
         }
 
@@ -143,8 +159,15 @@ public class RecipeService : IRecipeService
         await EnsureAccountActiveAsync(userId);
 
         var recipe = await _repository.GetByIdAsync(id);
-        if (recipe == null || recipe.UserId != userId)
+        if (recipe == null)
         {
+            return false;
+        }
+
+        if (recipe.UserId != userId)
+        {
+            _logger.LogWarning("{EventType} — user {UserId} attempted to delete recipe {RecipeId} owned by another user",
+                "UnauthorizedRecipeDelete", userId, id);
             return false;
         }
         _repository.Delete(recipe);

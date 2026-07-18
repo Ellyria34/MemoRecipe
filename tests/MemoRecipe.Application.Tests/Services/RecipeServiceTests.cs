@@ -6,6 +6,7 @@ using MemoRecipe.Application.Tests.Fakes;
 using MemoRecipe.Domain.Entities.Recipes;
 using MemoRecipe.Domain.Entities.Users;
 using MemoRecipe.Application.Exceptions;
+using Microsoft.Extensions.Logging.Abstractions;
 
 
 
@@ -22,8 +23,7 @@ public class RecipeServiceTests
     {
         _repository = new FakeRecipeRepository();
         _userRepository = new FakeUserRepository();
-
-        _service = new RecipeService(_repository, _userRepository);
+        _service = new RecipeService(_repository, _userRepository, NullLogger<RecipeService>.Instance);
     }
 
     #region GetByIdAsync
