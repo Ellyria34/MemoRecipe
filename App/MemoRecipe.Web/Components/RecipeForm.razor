@@ -23,12 +23,16 @@
         @for (int i = 0; i < Recipe.Ingredients.Count; i++)
         {
             var index = i;
-            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-                <MudTextField Style="flex: 1" @bind-Value="Recipe.Ingredients[index].Name" />
-                <MudIconButton Icon="@Icons.Material.Filled.Delete" Title="Supprimer"
-                               OnClick="() => Recipe.Ingredients.RemoveAt(index)" />
+            <MudStack Class="mb-4">
+                <MudTextField @bind-Value="Recipe.Ingredients[index].Name" Label="Ingrédient" MaxLength="200" />
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudNumericField T="decimal?" @bind-Value="Recipe.Ingredients[index].Quantity" Label="Quantité" Min="0"
+                                     Style="flex: 1" />
+                    <MudTextField @bind-Value="Recipe.Ingredients[index].Unit" Label="Unité" MaxLength="20" Style="flex: 1" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Title="Supprimer"
+                                   OnClick="() => Recipe.Ingredients.RemoveAt(index)" />
+                </MudStack>
             </MudStack>
-
         }
         @if (Recipe.Ingredients.Count < 50)
         {
