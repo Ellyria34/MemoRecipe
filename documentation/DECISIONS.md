@@ -826,6 +826,48 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 
 ---
 
+### DEC-040 : MVP V1 sans scan IA — feature reportée en V2
+
+- **Date** : 19 juillet 2026 (identifiée pendant la revue post-BACK-033 UI)
+
+- **Choix** : Livrer la V1 de MemoRecipe en prod publique avec **uniquement la création manuelle de recettes**. La feature "scan de recette par IA" (feature initialement identifiée comme core différenciant) est **reportée en V2**, après stabilisation V1 en prod avec de vrais utilisateurs.
+
+- **Pourquoi ces choix** :
+  - **Time-to-market réduit d'environ 2 semaines** : le chemin critique prod perd BACK-083 (sécurisation LLM, ~4-5h, P0 si IA activée), BACK-033 partie IA (~2h), BACK-072 (investigation qualité parsing, ~3h). Total ~10-12h de travail bloquant retirés du chemin critique V1.
+  - **Focus qualité UX manuelle** : sans le "wow factor" IA à cacher les défauts, l'UX du formulaire manuel doit être excellente. BACK-090 (refonte mobile-first) devient encore plus critique et prend toute l'attention V1.
+  - **Coûts LLM différés** : pas d'appels payants Mistral/Gemini/Groq en V1 → zéro coût variable prod, pas de surveillance de dépassement, pas de risque d'abus par utilisateur malveillant.
+  - **Sécurité LLM (BACK-083) devient non-bloquante V1** : les 4 axes (prompt injection prevention + rate limit IA + audit trail + monitoring coûts) ne sont critiques que si le scan IA est actif. En V1 avec IA désactivée, le risque OWASP LLM01-10 disparaît.
+  - **Feedback utilisateur réel avant sur-ingénierie** : lancer V1 en manuel permet de mesurer si les users veulent vraiment le scan IA (peut-être qu'ils préfèrent copier-coller depuis un blog), ou s'ils préfèrent un autre pattern (import depuis URL, import massif via export/import).
+
+- **Alternatives écartées** :
+  - **Lancer V1 avec IA activée mais qualité imparfaite** : risque de coûts LLM incontrôlés + expérience utilisateur dégradée (parsing incomplet → recettes fausses → utilisateurs déçus). Renoncement à une belle vitrine tant que la qualité n'est pas prouvée.
+  - **Attendre une qualité IA parfaite pour V1** : violation du principe MVP. Le "parfait" n'arrive jamais sans feedback réel. On boucle sur BACK-072 (investigation qualité) indéfiniment sans jamais publier.
+  - **V1 = uniquement scan IA sans création manuelle** : impossible fonctionnellement. La saisie manuelle est le fallback obligatoire pour tous les cas où le scan échoue.
+
+- **Sources** :
+  - Principe MVP de Eric Ries ("The Lean Startup") — ship early, iterate with real feedback
+  - Pattern "Feature Flag" pour cacher progressivement les features (Martin Fowler)
+  - Retour d'expérience produit : les features "wow" reportées en V2 sont souvent découvertes moins critiques une fois les utilisateurs interrogés
+
+- **Conséquences** :
+  - **Nouveau ticket [BACK-092](../documentation/BACKLOG.md#back-092)** : feature flag pour désactiver le scan IA en V1 (~30 min-1h, P1).
+  - **[BACK-033](../documentation/BACKLOG.md#back-033)** : marqué 🟠 EN COURS (partie UI DONE le 19/07, partie prompt IA structuré reportée V2).
+  - **[BACK-083](../documentation/BACKLOG.md#back-083)** : P0 conservé sur le principe (bloquant IA), mais **non-bloquant V1** (car IA désactivée). Nouveau libellé : "P0 pour activation V2".
+  - **[BACK-072](../documentation/BACKLOG.md#back-072)** : investigation qualité parsing IA → reportée V2.
+  - **[BACK-069](../documentation/BACKLOG.md#back-069)** : Bring-Your-Own-IA → également V2 (dépend du scan IA).
+  - **[BACK-090](../documentation/BACKLOG.md#back-090)** : reste P1 mais devient prioritaire absolu — la création manuelle sera la seule voie utilisable en V1.
+  - **Chemin critique V1 révisé** : BACK-033 UI ✅ + BACK-090 + BACK-085 + BACK-092 + BACK-007p3 → **prod V1 estimée S31 (fin juillet - début août)**.
+  - **UI du bouton "Importer une recette"** masqué en V1 via feature flag. Route `/recipes/scan` retirée du sitemap public V1.
+
+- **Conditions qui invalideraient ce choix** :
+  - **Feedback beta massif "je veux le scan IA absolument"** avant même la sortie V2 : accélérer la reintégration (activer feature flag + prioriser BACK-033 partie IA + BACK-083 immédiatement).
+  - **Percée qualité LLM inattendue** (nouveau modèle open source ultra-fiable, prompt engineering breakthrough) : re-évaluer la maturité de la partie IA avant V2.
+  - **Décision produit de repositionner MemoRecipe comme "app IA-first"** au lieu de "gestion de recettes personnelle" : ce cas nécessiterait de réactiver le scan IA comme feature core V1 (mais changement de vision produit, hors scope de cette décision).
+
+- **État** : DÉCIDÉ le 19/07/2026 pendant la revue post-BACK-033 UI. APPLIQUÉ immédiatement : DEC-040 ajoutée, BACKLOG mis à jour pour cohérence (BACK-033 statut, BACK-083/072/069 note contexte V1/V2, nouveau BACK-092 feature flag).
+
+---
+
 ## Dette technique
 
 ### DEBT-001 : Structure de dossiers redondante (voir DEC-006)
