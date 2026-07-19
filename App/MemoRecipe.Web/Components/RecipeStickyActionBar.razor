@@ -1,0 +1,64 @@
+@* Mobile: sticky bar above BottomNavBar *@
+<div class="d-block d-md-none sticky-action-bar-mobile">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="pa-3">
+        <MudButton Variant="Variant.Text"
+                   OnClick="HandleCancelClick"
+                   Disabled="@IsSaving">
+            @CancelLabel
+        </MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Size="Size.Large"
+                   Disabled="@(!IsValid || IsSaving)"
+                   OnClick="HandleSaveClick">
+            @if (IsSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            @SaveLabel
+        </MudButton>
+    </MudStack>
+</div>
+
+@* Desktop: inline at form end, non-sticky *@
+<MudStack Row="true" Justify="Justify.FlexEnd" Class="d-none d-md-flex mt-6 gap-3">
+    <MudButton Variant="Variant.Text"
+               OnClick="HandleCancelClick"
+               Disabled="@IsSaving">
+        @CancelLabel
+    </MudButton>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               Disabled="@(!IsValid || IsSaving)"
+               OnClick="HandleSaveClick">
+        @if (IsSaving)
+        {
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+        }
+        @SaveLabel
+    </MudButton>
+</MudStack>
+
+@* Cancel confirmation dialog *@
+<MudMessageBox @ref="_confirmDialog"
+               Title="@CancelConfirmTitle"
+               CancelText="Non, continuer">
+    <MessageContent>
+        @CancelConfirmMessage
+    </MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Warning">Oui, annuler</MudButton>
+    </YesButton>
+</MudMessageBox>
+
+<style>
+    .sticky-action-bar-mobile {
+        position: fixed;
+        bottom: 50px;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        background: white;
+        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+    }
+</style>
