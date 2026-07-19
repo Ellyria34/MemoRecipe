@@ -2,8 +2,8 @@
 
 @attribute [Authorize]
 
-<MudContainer MaxWidth = "MaxWidth.ExtraSmall">
-    <MudPaper Elevation="3" Class="pa-8 mt-4" style="font-size: 1.1rem;"> 
+<MudContainer MaxWidth="MaxWidth.ExtraSmall">
+    <MudPaper Elevation="3" Class="pa-8 mt-4" style="font-size: 1.1rem;">
         @if (_recipe == null)
         {
             <MudProgressCircular Indeterminate="true" />
@@ -14,31 +14,31 @@
             <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true" Class="pb-4">@_recipe.Title</MudText>
             <MudPaper>
                 <dl Class="pa-4 mt-2">
-                    @if(_recipe.Description != null)
+                    @if (_recipe.Description != null)
                     {
                         <dt Class="mt-2"><strong>Description : </strong>@_recipe.Description</dt>
                     }
                     <dt Class="mt-2"><strong>Portions : </strong>@_recipe.Servings</dt>
-                    @if(_recipe.PrepTimeMinutes >0)
+                    @if (_recipe.PrepTimeMinutes > 0)
                     {
                         <dt Class="mt-2"><strong>Temps de préparartion : </strong>@_recipe.PrepTimeMinutes </dt>
                     }
-                    @if(_recipe.CookTimeMinutes>0)
+                    @if (_recipe.CookTimeMinutes > 0)
                     {
                         <dt Class="mt-2"><strong>Temps de cuisson : </strong>@_recipe.CookTimeMinutes</dt>
                     }
-                    @if(_recipe.Difficulty != null)
+                    @if (_recipe.Difficulty != null)
                     {
-                        <dt Class="mt-2" ><strong>Difficulté : </strong>
+                        <dt Class="mt-2"><strong>Difficulté : </strong>
                             @for (int i = 0; i <= (int)_recipe.Difficulty; i++)
                             {
-                               <span>🧑‍🍳</span>
+                                <span>🧑‍🍳</span>
                             }
                         </dt>
                     }
                     <MudStack Class="mt-2" Row="true" AlignItems="AlignItems.Center">
                         <dt><strong>Recette : </strong></dt>
-                        @if(_recipe.IsPublic)
+                        @if (_recipe.IsPublic)
                         {
                             <MudChip T="string" Color="Color.Primary" Icon="@Icons.Material.Filled.Public">Publique</MudChip>
                         }
@@ -50,48 +50,50 @@
                 </dl>
             </MudPaper>
             <MudPaper Class="pb-4">
-                <MudText Align="Align.Center" Color="Color.Secondary" GutterBottom="true" Class="pt-4 mt-2">Ingrédients</MudText>
+                <MudText Align="Align.Center" Color="Color.Secondary" GutterBottom="true" Class="pt-4 mt-2">Ingrédients
+                </MudText>
 
-                    @foreach (IngredientDto ingredient in _recipe.Ingredients)
-                    {
-                        <MudText Class="ma-4">- @ingredient.Name</MudText>
-                    }
+                @foreach (IngredientDto ingredient in _recipe.Ingredients)
+                {
+                    <MudText Class="ma-4">
+                        -
+                        @ingredient.Name (
+                        @if (ingredient.Quantity > 0)
+                        {
+                            <span>@ingredient.Quantity.ToString("0.## ") </span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(ingredient.Unit))
+                        {
+                            <span>@ingredient.Unit </span>
+                        }
+                        )
+                    </MudText>
+                }
             </MudPaper>
             <MudPaper Class="pb-4">
                 <MudText Align="Align.Center" Color="Color.Secondary" GutterBottom="true" Class="pt-4 mt-2">Etapes</MudText>
-                    @foreach (StepDto step in _recipe.Steps)
-                    {
-                        <MudText Class="ma-4">@step.Order - @step.Instruction</MudText>
-                    }
+                @foreach (StepDto step in _recipe.Steps)
+                {
+                    <MudText Class="ma-4">@step.Order - @step.Instruction</MudText>
+                }
             </MudPaper>
-        <div  Class="mt-4">
-            <MudButton 
-                Variant="Variant.Filled" 
-                Color="Color.Primary" 
-                FullWidth="true" 
-                Class="mt-4"
-                Href="@($"/recipes/{Id}/edit")">
-                Modifier
-            </MudButton>
-            <MudButton 
-                Variant="Variant.Filled" 
-                Color="Color.Error" 
-                FullWidth="true" 
-                Class="mt-4"
-                OnClick="Delete">
-                Supprimer            
-            </MudButton>
-            <MudMessageBox @ref="_confirmDialog" 
-                Title="Supprimer la recette" 
-                CancelText="Non">
-                <MessageContent>
-                    Êtes-vous sûr de vouloir supprimer cette recette ?
-                </MessageContent>
-                <YesButton>
-                    <MudButton Variant="Variant.Filled" Color="Color.Error">Oui</MudButton>
-                </YesButton>
-            </MudMessageBox>
-        </div>
+            <div Class="mt-4">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-4"
+                           Href="@($"/recipes/{Id}/edit")">
+                    Modifier
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Error" FullWidth="true" Class="mt-4" OnClick="Delete">
+                    Supprimer
+                </MudButton>
+                <MudMessageBox @ref="_confirmDialog" Title="Supprimer la recette" CancelText="Non">
+                    <MessageContent>
+                        Êtes-vous sûr de vouloir supprimer cette recette ?
+                    </MessageContent>
+                    <YesButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Error">Oui</MudButton>
+                    </YesButton>
+                </MudMessageBox>
+            </div>
         }
     </MudPaper>
 </MudContainer>
