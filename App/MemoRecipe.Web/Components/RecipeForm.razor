@@ -1,68 +1,155 @@
-<div style="border: 1px solid #ccc; padding: 16px; border-radius: 4px;">
-    <MudTextField @bind-Value="Recipe.Title" Label="Titre" MinLength="3" MaxLength="200" Counter="200" />
-    <MudTextField @bind-Value="Recipe.Description" Lines="3" Label="Description" MaxLength="2000" Counter="2000" />
-    <MudNumericField T="int?" @bind-Value="Recipe.Servings" Label="Portions" Min="1" Max="100" />
-    <MudNumericField T="int?" @bind-Value="Recipe.PrepTimeMinutes" Label="Préparation (min)" Min="0" Max="1440" />
-    <MudNumericField T="int?" @bind-Value="Recipe.CookTimeMinutes" Label="Cuisson (min)" Min="0" Max="1440" />
-    <MudSelect T="DifficultyLevel?" @bind-Value="Recipe.Difficulty" Label="Difficulté">
-        @foreach (DifficultyLevel item in Enum.GetValues<DifficultyLevel>())
-        {
-            <MudSelectItem T="DifficultyLevel?" Value="@item">@item</MudSelectItem>
-        }
-    </MudSelect>
-    <MudSwitch T="bool" @bind-Value="Recipe.IsPublic" Label="Recette publique" Color="Color.Primary" />
-    @if (Recipe.IsPublic)
-    {
-        <MudAlert Severity="Severity.Warning" Class="pa-4 ma-4" Elevation="3">Attention : Si vous ne disposez pas des droits
-            sur ce contenu, conservez la recette en privé. Voir nos <MudLink Href="/legal" Target="_blank"
-                                                                             rel="noopener noreferrer">mentions légales</MudLink>.</MudAlert>
-        }
-    </div>
-    <div style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
-        <MudText Class="pb-4">Ingredients</MudText>
+@using MemoRecipe.Web.Models
+
+<MudStack Spacing="4">
+
+    @* Metadata section *@
+    <section aria-labelledby="recipe-metadata-heading">
+        <MudText Typo="Typo.h6" Component="h2" id="recipe-metadata-heading" Class="mb-3">
+            Informations générales
+        </MudText>
+
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="Recipe.Title"
+                          @bind-Value:after="NotifyChange"
+                          Label="Titre"
+                          Required="true"
+                          MinLength="3" MaxLength="200"
+                          Counter="200" />
+
+            <MudTextField @bind-Value="Recipe.Description"
+                          Label="Description"
+                          Lines="3" AutoGrow="true"
+                          MaxLength="2000" Counter="2000" />
+
+            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2">
+                <MudNumericField T="int?" @bind-Value="Recipe.Servings"
+                                 Label="Portions" Min="1" Max="100"
+                                 Style="min-width: 100px; flex: 1;" />
+                <MudNumericField T="int?" @bind-Value="Recipe.PrepTimeMinutes"
+                                 Label="Préparation (min)" Min="0" Max="1440"
+                                 Style="min-width: 100px; flex: 1;" />
+                <MudNumericField T="int?" @bind-Value="Recipe.CookTimeMinutes"
+                                 Label="Cuisson (min)" Min="0" Max="1440"
+                                 Style="min-width: 100px; flex: 1;" />
+            </MudStack>
+
+            <MudSelect T="DifficultyLevel?" @bind-Value="Recipe.Difficulty" Label="Difficulté">
+                @foreach (DifficultyLevel item in Enum.GetValues<DifficultyLevel>())
+                {
+                    <MudSelectItem T="DifficultyLevel?" Value="@item">@item</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudSwitch T="bool" @bind-Value="Recipe.IsPublic"
+                       Label="Recette publique" Color="Color.Primary" />
+
+            @if (Recipe.IsPublic)
+            {
+                <MudAlert Severity="Severity.Warning" Class="pa-3" Elevation="0">
+                    Attention : Si vous ne disposez pas des droits sur ce contenu, conservez la recette en privé.
+                    Voir nos <MudLink Href="/legal" Target="_blank" rel="noopener noreferrer">mentions légales</MudLink>.
+                </MudAlert>
+            }
+        </MudStack>
+    </section>
+
+    @* Ingredients section *@
+    <section aria-labelledby="recipe-ingredients-heading">
+        <MudText Typo="Typo.h6" Component="h2" id="recipe-ingredients-heading" Class="mb-3">
+            Ingrédients (@Recipe.Ingredients.Count)
+        </MudText>
+
         @for (int i = 0; i < Recipe.Ingredients.Count; i++)
         {
             var index = i;
-            <MudStack Class="mb-4">
-                <MudTextField @bind-Value="Recipe.Ingredients[index].Name" Label="Ingrédient" MaxLength="200" />
-                <MudStack Row="true" AlignItems="AlignItems.Center">
-                    <MudNumericField T="decimal?" @bind-Value="Recipe.Ingredients[index].Quantity" Label="Quantité" Min="0"
-                                     Style="flex: 1" />
-                    <MudTextField @bind-Value="Recipe.Ingredients[index].Unit" Label="Unité" MaxLength="20" Style="flex: 1" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Title="Supprimer"
-                                   OnClick="() => Recipe.Ingredients.RemoveAt(index)" />
+            var displayNumber = index + 1;
+            <MudCard Class="pa-3 mb-2" Elevation="1">
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudTextField @bind-Value="Recipe.Ingredients[index].Name"
+                                  @bind-Value:after="NotifyChange"
+                                    Label="Nom"
+                                    MaxLength="200"
+                                    Style="flex: 1;"
+                                    aria-label="@($"Nom de l'ingrédient {displayNumber}")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                    Size="Size.Large"
+                                    Color="Color.Error"
+                                    Title="@($"Supprimer l'ingrédient {displayNumber}")"
+                                    aria-label="@($"Supprimer l'ingrédient {displayNumber}")"
+                                    OnClick="() => Recipe.Ingredients.RemoveAt(index)" />
+                    </MudStack>
+                    <MudStack Row="true" Spacing="2">
+                        <MudNumericField T="decimal?"
+                                         @bind-Value="Recipe.Ingredients[index].Quantity"
+                                         Label="Quantité" Min="0m"
+                                         Style="flex: 1;"
+                                         aria-label="@($"Quantité de l'ingrédient {displayNumber}")" />
+                        <MudTextField @bind-Value="Recipe.Ingredients[index].Unit"
+                                      Label="Unité" MaxLength="20"
+                                      Style="flex: 1;"
+                                      aria-label="@($"Unité de l'ingrédient {displayNumber}")" />
+                    </MudStack>
                 </MudStack>
-            </MudStack>
+            </MudCard>
         }
+
         @if (Recipe.Ingredients.Count < 50)
         {
-            <MudIconButton Icon="@Icons.Material.Filled.Add" Title="Ajouter"
-                           OnClick="() => Recipe.Ingredients.Add(new IngredientFormModel())" />
+            <MudButton StartIcon="@Icons.Material.Filled.Add"
+                       Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       Size="Size.Large"
+                       FullWidth="true"
+                       Class="my-2"
+                       OnClick="() => Recipe.Ingredients.Add(new IngredientFormModel())">
+                Ajouter un ingrédient
+            </MudButton>
         }
-    </div>
-    <div style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
-        <MudText Class="pb-4">Etapes</MudText>
+    </section>
+
+    @* Steps section *@
+    <section aria-labelledby="recipe-steps-heading">
+        <MudText Typo="Typo.h6" Component="h2" id="recipe-steps-heading" Class="mb-3">
+            Étapes (@Recipe.Steps.Count)
+        </MudText>
+
         @for (int i = 0; i < Recipe.Steps.Count; i++)
         {
             var index = i;
             var stepNumber = i + 1;
-
-            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-                <MudTextField @bind-Value="Recipe.Steps[index].Instruction" Label="@stepNumber.ToString()" />
-                <MudIconButton Icon="@Icons.Material.Filled.Delete" Title="Supprimer"
-                               OnClick="() => Recipe.Steps.RemoveAt(index)" />
-            </MudStack>
+            <MudCard Class="pa-3 mb-2" Elevation="1">
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudAvatar Size="Size.Small" Color="Color.Primary">@stepNumber</MudAvatar>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                       Size="Size.Large"
+                                       Color="Color.Error"
+                                       Title="@($"Supprimer l'étape {stepNumber}")"
+                                       aria-label="@($"Supprimer l'étape {stepNumber}")"
+                                       OnClick="() => Recipe.Steps.RemoveAt(index)" />
+                    </MudStack>
+                    <MudTextField @bind-Value="Recipe.Steps[index].Instruction"
+                                  @bind-Value:after="NotifyChange"
+                                  Label="Instruction"
+                                  Lines="3" AutoGrow="true" MaxLines="10"
+                                  aria-label="@($"Instruction de l'étape {stepNumber}")" />
+                </MudStack>
+            </MudCard>
         }
+
         @if (Recipe.Steps.Count < 50)
         {
-            <MudIconButton Icon="@Icons.Material.Filled.Add" Title="Ajouter"
-                           OnClick="() => Recipe.Steps.Add(new StepFormModel())" />
+            <MudButton StartIcon="@Icons.Material.Filled.Add"
+                       Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       Size="Size.Large"
+                       FullWidth="true"
+                       Class="my-2"
+                       OnClick="() => Recipe.Steps.Add(new StepFormModel())">
+                Ajouter une étape
+            </MudButton>
         }
-    </div>
-    <div>
-        <MudButton Class="mt-8" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Disabled="@(!IsFormValid())"
-                   OnClick="HandleSave">
-            Sauvegarder
-        </MudButton>
-    </div>
+    </section>
 
+</MudStack>

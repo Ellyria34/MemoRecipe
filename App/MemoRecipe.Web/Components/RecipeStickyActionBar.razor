@@ -1,0 +1,56 @@
+@* Mobile & Tablet: sticky bar above BottomNavBar *@
+<MudHidden Breakpoint="Breakpoint.MdAndUp">
+    <div class="sticky-action-bar-mobile">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="pa-3">
+            <MudButton Variant="Variant.Text"
+                       OnClick="HandleCancelClick"
+                       Disabled="@IsSaving">
+                @CancelLabel
+            </MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Large"
+                       Disabled="@(!IsValid || IsSaving)"
+                       OnClick="HandleSaveClick">
+                @if (IsSaving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                @SaveLabel
+            </MudButton>
+        </MudStack>
+    </div>
+</MudHidden>
+
+@* Desktop: inline centered at form end, non-sticky *@
+<MudHidden Breakpoint="Breakpoint.SmAndDown">
+    <MudStack Row="true" Justify="Justify.Center" Spacing="3" Class="mt-6">
+        <MudButton Variant="Variant.Text"
+                   OnClick="HandleCancelClick"
+                   Disabled="@IsSaving">
+            @CancelLabel
+        </MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@(!IsValid || IsSaving)"
+                   OnClick="HandleSaveClick">
+            @if (IsSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            @SaveLabel
+        </MudButton>
+    </MudStack>
+</MudHidden>
+
+@* Cancel confirmation dialog *@
+<MudMessageBox @ref="_confirmDialog"
+               Title="@CancelConfirmTitle"
+               CancelText="Non, continuer">
+    <MessageContent>
+        @CancelConfirmMessage
+    </MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Warning">Oui, annuler</MudButton>
+    </YesButton>
+</MudMessageBox>

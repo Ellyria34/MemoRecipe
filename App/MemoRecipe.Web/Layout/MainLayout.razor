@@ -8,11 +8,22 @@
     <NavBar />
     <SideBar />
     <BottomNavBar />
-    <MudMainContent style="padding-bottom: 50px">
+    <MudMainContent Class="main-content-with-mobile-padding">
         @Body
         <Footer />
     </MudMainContent>
 </MudLayout>
+
+<style>
+    .main-content-with-mobile-padding {
+        padding-bottom: 0;
+    }
+    @@media (max-width: 959.98px) {
+        .main-content-with-mobile-padding {
+            padding-bottom: 130px !important;
+        }
+    }
+</style>
 
 @code {
     private MudTheme _theme = new()

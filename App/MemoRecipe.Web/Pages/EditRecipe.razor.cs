@@ -8,13 +8,13 @@ namespace MemoRecipe.Web.Pages;
 
 public partial class EditRecipe
 {
-    [Inject] 
-    private IRecipeService RecipeService { get; set; }= default!;
+    [Inject]
+    private IRecipeService RecipeService { get; set; } = default!;
 
-    [Inject] 
+    [Inject]
     private NavigationManager Navigation { get; set; } = default!;
 
-    [Inject] 
+    [Inject]
     private ISnackbar Snackbar { get; set; } = default!;
 
     [Parameter]
@@ -22,7 +22,6 @@ public partial class EditRecipe
 
     private RecipeDto? _recipe;
     private RecipeFormModel? _recipeForm;
-    private MudMessageBox _confirmDialog = default!;
     private string? _errorMessage;
     bool _isLoading = false;
 
@@ -33,7 +32,7 @@ public partial class EditRecipe
         try
         {
             _recipe = await RecipeService.GetRecipeByIdAsync(Id);
-            _recipeForm = RecipeMapper.MapRecipeDtoToFormModel (_recipe);
+            _recipeForm = RecipeMapper.MapRecipeDtoToFormModel(_recipe);
         }
         catch (Exception)
         {
@@ -50,17 +49,16 @@ public partial class EditRecipe
     {
         _isLoading = true;
         _errorMessage = null;
-        
+
         try
         {
             var updtatedRecipe = RecipeMapper.MapToRecipeUpdateDto(_recipeForm);
             await RecipeService.UpdateRecipeAsync(Id, updtatedRecipe);
-            Snackbar.Add("Recette sauvegardée !", Severity.Success, config => 
+            Snackbar.Add("Recette sauvegardée !", Severity.Success, config =>
             {
                 config.VisibleStateDuration = 1500;
                 config.ShowCloseIcon = false;
             });
-            //TODO: When recipe details page was done redirecte to "/recipes/{newRecipe.Id}""
             Navigation.NavigateTo($"/recipes/{Id}");
         }
         catch (Exception)
@@ -72,10 +70,10 @@ public partial class EditRecipe
             _isLoading = false;
         }
     }
-    private async Task HandleCancel()
+    private void HandleCancel()
     {
-        bool? result = await _confirmDialog.ShowAsync();
-        if (result != true) return;
         Navigation.NavigateTo($"/recipes/{Id}");
     }
+
+    private void RefreshUI() => StateHasChanged();
 }

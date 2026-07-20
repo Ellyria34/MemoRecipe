@@ -1,8 +1,9 @@
 @page "/recipes/{Id:guid}/edit"
 @attribute [Authorize]
+@using MemoRecipe.Web.Helpers
 
-<MudContainer MaxWidth = "MaxWidth.ExtraSmall">
-    <MudPaper Elevation="3" Class="pa-8 mt-4" >
+<MudContainer MaxWidth="MaxWidth.ExtraSmall">
+    <MudPaper Elevation="3" Class="pa-8 mt-4">
         @if (_isLoading)
         {
             <MudProgressCircular Indeterminate="true" />
@@ -19,26 +20,11 @@
         else
         {
             <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true" Class="pb-4">Modifier la recette</MudText>
-            <RecipeForm Recipe="_recipeForm" OnSave="HandleModification"/>
-            <div  Class="mt-4 d-flex flex-column align-center">
-                <MudButton 
-                    Variant="Variant.Filled" 
-                    Color="Color.Warning" 
-                    FullWidth="true"
-                    OnClick="HandleCancel">
-                    Annuler            
-                </MudButton>
-                <MudMessageBox @ref="_confirmDialog" 
-                    Title="Annuler la modification de la recette" 
-                    CancelText="Non">
-                    <MessageContent>
-                        Êtes-vous sûr de vouloir annuler les modifications seront perdues ?
-                    </MessageContent>
-                    <YesButton>
-                        <MudButton Variant="Variant.Filled" Color="Color.Warning">Oui</MudButton>
-                    </YesButton>
-                </MudMessageBox>
-            </div>
+            <RecipeForm Recipe="_recipeForm" OnFormChanged="RefreshUI" />
+            <RecipeStickyActionBar IsValid="@RecipeFormValidator.IsValid(_recipeForm)" IsSaving="@_isLoading"
+                                   CancelConfirmTitle="Annuler la modification ?"
+                                   CancelConfirmMessage="Les modifications non sauvegardées seront perdues."
+                                   OnSave="() => HandleModification(_recipeForm!)" OnCancel="HandleCancel" />
         }
     </MudPaper>
 </MudContainer>
