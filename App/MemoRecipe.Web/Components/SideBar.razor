@@ -14,9 +14,12 @@
                     <MudNavLink Href="/recipes/new" Icon="@Icons.Material.Filled.Create" Match="NavLinkMatch.All">
                         Ajouter
                         Manuellement</MudNavLink>
-                        <MudNavLink Href="/recipes/scan" Icon="@Icons.Material.Filled.AdfScanner" Match="NavLinkMatch.All">A
-                            partir d'une photo
-                        </MudNavLink>
+                        @if (_scanEnabled)
+                        {
+                            <MudNavLink Href="/recipes/scan" Icon="@Icons.Material.Filled.AdfScanner" Match="NavLinkMatch.All">A
+                                partir d'une photo
+                            </MudNavLink>
+                        }
                     </ChildContent>
                 </MudMenu>
             </MudNavMenu>
