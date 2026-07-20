@@ -15,6 +15,7 @@ builder.Services.AddMudServices();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<AuthenticationStateProvider, CookieAuthStateProvider>();
 builder.Services.AddScoped<IRecipeService, RecipeService>();
+builder.Services.AddScoped<IFeatureFlagsService, FeatureFlagsService>();
 
 builder.Services.AddTransient<CookieHandler>();
 

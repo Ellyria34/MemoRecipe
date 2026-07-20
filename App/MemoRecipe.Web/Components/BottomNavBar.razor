@@ -13,9 +13,12 @@
             <MudIconButton aria-label="Ajouter une recette" Href="/recipes/new" Icon="@Icons.Material.Filled.Add"
                            Color="Color.Primary" />
         </MudTooltip>
-        <MudTooltip Text="Scanner une recette" Color="Color.Primary" Arrow="true">
-            <MudIconButton aria-label="Scanner une recette" Href="/recipes/scan" Icon="@Icons.Material.Filled.AdfScanner"
-                           Color="Color.Primary" />
-        </MudTooltip>
+        @if (_scanEnabled)
+        {
+            <MudTooltip Text="Scanner une recette" Color="Color.Primary" Arrow="true">
+                <MudIconButton aria-label="Scanner une recette" Href="/recipes/scan" Icon="@Icons.Material.Filled.AdfScanner"
+                            Color="Color.Primary" />
+            </MudTooltip>
+        }
     </MudPaper>
 </MudHidden>

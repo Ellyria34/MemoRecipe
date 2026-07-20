@@ -7,6 +7,8 @@ using MemoRecipe.Application.Services.OcrScan;
 using System.Reflection.Metadata.Ecma335;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Reflection;
+using Microsoft.Extensions.Options;
+using MemoRecipe.Application.Configuration;
 
 namespace MemoRecipe.Api.Controllers;
 
@@ -19,17 +21,23 @@ public class RecipeController : ControllerBase
     private readonly IValidator<RecipeCreateDto> _createDtoValidator;
     private readonly IValidator<RecipeUpdateDto> _updateDtoValidator;
     private readonly IOcrScanService _ocrScanService;
+    private readonly FeatureFlagsOptions _flags;
+    private readonly ILogger<RecipeController> _logger;
 
     public RecipeController(
         IRecipeService recipeService, 
         IValidator<RecipeCreateDto> createDtoValidator, 
         IValidator<RecipeUpdateDto> updateDtoValidator,
-        IOcrScanService ocrScanService)
+        IOcrScanService ocrScanService,
+        IOptions<FeatureFlagsOptions> flags,
+        ILogger<RecipeController> logger)
     {
         _recipeService = recipeService;
         _createDtoValidator  = createDtoValidator;
         _updateDtoValidator = updateDtoValidator;
         _ocrScanService = ocrScanService;
+        _flags = flags.Value;
+        _logger = logger;
     }
 
     [HttpGet("{id}")]
@@ -57,7 +65,7 @@ public class RecipeController : ControllerBase
     public async Task<IActionResult> CreateRecipe(RecipeCreateDto dto)
     {
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
-
+        
         var validation = await _createDtoValidator.ValidateAsync(dto);
         if (!validation.IsValid)
         {
@@ -105,7 +113,16 @@ public class RecipeController : ControllerBase
     [RequestSizeLimit(10 * 1024 * 1024)]                                //Limit request size
     [RequestFormLimits(MultipartBodyLengthLimit = 10 * 1024 * 1024)]    //Limit upload de fichiers
     public async Task<IActionResult> CreateScannedRecipe(IFormFile imageFile)
-    {    
+    {   
+        // activated feature verification
+        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+        if(_flags.ScanRecipeEnabled == false)
+        {
+            _logger.LogWarning("{EventType} — user {UserId} attempted to call scan while feature is disabled",
+                "ScanFeatureDisabledAttempt", userId);
+            return StatusCode(503, new { message = "Scan feature disabled in this environment" });
+        }
+
         // Size verification    
         if(imageFile.Length > 10 * 1024 * 1024)
         {

@@ -1,20 +1,17 @@
-using MemoRecipe.Web.Services;
 using Microsoft.AspNetCore.Components;
-using MudBlazor;
+using MemoRecipe.Web.Services;
 
-namespace MemoRecipe.Web.Components;
+namespace MemoRecipe.Web.Pages;
 
-public partial class SideBar
+public partial class Privacy
 {
-    private MudMenu _addRecipeMenu = default!;
-    
     [Inject]
     private IFeatureFlagsService FeatureFlags { get; set; } = default!;
 
     [Inject]
-    private ILogger<SideBar> Logger { get; set; } = default!;
+    private ILogger<Privacy> Logger { get; set; } = default!;
 
-    private bool _scanEnabled = false; // fail-safe: default hidden if the API call fails
+    private bool _scanEnabled = false; // fail-safe: default to "AI disabled" notice if the API call fails
 
     protected override async Task OnInitializedAsync()
     {
@@ -27,7 +24,7 @@ public partial class SideBar
         {
             Logger.LogWarning("Failed to load feature flags: {ExceptionType} - {Message}",
                 ex.GetType().Name, ex.Message);
-            // Fallback to _scanEnabled = false (safe default).
+            // Fallback to _scanEnabled = false: safer to show "no AI" than to falsely claim AI is running.
         }
     }
 }

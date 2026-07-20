@@ -1,18 +1,15 @@
-using MemoRecipe.Web.Services;
 using Microsoft.AspNetCore.Components;
-using MudBlazor;
+using MemoRecipe.Web.Services;
 
 namespace MemoRecipe.Web.Components;
 
-public partial class SideBar
+public partial class BottomNavBar
 {
-    private MudMenu _addRecipeMenu = default!;
-    
     [Inject]
     private IFeatureFlagsService FeatureFlags { get; set; } = default!;
-
-    [Inject]
-    private ILogger<SideBar> Logger { get; set; } = default!;
+    
+    [Inject] 
+    private ILogger<BottomNavBar> Logger { get; set; } = default!;
 
     private bool _scanEnabled = false; // fail-safe: default hidden if the API call fails
 
