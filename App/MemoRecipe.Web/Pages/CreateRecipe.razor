@@ -1,30 +1,21 @@
 @page "/recipes/new"
 @attribute [Authorize]
+@using MemoRecipe.Web.Helpers
+
 
 <MudContainer MaxWidth="MaxWidth.ExtraSmall">
     <MudPaper Elevation="3" Class="pa-8 mt-4">
         <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true" Class="pb-4">Nouvelle recette</MudText>
-        <RecipeForm Recipe="_newRecipe" OnSave="HandleCreation" />
-        @if (_isLoading)
-        {
-            <MudProgressCircular Indeterminate="true" />
-        }
+        <RecipeForm Recipe="_newRecipe" OnFormChanged="RefreshUI" />
+
         @if (!string.IsNullOrEmpty(_errorMessage))
         {
             <MudAlert Severity="Severity.Error" Class="ma-4">@_errorMessage</MudAlert>
         }
-        <div Class="mt-4 d-flex flex-column align-center">
-            <MudButton Variant="Variant.Filled" Color="Color.Warning" FullWidth="true" OnClick="HandleCancel" Disabled="@_isLoading">
-                Annuler
-            </MudButton>
-            <MudMessageBox @ref="_confirmDialog" Title="Annuler la création de la recette" CancelText="Non">
-                <MessageContent>
-                    Êtes-vous sûr de vouloir annuler, les informations ajoutées seront perdues ?
-                </MessageContent>
-                <YesButton>
-                    <MudButton Variant="Variant.Filled" Color="Color.Warning">Oui</MudButton>
-                </YesButton>
-            </MudMessageBox>
-        </div>
+
+        <RecipeStickyActionBar IsValid="@RecipeFormValidator.IsValid(_newRecipe)" IsSaving="@_isLoading"
+                               CancelConfirmTitle="Annuler la création ?" CancelConfirmMessage="Les informations saisies seront perdues."
+                               OnSave="() => HandleCreation(_newRecipe!)" OnCancel="HandleCancel" />
+
     </MudPaper>
 </MudContainer>

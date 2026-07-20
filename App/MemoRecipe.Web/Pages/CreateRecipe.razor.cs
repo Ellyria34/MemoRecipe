@@ -28,7 +28,6 @@ public partial class CreateRecipe
         Steps = new List<StepFormModel>(),
     };
 
-    private MudMessageBox _confirmDialog = default!;
     private string? _errorMessage;
     bool _isLoading = false;
 
@@ -46,7 +45,6 @@ public partial class CreateRecipe
                 config.VisibleStateDuration = 1500;
                 config.ShowCloseIcon = false;
             });
-            //TODO: When recipe details page was done redirecte to "/recipes/{newRecipe.Id}""
             Navigation.NavigateTo($"/recipes");
         }
         catch (Exception)
@@ -59,10 +57,10 @@ public partial class CreateRecipe
         }
     }
 
-    private async Task HandleCancel()
+    private void HandleCancel()
     {
-        bool? result = await _confirmDialog.ShowAsync();
-        if (result != true) return;
         Navigation.NavigateTo($"/recipes/");
     }
+
+    private void RefreshUI() => StateHasChanged();
 }
