@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Mvc.Testing;
 using MemoRecipe.Infrastructure.Database;
 using MemoRecipe.Domain.Entities.Users;
 using MemoRecipe.Application.Services.Auth;
@@ -11,10 +10,10 @@ using System.Net.Http.Headers;
 
 namespace MemoRecipe.Api.Tests.FeatureFlags;
 
-public class FeatureFlagsTests : IClassFixture<CustomWebApplicationFactory<Program>>
+public class ScanEndpointFlagTests : IClassFixture<CustomWebApplicationFactory<Program>>
 {
     private readonly CustomWebApplicationFactory<Program> _factory;
-    public FeatureFlagsTests(CustomWebApplicationFactory<Program> factory)
+    public ScanEndpointFlagTests(CustomWebApplicationFactory<Program> factory)
     {
         _factory = factory;
     }
@@ -116,5 +115,4 @@ public class FeatureFlagsTests : IClassFixture<CustomWebApplicationFactory<Progr
         // Login via HTTP: sets the auth cookie on the HttpClient's cookie jar
         await client.PostAsJsonAsync("api/auth/login", new { email, password });
     }
-
 }
