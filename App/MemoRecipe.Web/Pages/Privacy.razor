@@ -6,6 +6,18 @@
         <MudText Typo="Typo.h4" GutterBottom="true">Politique de confidentialité</MudText>
         <MudText Typo="Typo.body2" Class="mb-6">Dernière mise à jour : 20/06/2026</MudText>
 
+        @if (!_scanEnabled)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-6">
+                <strong>Fonctionnalité de scan par intelligence artificielle temporairement désactivée.</strong>
+                Aucune de vos données n'est actuellement envoyée à un fournisseur d'IA tiers
+                (Mistral AI, Google Gemini, Groq Cloud, ni aucun autre).
+                Les mentions ci-dessous décrivant le traitement par IA (notamment la section 9)
+                correspondent au fonctionnement du service lorsque la fonctionnalité sera réactivée
+                dans une prochaine version.
+            </MudAlert>
+        }
+
         <MudText Typo="Typo.h6" Class="mt-6 mb-2">1. Responsable du traitement des données</MudText>
         <MudText Typo="Typo.body1" Class="mb-3">
             Le responsable du traitement des données personnelles collectées via MemoRecipe est :
@@ -348,122 +360,158 @@
             une bannière de consentement serait alors mise en place et cette page serait mise à jour.
         </MudText>
 
-
         <MudText Typo="Typo.h6" Class="mt-6 mb-2">9. Utilisation de l'intelligence artificielle</MudText>
-        <MudText Typo="Typo.body1" Class="mb-3">
-            Lorsque vous utilisez la <strong>fonctionnalité de scan</strong> pour numériser une
-            recette à partir d'une photo, MemoRecipe fait appel à des technologies
-            d'<strong>intelligence artificielle</strong> pour vous faire gagner du temps.
-            Vous avez le droit d'être informé(e) précisément de ce qui se passe.
-        </MudText>
 
-        <MudText Typo="Typo.body1" Class="mb-3">
-            <strong>Étapes du traitement par IA</strong> :
-        </MudText>
+        @if (_scanEnabled)
+        {
+            <MudText Typo="Typo.body1" Class="mb-3">
+                Lorsque vous utilisez la <strong>fonctionnalité de scan</strong> pour numériser une
+                recette à partir d'une photo, MemoRecipe fait appel à des technologies
+                d'<strong>intelligence artificielle</strong> pour vous faire gagner du temps.
+                Vous avez le droit d'être informé(e) précisément de ce qui se passe.
+            </MudText>
 
-        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
-            <li class="mb-2">
-                <strong>1. Lecture du texte sur l'image (OCR)</strong> : un outil installé sur notre
-                propre serveur (Tesseract, logiciel libre) analyse votre photo pour en extraire
-                le texte. Aucun autre service externe n'est utilisé à cette étape.
-            </li>
-            <li class="mb-2">
-                <strong>2. Structuration du texte par IA</strong> : le texte extrait est ensuite
-                envoyé à un service d'intelligence artificielle qui identifie le titre,
-                les ingrédients et les étapes ... pour vous proposer une recette pré-remplie.
-                Le fournisseur actuellement utilisé est <strong>Groq Cloud</strong>
-                (détails et garanties contractuelles ci-dessous).
-                D'autres fournisseurs (Mistral AI, Google Gemini) restent compatibles
-                mais ne sont pas activés.
-            </li>
-            <li class="mb-2">
-                <strong>3. Vérification par vous</strong> : le résultat de l'IA vous est présenté
-                dans un formulaire éditable. <strong>RIEN n'est sauvegardé tant que vous n'avez
-                pas cliqué sur « Sauvegarder »</strong>. Vous pouvez tout modifier ou tout annuler.
-            </li>
-        </ul>
-        <MudText Typo="Typo.body1" Class="mb-3">
-            <strong>Aucune décision automatisée</strong> : conformément à l'article 22 du RGPD
-            et à l'article 50 de l'EU AI Act (Règlement européen sur l'intelligence artificielle),
-            aucune décision produisant des effets juridiques ou vous affectant de manière significative
-            n'est prise automatiquement par l'IA. Vous restez à tout moment le décideur final
-            de ce qui est sauvegardé dans votre compte.
-        </MudText>
-        <MudText Typo="Typo.body1" Class="mb-3">
-            <strong>Ce que reçoit le fournisseur d'IA</strong> :
-        </MudText>
-        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
-            <li class="mb-2">
-                Le <strong>texte brut</strong> extrait de votre photo (titre, ingrédients, étapes).
-            </li>
-            <li class="mb-2">
-                <strong>PAS</strong> votre photo originale (elle reste sur notre serveur).
-            </li>
-            <li class="mb-2">
-                <strong>PAS</strong> votre email, votre pseudonyme, ni aucune autre donnée
-                de votre compte.
-            </li>
-            <li class="mb-2">
-                <strong>PAS</strong> votre adresse IP ni d'identifiant permettant de vous identifier
-                directement (l'appel est effectué depuis notre serveur, pas depuis votre navigateur).
-            </li>
-        </ul>
-        <MudText Typo="Typo.body1" Class="mb-3">
-            <strong>Hébergement et engagements du fournisseur d'IA utilisé</strong> :
-            MemoRecipe utilise actuellement le service <strong>Groq Cloud</strong>
-            (société Groq Inc., basée aux États-Unis). Le texte extrait de votre photo est donc
-            traité aux États-Unis pendant quelques secondes avant de vous revenir sous forme
-            de formulaire pré-rempli.
-        </MudText>
-        <MudText Typo="Typo.body1" Class="mb-3">
-            <strong>Garanties contractuelles de Groq</strong> (sources :
-            <MudLink Href="https://console.groq.com/docs/legal/services-agreement" Target="_blank"
-                     rel="noopener noreferrer">Services Agreement</MudLink>
-            +
-            <MudLink Href="https://console.groq.com/docs/legal/customer-data-processing-addendum" Target="_blank"
-                     rel="noopener noreferrer">Data Processing Addendum</MudLink>) :
-        </MudText>
+            <MudText Typo="Typo.body1" Class="mb-3">
+                <strong>Étapes du traitement par IA</strong> :
+            </MudText>
 
-        <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
-            <li class="mb-2">
-                <strong>Vos contenus ne sont PAS utilisés pour entraîner les modèles d'IA</strong>
-                (engagement explicite dans la Services Agreement : « Groq is not permitted to use
-                Inputs or Outputs for training or fine-tuning any AI Model Services or other models,
-                unless explicitly granted permission »).
-            </li>
-            <li class="mb-2">
-                <strong>Pas de stockage</strong> des contenus envoyés au-delà du temps strictement
-                nécessaire au traitement (« Groq does not access, use, store, or retain Inputs
-                or Outputs except as necessary to provide the Cloud Services »).
-            </li>
-            <li class="mb-2">
-                <strong>Vous restez propriétaire</strong> des contenus envoyés et reçus
-                (droits de propriété intellectuelle conservés).
-            </li>
-            <li class="mb-2">
-                <strong>Transferts encadrés</strong> : les données transitent vers les États-Unis
-                sous le cadre juridique des <strong>Clauses Contractuelles Types (SCC) de l'Union européenne</strong>
-                + adhésion au <strong>Data Privacy Framework</strong> UE-USA.
-            </li>
-        </ul>
-        <MudText Typo="Typo.body1" Class="mb-3">
-            <strong>Si nous changeons de fournisseur d'IA à l'avenir</strong> (par exemple Mistral AI
-            basé en France, Google Gemini, ou autre), cette page sera mise à jour pour refléter
-            les nouvelles conditions. <strong>Attention</strong> : les conditions d'utilisation
-            des contenus varient selon le fournisseur et l'offre choisie (free tier vs payant).
-            Sur certaines offres gratuites comme Google Gemini, les contenus envoyés
-            <strong>peuvent</strong> être utilisés pour améliorer les modèles.
-            Nous nous engageons à privilégier les fournisseurs offrant les meilleures garanties
-            de protection des données.
-        </MudText>
-        <MudText Typo="Typo.body1" Class="mb-4">
-            <strong>Vous préférez ne pas utiliser l'IA ?</strong>
-            Vous pouvez créer vos recettes <strong>manuellement</strong> via la fonctionnalité
-            « Créer une recette » (sans scan, sans IA). Aucun traitement par IA n'a lieu
-            pour cette option.
-        </MudText>
+            <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+                <li class="mb-2">
+                    <strong>1. Lecture du texte sur l'image (OCR)</strong> : un outil installé sur notre
+                    propre serveur (Tesseract, logiciel libre) analyse votre photo pour en extraire
+                    le texte. Aucun autre service externe n'est utilisé à cette étape.
+                </li>
+                <li class="mb-2">
+                    <strong>2. Structuration du texte par IA</strong> : le texte extrait est ensuite
+                    envoyé à un service d'intelligence artificielle qui identifie le titre,
+                    les ingrédients et les étapes ... pour vous proposer une recette pré-remplie.
+                    Le fournisseur actuellement utilisé est <strong>Groq Cloud</strong>
+                    (détails et garanties contractuelles ci-dessous).
+                    D'autres fournisseurs (Mistral AI, Google Gemini) restent compatibles
+                    mais ne sont pas activés.
+                </li>
+                <li class="mb-2">
+                    <strong>3. Vérification par vous</strong> : le résultat de l'IA vous est présenté
+                    dans un formulaire éditable. <strong>RIEN n'est sauvegardé tant que vous n'avez
+                    pas cliqué sur « Sauvegarder »</strong>. Vous pouvez tout modifier ou tout annuler.
+                </li>
+            </ul>
 
+            <MudText Typo="Typo.body1" Class="mb-3">
+                <strong>Aucune décision automatisée</strong> : conformément à l'article 22 du RGPD
+                et à l'article 50 de l'EU AI Act (Règlement européen sur l'intelligence artificielle),
+                aucune décision produisant des effets juridiques ou vous affectant de manière significative
+                n'est prise automatiquement par l'IA. Vous restez à tout moment le décideur final
+                de ce qui est sauvegardé dans votre compte.
+            </MudText>
 
+            <MudText Typo="Typo.body1" Class="mb-3">
+                <strong>Ce que reçoit le fournisseur d'IA</strong> :
+            </MudText>
 
+            <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+                <li class="mb-2">
+                    Le <strong>texte brut</strong> extrait de votre photo (titre, ingrédients, étapes).
+                </li>
+                <li class="mb-2">
+                    <strong>PAS</strong> votre photo originale (elle reste sur notre serveur).
+                </li>
+                <li class="mb-2">
+                    <strong>PAS</strong> votre email, votre pseudonyme, ni aucune autre donnée
+                    de votre compte.
+                </li>
+                <li class="mb-2">
+                    <strong>PAS</strong> votre adresse IP ni d'identifiant permettant de vous identifier
+                    directement (l'appel est effectué depuis notre serveur, pas depuis votre navigateur).
+                </li>
+            </ul>
+
+            <MudText Typo="Typo.body1" Class="mb-3">
+                <strong>Hébergement et engagements du fournisseur d'IA utilisé</strong> :
+                MemoRecipe utilise actuellement le service <strong>Groq Cloud</strong>
+                (société Groq Inc., basée aux États-Unis). Le texte extrait de votre photo est donc
+                traité aux États-Unis pendant quelques secondes avant de vous revenir sous forme
+                de formulaire pré-rempli.
+            </MudText>
+
+            <MudText Typo="Typo.body1" Class="mb-3">
+                <strong>Garanties contractuelles de Groq</strong> (sources :
+                <MudLink Href="https://console.groq.com/docs/legal/services-agreement" Target="_blank"
+                         rel="noopener noreferrer">Services Agreement</MudLink>
+                +
+                <MudLink Href="https://console.groq.com/docs/legal/customer-data-processing-addendum" Target="_blank"
+                         rel="noopener noreferrer">Data Processing Addendum</MudLink>) :
+            </MudText>
+
+            <ul style="margin-bottom: 1rem; padding-left: 1.5rem;">
+                <li class="mb-2">
+                    <strong>Vos contenus ne sont PAS utilisés pour entraîner les modèles d'IA</strong>
+                    (engagement explicite dans la Services Agreement : « Groq is not permitted to use
+                    Inputs or Outputs for training or fine-tuning any AI Model Services or other models,
+                    unless explicitly granted permission »).
+                </li>
+                <li class="mb-2">
+                    <strong>Pas de stockage</strong> des contenus envoyés au-delà du temps strictement
+                    nécessaire au traitement (« Groq does not access, use, store, or retain Inputs
+                    or Outputs except as necessary to provide the Cloud Services »).
+                </li>
+                <li class="mb-2">
+                    <strong>Vous restez propriétaire</strong> des contenus envoyés et reçus
+                    (droits de propriété intellectuelle conservés).
+                </li>
+                <li class="mb-2">
+                    <strong>Transferts encadrés</strong> : les données transitent vers les États-Unis
+                    sous le cadre juridique des <strong>Clauses Contractuelles Types (SCC) de l'Union européenne</strong>
+                    + adhésion au <strong>Data Privacy Framework</strong> UE-USA.
+                </li>
+            </ul>
+
+            <MudText Typo="Typo.body1" Class="mb-3">
+                <strong>Si nous changeons de fournisseur d'IA à l'avenir</strong> (par exemple Mistral AI
+                basé en France, Google Gemini, ou autre), cette page sera mise à jour pour refléter
+                les nouvelles conditions. <strong>Attention</strong> : les conditions d'utilisation
+                des contenus varient selon le fournisseur et l'offre choisie (free tier vs payant).
+                Sur certaines offres gratuites comme Google Gemini, les contenus envoyés
+                <strong>peuvent</strong> être utilisés pour améliorer les modèles.
+                Nous nous engageons à privilégier les fournisseurs offrant les meilleures garanties
+                de protection des données.
+            </MudText>
+
+            <MudText Typo="Typo.body1" Class="mb-4">
+                <strong>Vous préférez ne pas utiliser l'IA ?</strong>
+                Vous pouvez créer vos recettes <strong>manuellement</strong> via la fonctionnalité
+                « Créer une recette » (sans scan, sans IA). Aucun traitement par IA n'a lieu
+                pour cette option.
+            </MudText>
+        }
+        else
+        {
+            <MudText Typo="Typo.body1" Class="mb-3">
+                <strong>Aucun traitement par intelligence artificielle n'a lieu dans la version actuelle
+                de MemoRecipe.</strong> La fonctionnalité de scan de recettes par IA est temporairement
+                désactivée. Aucune de vos données (photos, texte, contenus) n'est envoyée à
+                <strong>Mistral AI</strong>, <strong>Google Gemini</strong>, <strong>Groq Cloud</strong>,
+                ni à aucun autre fournisseur d'IA tiers.
+            </MudText>
+
+            <MudText Typo="Typo.body1" Class="mb-3">
+                Dans cette version, vous créez vos recettes exclusivement <strong>manuellement</strong>
+                via la fonctionnalité « Créer une recette ». Vos données restent hébergées uniquement
+                sur les serveurs décrits en section 4 (Infomaniak, Suisse) — aucun transfert
+                vers un fournisseur d'IA tiers, aucun transfert hors Union européenne.
+            </MudText>
+
+            <MudText Typo="Typo.body1" Class="mb-3">
+                Cette section sera enrichie de la description complète du traitement par IA
+                (fournisseur retenu, garanties contractuelles, transferts internationaux,
+                bases légales, transparence Art. 22 RGPD et Art. 50 EU AI Act) lorsque la
+                fonctionnalité de scan sera réactivée dans une prochaine version.
+            </MudText>
+
+            <MudText Typo="Typo.body1" Class="mb-4">
+                Vous serez informé(e) de la réactivation via la mise à jour de la date en haut
+                de cette page (« Dernière mise à jour »).
+            </MudText>
+        }
     </MudPaper>
 </MudContainer>
