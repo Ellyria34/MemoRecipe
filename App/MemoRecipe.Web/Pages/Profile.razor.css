@@ -1,0 +1,7 @@
+::deep .mud-button-filled-error:not(:disabled) svg {
+    fill: white !important;
+}
+
+::deep .mud-button-filled-error:not(:disabled) .mud-icon-root {
+    color: white !important;
+}
