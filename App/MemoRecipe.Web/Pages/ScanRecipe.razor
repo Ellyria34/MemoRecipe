@@ -4,75 +4,92 @@
 
 
 <MudContainer MaxWidth="MaxWidth.ExtraSmall">
-    <MudPaper Class="pa-4 pb-8 ma-4" Elevation="3">
-        <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true">
-            Importer une recette
-        </MudText>
-        <div style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
-            <MudFileUpload T="IBrowserFile" Accept="image/jpeg, image/png, .jpg, .jpeg, .png"
-                           FilesChanged="@UploadFile">
-                <CustomContent>
-                    <MudButton Variant="Variant.Filled" Style="text-transform: none;"
-                               OnClick="@context.OpenFilePickerAsync" StartIcon="@Icons.Material.Filled.CloudUpload">
-                        Selectionner un fichier
-                    </MudButton>
-                </CustomContent>
-                <SelectedTemplate />
-            </MudFileUpload>
-            @if (_selectedFile != null)
-            {
-                <MudText Typo="Typo.body2" Class="mt-2">
-                    Fichier : @_selectedFile.Name
-                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Primary"
-                                   OnClick="() => _selectedFile = null" />
-                </MudText>
-            }
-            else
-            {
-                <MudText Typo="Typo.body2" Class="mt-2">
-                    exemple : photo.jpg
-                </MudText>
-            }
-        </div>
-        @if (_selectedFile != null)
-        {
-            <MudButton Class="mt-8" Disabled="_isLoading" Variant="Variant.Filled" FullWidth="true" Color="Color.Primary"
-                       @onclick="HandleGeneration">
-                @if (_isLoading)
+    @if (_scanEnabled)
+    {
+        <MudPaper Class="pa-4 pb-8 ma-4" Elevation="3">
+            <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true">
+                Importer une recette
+            </MudText>
+            <div style="border: 1px solid #ccc; padding: 16px; margin-top: 16px; border-radius: 4px;">
+                <MudFileUpload T="IBrowserFile" Accept="image/jpeg, image/png, .jpg, .jpeg, .png"
+                            FilesChanged="@UploadFile">
+                    <CustomContent>
+                        <MudButton Variant="Variant.Filled" Style="text-transform: none;"
+                                OnClick="@context.OpenFilePickerAsync" StartIcon="@Icons.Material.Filled.CloudUpload">
+                            Selectionner un fichier
+                        </MudButton>
+                    </CustomContent>
+                    <SelectedTemplate />
+                </MudFileUpload>
+                @if (_selectedFile != null)
                 {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                    <span>Génération en cours</span>
+                    <MudText Typo="Typo.body2" Class="mt-2">
+                        Fichier : @_selectedFile.Name
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Primary"
+                                    OnClick="() => _selectedFile = null" />
+                    </MudText>
                 }
                 else
                 {
-                    <span>Prévisualiser le résultats</span>
+                    <MudText Typo="Typo.body2" Class="mt-2">
+                        exemple : photo.jpg
+                    </MudText>
                 }
-            </MudButton>
+            </div>
+            @if (_selectedFile != null)
+            {
+                <MudButton Class="mt-8" Disabled="_isLoading" Variant="Variant.Filled" FullWidth="true" Color="Color.Primary"
+                        @onclick="HandleGeneration">
+                    @if (_isLoading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Génération en cours</span>
+                    }
+                    else
+                    {
+                        <span>Prévisualiser le résultats</span>
+                    }
+                </MudButton>
+            }
+        </MudPaper>
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="ma-4">@_errorMessage</MudAlert>
         }
-    </MudPaper>
-    @if (!string.IsNullOrEmpty(_errorMessage))
-    {
-        <MudAlert Severity="Severity.Error" Class="ma-4">@_errorMessage</MudAlert>
-    }
 
-    @* Section preview *@
-    @if (_newRecipe != null)
+        @* Section preview *@
+        @if (_newRecipe != null)
+        {
+            <MudPaper Class="pa-4 ma-4" Elevation="3">
+                <MudAlert Severity="Severity.Info" Icon="@Icons.Material.Filled.AutoAwesome" Class="pa-4 ma-4" Elevation="3">
+                    Cette recette a été extraite par intelligence artificielle (<MudLink Href="/privacy" Target="_blank"
+                                                                                        rel="noopener noreferrer">en savoir plus</MudLink>). Vérifiez le résultat avant de sauvegarder.
+                </MudAlert>
+                <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true" Class="pa-4">
+                    Votre nouvelle recette
+                </MudText>
+                <RecipeForm Recipe="_newRecipe" OnFormChanged="RefreshUI"/>
+
+                <RecipeStickyActionBar IsValid="@RecipeFormValidator.IsValid(_newRecipe)" IsSaving="@_isLoading"
+                                    CancelConfirmTitle="Abandonner cette recette scannée ?"
+                                    CancelConfirmMessage="La recette extraite sera perdue, vous pourrez importer une nouvelle image."
+                                    OnSave="() => HandleCreation(_newRecipe!)" OnCancel="HandleCancel" />
+
+            </MudPaper>
+        }
+    }
+    else
     {
         <MudPaper Class="pa-4 ma-4" Elevation="3">
-            <MudAlert Severity="Severity.Info" Icon="@Icons.Material.Filled.AutoAwesome" Class="pa-4 ma-4" Elevation="3">
-                Cette recette a été extraite par intelligence artificielle (<MudLink Href="/privacy" Target="_blank"
-                                                                                     rel="noopener noreferrer">en savoir plus</MudLink>). Vérifiez le résultat avant de sauvegarder.
+            <MudAlert Severity="Severity.Warning" Class="mb-4">
+                <strong>Fonctionnalité de scan par intelligence artificielle temporairement désactivée.</strong>
+                Vous pouvez créer une recette manuellement en attendant sa réactivation dans une prochaine version.
             </MudAlert>
-            <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true" Class="pa-4">
-                Votre nouvelle recette
-            </MudText>
-            <RecipeForm Recipe="_newRecipe" OnFormChanged="RefreshUI"/>
-
-            <RecipeStickyActionBar IsValid="@RecipeFormValidator.IsValid(_newRecipe)" IsSaving="@_isLoading"
-                                   CancelConfirmTitle="Abandonner cette recette scannée ?"
-                                   CancelConfirmMessage="La recette extraite sera perdue, vous pourrez importer une nouvelle image."
-                                   OnSave="() => HandleCreation(_newRecipe!)" OnCancel="HandleCancel" />
-
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.Create"
+                       OnClick="GoToManualCreation">
+                Créer une recette manuellement
+            </MudButton>
         </MudPaper>
     }
 </MudContainer>

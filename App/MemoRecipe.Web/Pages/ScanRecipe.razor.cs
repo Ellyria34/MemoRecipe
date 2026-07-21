@@ -18,6 +18,13 @@ public partial class ScanRecipe
     [Inject]
     private ISnackbar Snackbar { get; set; } = default!;
 
+    [Inject] 
+    private IFeatureFlagsService FeatureFlags {get; set; } = default!;
+
+    [Inject] 
+    private ILogger<ScanRecipe> Logger {get; set; } = default!;
+    private bool _scanEnabled = false;
+
     private ExtractedRecipeDto? _extractedRecipe;
     private RecipeFormModel? _newRecipe;
     private string? _errorMessage;
@@ -90,4 +97,20 @@ public partial class ScanRecipe
 
     private void RefreshUI() => StateHasChanged();
 
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var flags = await FeatureFlags.GetAsync();
+            _scanEnabled = flags.ScanRecipeEnabled;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning("Failed to load feature flags: {ExceptionType} - {Message}",
+                ex.GetType().Name, ex.Message);
+            // Fallback to _scanEnabled = false: safer to show "no AI" than to falsely claim AI is running.
+        }
+    }
+
+    private void GoToManualCreation() => Navigation.NavigateTo("/recipes/new");
 }
