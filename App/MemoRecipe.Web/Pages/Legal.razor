@@ -4,7 +4,18 @@
 <MudContainer MaxWidth="MaxWidth.Medium" Class="my-8">
     <MudPaper Elevation="3" Class="pa-8">
         <MudText Typo="Typo.h4" GutterBottom="true">Mentions légales</MudText>
-        <MudText Typo="Typo.body2" Class="mb-6">Dernière mise à jour : 21/06/2026</MudText>
+        <MudText Typo="Typo.body2" Class="mb-6">Dernière mise à jour : 21/07/2026</MudText>
+
+        @if (!_scanEnabled)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-6">
+                <strong>Fonctionnalité de scan par intelligence artificielle temporairement désactivée.</strong>
+                Dans cette version, aucun contenu n'est généré par intelligence artificielle.
+                La clause de la section 6 « Limitation de responsabilité » relative aux erreurs
+                de génération IA ne s'applique donc pas actuellement. Elle redeviendra pertinente
+                lors de la réactivation de la fonctionnalité dans une prochaine version.
+            </MudAlert>
+        }
 
         <MudText Typo="Typo.body1" Class="mb-4">
             Conformément aux dispositions des articles 6-III et 19 de la 
