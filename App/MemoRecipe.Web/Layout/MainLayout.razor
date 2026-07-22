@@ -4,17 +4,42 @@
 <MudPopoverProvider />
 <MudSnackbarProvider />
 <MudDialogProvider />
+
+<a class="skip-link" href="#main-content">Aller au contenu principal</a>
+
 <MudLayout>
     <NavBar />
     <SideBar />
     <BottomNavBar />
     <MudMainContent Class="main-content-with-mobile-padding">
-        @Body
-        <Footer />
+        <div id="main-content" tabindex="-1">
+            @Body
+            <Footer />
+        </div>
     </MudMainContent>
 </MudLayout>
 
 <style>
+    .skip-link {
+        position: absolute;
+        left: -9999px;
+        z-index: 10000;
+        padding: 8px 16px;
+        background-color: #2D3436;
+        color: #FFFFFF;
+        text-decoration: none;
+        border-radius: 4px;
+    }
+
+    .skip-link:focus {
+        left: 8px;
+        top: 8px;
+    }
+
+    #main-content:focus {
+        outline: none;
+    }
+
     .main-content-with-mobile-padding {
         padding-bottom: 0;
     }
@@ -24,25 +49,3 @@
         }
     }
 </style>
-
-@code {
-    private MudTheme _theme = new()
-    {
-        PaletteLight = new PaletteLight()
-        {
-            Primary = "#8FBF9F",
-            Secondary = "#6A9C7E",
-            Background = "#FAF9F6",
-            Surface = "#FFFFFF",
-            AppbarBackground = "#FFFFFF",
-            AppbarText = "#2D3436",
-            TextPrimary = "#2D3436",
-            TextSecondary = "#6C757D",
-            ActionDefault = "#2D3436",
-            DrawerBackground = "#FAF9F6",
-            DrawerText = "#2D3436",
-            Error = "#D32F2F",
-            Success = "#6A9C7E"
-        }
-    };
-}
