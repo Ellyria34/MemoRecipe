@@ -868,6 +868,43 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 
 ---
 
+### DEC-041 : `MainLayout.razor` — code-behind extrait, CSS `<style>` inline conservé pragmatiquement
+
+- **Date** : 22 juillet 2026 (identifiée pendant BACK-096 phase 2)
+
+- **Choix** : Extraire le C# (thème MudBlazor) dans `MainLayout.razor.cs` en partial class, **mais garder le bloc `<style>` inline** dans `MainLayout.razor` au lieu de créer un `MainLayout.razor.css` scoped.
+
+- **Pourquoi ces choix** :
+  - **Code-behind gagnant** : la déclaration du `MudTheme` (~40 lignes de C#) sort du markup, cohérent avec la convention post-BACK-090 (`[Inject]`, `default!`, partial class dans `.razor.cs`). Aucun compromis.
+  - **CSS scoped problématique sur ce fichier spécifique** : la classe `main-content-with-mobile-padding` cible `<MudMainContent>` (sous-composant MudBlazor). Le scoping Blazor n'ajoute pas l'attribut `b-xxx` aux éléments internes des sous-composants → nécessite `::deep .main-content-with-mobile-padding { ... }` pour matcher.
+  - **Reproduction du choix pragmatique BACK-090** : la même problématique avait déjà été rencontrée et résolue de la même façon (CSS inline gardé pour éviter le coût cognitif de `::deep`). Renoncement conscient documenté cette fois-ci pour éviter le débat une 3ème fois.
+  - **Nouveaux styles compatibles avec le pattern inline** : le skip-link a11y (`.skip-link`, `#main-content:focus`) ajouté en BACK-096 s'insère naturellement dans le même bloc `<style>` — pas de gain à les extraire séparément.
+
+- **Alternatives écartées** :
+  - **Extraire tout en `.razor.css` avec `::deep`** : cohérence maximum, mais rétablit ce qui avait été abandonné consciemment en BACK-090. Coût cognitif > bénéfice pour un cas isolé.
+  - **Déplacer le CSS dans `wwwroot/css/app.css` global** : casse la co-localisation "styles proches du composant qui les utilise". Pas de scoping non plus.
+  - **Attendre que MudBlazor expose une API `id` sur `<MudMainContent>`** : dépendance externe non contrôlée, pas de garantie de calendrier.
+
+- **Sources** :
+  - Journal BACK-090 (20/07/2026) : "CSS scoped abandonné pour `MainLayout`, gardé pour `RecipeStickyActionBar`" — décision initiale documentée
+  - Documentation officielle Blazor CSS isolation : le `::deep` combinator est le mécanisme officiel pour cibler les descendants de sous-composants, mais son usage est réservé aux cas où il apporte plus qu'il ne coûte
+  - Rule of Two Hats (Kent Beck) : ne pas mélanger refonte visuelle et refonte technique dans la même feature — la BACK-096 est une refonte visuelle a11y, pas une refonte technique de l'architecture CSS
+
+- **Conséquences** :
+  - **Nouveau ticket [BACK-098](../documentation/BACKLOG.md#back-098)** : "Explorer une solution CSS scoped pour `MainLayout.razor` sans `::deep`" (P3, ~30 min, dette technique post-V1). À réévaluer quand MudBlazor évoluera ou qu'une pause qualité sera dispo.
+  - **`MainLayout.razor.cs` créé** : partial class avec le champ `readonly MudTheme _theme` uniquement, pas de base class explicite (unifiée avec le `@inherits LayoutComponentBase` du `.razor`).
+  - **Convention documentée** : pour les autres layouts / composants où le CSS ne cible que des éléments directs (pas de sous-composants), continuer à extraire en `.razor.css` scoped (pattern BACK-090 respecté).
+  - **Le fichier `MainLayout.razor`** reste hybride : markup + `<style>` inline. C'est un choix conscient, pas un oubli.
+
+- **Conditions qui invalideraient ce choix** :
+  - **MudBlazor expose `Id` ou équivalent scopable sur `MudMainContent`** : permettrait de cibler directement l'élément rendu avec l'attribut `b-xxx` sans `::deep`. Trigger pour BACK-098.
+  - **Refonte plus large de l'architecture CSS** (ex : migration Tailwind, adoption CSS Modules côté Blazor) : le débat inline vs scoped devient obsolète. Trigger pour repenser globalement.
+  - **Ajout d'un 3ème cas similaire** (styles inline dans un autre layout/composant à cause de `::deep`) : signal que le pattern devient une dette systémique, il faudra une décision architecturale globale.
+
+- **État** : DÉCIDÉ le 22/07/2026 pendant BACK-096. APPLIQUÉ : `MainLayout.razor` refactoré avec code-behind + skip-link, CSS inline conservé, ticket BACK-098 créé pour re-exploration future.
+
+---
+
 ## Dette technique
 
 ### DEBT-001 : Structure de dossiers redondante (voir DEC-006)
