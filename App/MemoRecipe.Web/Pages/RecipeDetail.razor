@@ -2,98 +2,140 @@
 
 @attribute [Authorize]
 
-<MudContainer MaxWidth="MaxWidth.ExtraSmall">
-    <MudPaper Elevation="3" Class="pa-8 mt-4" style="font-size: 1.1rem;">
+<MudContainer MaxWidth="MaxWidth.Medium">
+    <MudPaper Elevation="3" Class="pa-4 mt-4">
         @if (_recipe == null)
         {
-            <MudProgressCircular Indeterminate="true" />
+            <div aria-live="polite" class="d-flex justify-center pa-4">
+                <MudProgressCircular Indeterminate="true" aria-label="Chargement de la recette" />
+            </div>
         }
         else
         {
+            <MudText Typo="Typo.h4" HtmlTag="h1" Align="Align.Center" GutterBottom="true" Class="pb-4">
+                @_recipe.Title
+            </MudText>
 
-            <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true" Class="pb-4">@_recipe.Title</MudText>
-            <MudPaper>
-                <dl Class="pa-4 mt-2">
-                    @if (_recipe.Description != null)
+            <section aria-labelledby="recipe-info-heading">
+                <MudText Typo="Typo.h6" HtmlTag="h2" id="recipe-info-heading" Class="mt-4 mb-2">
+                    Informations
+                </MudText>
+
+                @if (!string.IsNullOrWhiteSpace(_recipe.Description))
+                {
+                    <MudText Typo="Typo.body1" Class="mt-2">
+                        <strong>Description :</strong> @_recipe.Description
+                    </MudText>
+                }
+
+                <MudText Typo="Typo.body1" Class="mt-2">
+                    <strong>Portions :</strong> @_recipe.Servings
+                </MudText>
+
+                @if (_recipe.PrepTimeMinutes > 0)
+                {
+                    <MudText Typo="Typo.body1" Class="mt-2">
+                        <strong>Temps de préparation :</strong> @_recipe.PrepTimeMinutes min
+                    </MudText>
+                }
+
+                @if (_recipe.CookTimeMinutes > 0)
+                {
+                    <MudText Typo="Typo.body1" Class="mt-2">
+                        <strong>Temps de cuisson :</strong> @_recipe.CookTimeMinutes min
+                    </MudText>
+                }
+
+                @if (_recipe.Difficulty != null)
+                {
+                    <MudText Typo="Typo.body1" Class="mt-2">
+                        <strong>Difficulté :</strong> @GetDifficultyLabel(_recipe.Difficulty)
+                        <span aria-hidden="true" class="ml-2">🧑‍🍳</span>
+                    </MudText>
+                }
+
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-2">
+                    <MudText Typo="Typo.body1"><strong>Visibilité :</strong></MudText>
+                    @if (_recipe.IsPublic)
                     {
-                        <dt Class="mt-2"><strong>Description : </strong>@_recipe.Description</dt>
+                        <MudChip T="string" Color="Color.Primary" Icon="@Icons.Material.Filled.Public">Publique</MudChip>
                     }
-                    <dt Class="mt-2"><strong>Portions : </strong>@_recipe.Servings</dt>
-                    @if (_recipe.PrepTimeMinutes > 0)
+                    else
                     {
-                        <dt Class="mt-2"><strong>Temps de préparartion : </strong>@_recipe.PrepTimeMinutes </dt>
+                        <MudChip T="string" Color="Color.Default" Icon="@Icons.Material.Filled.Lock">Privée</MudChip>
                     }
-                    @if (_recipe.CookTimeMinutes > 0)
-                    {
-                        <dt Class="mt-2"><strong>Temps de cuisson : </strong>@_recipe.CookTimeMinutes</dt>
-                    }
-                    @if (_recipe.Difficulty != null)
-                    {
-                        <dt Class="mt-2"><strong>Difficulté : </strong>
-                            @for (int i = 0; i <= (int)_recipe.Difficulty; i++)
-                            {
-                                <span>🧑‍🍳</span>
-                            }
-                        </dt>
-                    }
-                    <MudStack Class="mt-2" Row="true" AlignItems="AlignItems.Center">
-                        <dt><strong>Recette : </strong></dt>
-                        @if (_recipe.IsPublic)
-                        {
-                            <MudChip T="string" Color="Color.Primary" Icon="@Icons.Material.Filled.Public">Publique</MudChip>
-                        }
-                        else
-                        {
-                            <MudChip T="string" Color="Color.Default" Icon="@Icons.Material.Filled.Lock">Privée</MudChip>
-                        }
-                    </MudStack>
-                </dl>
-            </MudPaper>
-            <MudPaper Class="pb-4">
-                <MudText Align="Align.Center" Color="Color.Secondary" GutterBottom="true" Class="pt-4 mt-2">Ingrédients
+                </MudStack>
+            </section>
+
+            <section aria-labelledby="recipe-ingredients-heading">
+                <MudText Typo="Typo.h6" HtmlTag="h2" id="recipe-ingredients-heading" Class="mt-6 mb-2">
+                    Ingrédients
                 </MudText>
 
                 @foreach (IngredientDto ingredient in _recipe.Ingredients)
                 {
-                    <MudText Class="ma-4">
-                        -
-                        @ingredient.Name (
-                        @if (ingredient.Quantity > 0)
-                        {
-                            <span>@ingredient.Quantity.ToString("0.## ") </span>
-                        }
-                        @if (!string.IsNullOrWhiteSpace(ingredient.Unit))
-                        {
-                            <span>@ingredient.Unit </span>
-                        }
-                        )
-                    </MudText>
+                    <MudCard Class="pa-3 mb-2">
+                        <MudText Typo="Typo.body1">
+                            @ingredient.Name
+                            @if (ingredient.Quantity > 0 || !string.IsNullOrWhiteSpace(ingredient.Unit))
+                            {
+                                <span class="ml-2" style="color: #6C757D;">
+                                    @if (ingredient.Quantity > 0)
+                                    {
+                                        @ingredient.Quantity.ToString("0.##")
+                                        <text> </text>
+                                    }
+                                    @ingredient.Unit
+                                </span>
+                            }
+                        </MudText>
+                    </MudCard>
                 }
-            </MudPaper>
-            <MudPaper Class="pb-4">
-                <MudText Align="Align.Center" Color="Color.Secondary" GutterBottom="true" Class="pt-4 mt-2">Etapes</MudText>
+            </section>
+
+            <section aria-labelledby="recipe-steps-heading">
+                <MudText Typo="Typo.h6" HtmlTag="h2" id="recipe-steps-heading" Class="mt-6 mb-2">
+                    Étapes
+                </MudText>
+
                 @foreach (StepDto step in _recipe.Steps)
                 {
-                    <MudText Class="ma-4">@step.Order - @step.Instruction</MudText>
+                    <MudCard Class="pa-3 mb-2">
+                        <MudText Typo="Typo.body1">
+                            <strong>@step.Order.</strong> @step.Instruction
+                        </MudText>
+                    </MudCard>
                 }
-            </MudPaper>
-            <div Class="mt-4">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-4"
+            </section>
+
+            <MudStack Class="mt-6">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Large"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Edit"
                            Href="@($"/recipes/{Id}/edit")">
                     Modifier
                 </MudButton>
-                <MudButton Variant="Variant.Filled" Color="Color.Error" FullWidth="true" Class="mt-4" OnClick="Delete">
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Error"
+                           Size="Size.Large"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.DeleteForever"
+                           OnClick="Delete">
                     Supprimer
                 </MudButton>
-                <MudMessageBox @ref="_confirmDialog" Title="Supprimer la recette" CancelText="Non">
-                    <MessageContent>
-                        Êtes-vous sûr de vouloir supprimer cette recette ?
-                    </MessageContent>
-                    <YesButton>
-                        <MudButton Variant="Variant.Filled" Color="Color.Error">Oui</MudButton>
-                    </YesButton>
-                </MudMessageBox>
-            </div>
+            </MudStack>
+
+            <MudMessageBox @ref="_confirmDialog" Title="Supprimer la recette" CancelText="Non, annuler">
+                <MessageContent>
+                    Êtes-vous sûr de vouloir supprimer cette recette ? Cette action est irréversible.
+                </MessageContent>
+                <YesButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Error">Oui, supprimer</MudButton>
+                </YesButton>
+            </MudMessageBox>
         }
     </MudPaper>
 </MudContainer>
