@@ -2,13 +2,17 @@
 @layout AuthLayout
 
 <MudContainer MaxWidth="MaxWidth.ExtraSmall">
-    <MudPaper Elevation="3" Class="pa-4 mt-8">
-        <div class="d-flex justify-center">
-            <MudImage Src="logo.svg" Alt="MemoRecipe" Width="150" />
-        </div>
-        <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true">S'enregistrer</MudText>
+    <MudPaper Elevation="3" Class="pa-4 mt-6">
+        <MudStack Row="true" Justify="Justify.Center" Class="mb-4">
+            <MudImage Src="logo.svg" Alt="Logo MemoRecipe" Width="150" />
+        </MudStack>
+
+        <MudText Typo="Typo.h4" HtmlTag="h1" Align="Align.Center" GutterBottom="true">
+            S'enregistrer
+        </MudText>
+
         <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-6">
-            Vous n'avez pas encore de compte ! Créez le pour accéder à votre espace personnel
+            Vous n'avez pas encore de compte ! Créez-le pour accéder à votre espace personnel
         </MudText>
 
         <MudForm @bind-IsValid="_isValid">
@@ -35,7 +39,7 @@
 
         @if (!string.IsNullOrEmpty(_errorMessage))
         {
-            <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
+            <MudAlert Severity="Severity.Error" Class="mb-4" role="alert">@_errorMessage</MudAlert>
         }
 
         <MudText Typo="Typo.caption" Align="Align.Center" Class="mb-3" Style="color: #6C757D;">
@@ -44,7 +48,11 @@
             et nos <MudLink Href="/legal" Target="_blank" rel="noopener noreferrer">mentions légales</MudLink>.
         </MudText>
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mb-4 mt-4"
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   FullWidth="true"
+                   Size="Size.Large"
+                   Class="mt-2 mb-4"
                    OnClick="HandleRegister">
             S'inscrire
         </MudButton>

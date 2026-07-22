@@ -2,36 +2,47 @@
 
 @attribute [Authorize]
 
+<MudContainer MaxWidth="MaxWidth.Medium">
+    <MudPaper Elevation="3" Class="pa-4 mt-4">
+        <MudText Typo="Typo.h4" HtmlTag="h1" Align="Align.Center" GutterBottom="true" Class="pb-4">
+            Mes recettes
+        </MudText>
 
-<MudContainer MaxWidth = "MaxWidth.ExtraSmall">
-    <MudPaper Elevation="3" Class="pa-8 mt-4">
-        <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true" Class="pb-4">Liste de recettes</MudText>
-        @if (_recipes == null)
+        @if (_isLoading || _recipes == null)
         {
-            <MudProgressCircular Indeterminate="true" />
+            <div aria-live="polite" class="d-flex justify-center pa-4">
+                <MudProgressCircular Indeterminate="true" aria-label="Chargement des recettes" />
+            </div>
         }
         else if (!_recipes.Any())
         {
-            <p>Vous n'avez sauvegardé encore aucune recette.</p>
-            <MudButton 
-                Variant="Variant.Filled" 
-                Color="Color.Primary" 
-                FullWidth="true" 
-                Class="mt-4"
-                OnClick="HandleRedirection"
-            >
+            <MudText Typo="Typo.body1" Align="Align.Center" Class="mb-4">
+                Vous n'avez sauvegardé encore aucune recette.
+            </MudText>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       Size="Size.Large"
+                       Class="mt-4"
+                       OnClick="HandleRedirection">
                 Ajouter une recette
             </MudButton>
         }
-        else{
-            @foreach(RecipeDto recipe in _recipes)
-            {
-                <RecipeListCard Recipe="@recipe" />
-            }
+        else
+        {
+            <MudGrid Spacing="2" Class="mt-2">
+                @foreach (RecipeDto recipe in _recipes)
+                {
+                    <MudItem xs="12" sm="6" md="4">
+                        <RecipeListCard Recipe="@recipe" />
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+
         @if (!string.IsNullOrEmpty(_errorMessage))
-            {
-                <MudAlert Severity="Severity.Error" Class="ma-4">@_errorMessage</MudAlert>
-            }
-        }        
+        {
+            <MudAlert Severity="Severity.Error" Class="ma-4" role="alert">@_errorMessage</MudAlert>
+        }
     </MudPaper>
 </MudContainer>

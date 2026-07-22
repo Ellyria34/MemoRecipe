@@ -5,19 +5,20 @@ using MudBlazor;
 
 
 namespace MemoRecipe.Web.Pages;
+
 public partial class RecipeDetail
 {
-    [Inject] 
-    private IRecipeService RecipeService {get; set;} = default!;
+    [Inject]
+    private IRecipeService RecipeService { get; set; } = default!;
 
-    [Inject] 
-    private NavigationManager Navigation {get; set;} = default!;
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
 
-    [Inject] 
-    private IDialogService DialogService {get; set;} = default!;
+    [Inject]
+    private IDialogService DialogService { get; set; } = default!;
 
-    [Inject] 
-    private ISnackbar Snackbar {get; set;} = default!;
+    [Inject]
+    private ISnackbar Snackbar { get; set; } = default!;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -66,8 +67,9 @@ public partial class RecipeDetail
                 config.VisibleStateDuration = 1500;
                 config.ShowCloseIcon = false;
             });
-            Navigation.NavigateTo("/recipes");            
-        } catch
+            Navigation.NavigateTo("/recipes");
+        }
+        catch
         {
             Snackbar.Add("Échec de la suppression. Veuillez réessayer.", Severity.Error, config =>
             {
@@ -76,4 +78,13 @@ public partial class RecipeDetail
             });
         }
     }
+
+    private static string GetDifficultyLabel(DifficultyLevel? difficulty) => difficulty switch
+    {
+        DifficultyLevel.Easy => "Facile",
+        DifficultyLevel.Medium => "Moyen",
+        DifficultyLevel.Hard => "Difficile",
+        _ => ""
+    };
+
 }

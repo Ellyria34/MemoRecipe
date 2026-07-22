@@ -2,66 +2,63 @@
 @layout AuthLayout
 
 
-<MudContainer MaxWidth = "MaxWidth.ExtraSmall">
-    <MudPaper Elevation="3" Class="pa-8 mt-8">
-        <div class="d-flex justify-center mb-4">
-            <MudImage Src="logo.svg" Alt="MemoRecipe" Width="150" />
-        </div>
+<MudContainer MaxWidth="MaxWidth.ExtraSmall">
+    <MudPaper Elevation="3" Class="pa-4 mt-6">
+        <MudStack Row="true" Justify="Justify.Center" Class="mb-4">
+            <MudImage Src="logo.svg" Alt="Logo MemoRecipe" Width="150" />
+        </MudStack>
 
-        <MudText Typo="Typo.h5" Align="Align.Center" GutterBottom="true">Se connecter</MudText>
-        
-        <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-6">Bienvenue ! Connectez-vous pour retrouver vos recettes</MudText>
-        
+        <MudText Typo="Typo.h4" HtmlTag="h1" Align="Align.Center" GutterBottom="true">
+            Se connecter
+        </MudText>
+
+        <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-6">
+            Bienvenue ! Connectez-vous pour retrouver vos recettes
+        </MudText>
+
         <MudForm @bind-IsValid="_isValid">
-            <MudTextField 
-                T="string" 
-                Label="Email" 
-                Variant="Variant.Outlined" 
-                InputType="InputType.Email" 
-                Adornment="Adornment.Start" 
-                AdornmentIcon="@Icons.Material.Filled.Email"
-                Class="mb-4"
-                @bind-Value ="_email"
-                Validation="@((string v) => ValidateEmail(v))"
-                Required="true"
-            />
+            <MudTextField T="string"
+                          Label="Email"
+                          Variant="Variant.Outlined"
+                          InputType="InputType.Email"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Email"
+                          Class="mb-4"
+                          @bind-Value="_email"
+                          Validation="@((string v) => ValidateEmail(v))"
+                          Required="true" />
 
-            <MudTextField 
-                T="string"
-                ShrinkLabel="true"  
-                Label="Mot de passe" 
-                Variant="Variant.Outlined"
-                InputType="@(_showPassword ? InputType.Text : InputType.Password)"
-                Adornment="Adornment.End" 
-                AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
-                OnAdornmentClick="() => _showPassword = !_showPassword"
-                Class="mb-6" 
-                @bind-Value ="_password"
-                Validation="@((string v) => ValidatePassword(v))"
-                Required="true"
-            />
+            <MudTextField T="string"
+                          ShrinkLabel="true"
+                          Label="Mot de passe"
+                          Variant="Variant.Outlined"
+                          InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                          OnAdornmentClick="() => _showPassword = !_showPassword"
+                          Class="mb-6"
+                          @bind-Value="_password"
+                          Validation="@((string v) => ValidatePassword(v))"
+                          Required="true" />
         </MudForm>
 
-        @if(!string.IsNullOrEmpty(_errorMessage))
+        @if (!string.IsNullOrEmpty(_errorMessage))
         {
-        <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
+            <MudAlert Severity="Severity.Error" Class="mb-4" role="alert">@_errorMessage</MudAlert>
         }
 
-        <MudButton 
-            Variant="Variant.Filled" 
-            Color="Color.Primary" 
-            FullWidth="true" 
-            Class="mb-4"
-            OnClick="HandleLogin"
-        >
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   FullWidth="true"
+                   Size="Size.Large"
+                   Class="mb-4"
+                   OnClick="HandleLogin">
             Se connecter
         </MudButton>
 
         <MudText Align="Align.Center">
-            Pas encore de compte ? 
+            Pas encore de compte ?
             <MudLink Href="/register">S'inscrire</MudLink>
         </MudText>
-
     </MudPaper>
-
 </MudContainer>

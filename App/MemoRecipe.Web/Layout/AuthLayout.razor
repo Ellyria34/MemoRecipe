@@ -3,29 +3,8 @@
 <MudThemeProvider Theme="_theme" />
 <MudPopoverProvider />
 <MudLayout>
-    <MudMainContent Style ="padding-top: 0 ">
+    <MudMainContent Style="padding-top: 0;">
         @Body
-        <Footer/>
+        <Footer />
     </MudMainContent>
 </MudLayout>
-
-@code {
-    private MudTheme _theme = new()
-    {
-        PaletteLight = new PaletteLight()
-        {
-            Primary = "#8FBF9F",
-            Secondary = "#E0B098",
-            Background = "#FAF9F6",
-            Surface = "#FFFFFF",
-            AppbarBackground = "#FFFFFF",
-            AppbarText = "#2D3436",
-            TextPrimary = "#2D3436",
-            TextSecondary = "#6C757D",
-            ActionDefault = "#2D3436",
-            DrawerBackground = "#FAF9F6",
-            DrawerText = "#2D3436",
-            Error = "#D32F2F"
-        }
-    };
-}
