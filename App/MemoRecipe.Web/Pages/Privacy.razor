@@ -1,9 +1,9 @@
 @page "/privacy"
 @layout AuthLayout
 
-<MudContainer MaxWidth="MaxWidth.Medium" Class="my-8">
-    <MudPaper Elevation="3" Class="pa-8">
-        <MudText Typo="Typo.h4" GutterBottom="true">Politique de confidentialité</MudText>
+<MudContainer MaxWidth="MaxWidth.Medium" Class="my-6">
+    <MudPaper Elevation="3" Class="pa-4">
+        <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Politique de confidentialité</MudText>
         <MudText Typo="Typo.body2" Class="mb-6">Dernière mise à jour : 20/07/2026</MudText>
 
         @if (!_scanEnabled)
@@ -18,7 +18,7 @@
             </MudAlert>
         }
 
-        <MudText Typo="Typo.h6" Class="mt-6 mb-2">1. Responsable du traitement des données</MudText>
+        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mt-6 mb-2">1. Responsable du traitement des données</MudText>
         <MudText Typo="Typo.body1" Class="mb-3">
             Le responsable du traitement des données personnelles collectées via MemoRecipe est :
         </MudText>
@@ -51,7 +51,7 @@
         </MudText>
 
 
-        <MudText Typo="Typo.h6" Class="mt-6 mb-2">2. Données collectées</MudText>
+        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mt-6 mb-2">2. Données collectées</MudText>
         <MudText Typo="Typo.body1" Class="mb-3">
             Pour assurer le fonctionnement du service, nous collectons UNIQUEMENT :
         </MudText>
@@ -90,7 +90,7 @@
         </MudText>
 
 
-        <MudText Typo="Typo.h6" Class="mt-6 mb-2">3. Finalités du traitement</MudText>
+        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mt-6 mb-2">3. Finalités du traitement</MudText>
         <MudText Typo="Typo.body1" Class="mb-3">
             Les données collectées sont utilisées exclusivement pour les finalités suivantes :
         </MudText>
@@ -123,7 +123,7 @@
         </MudText>
 
 
-        <MudText Typo="Typo.h6" Class="mt-6 mb-2">4. Base légale du traitement</MudText>
+        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mt-6 mb-2">4. Base légale du traitement</MudText>
         <MudText Typo="Typo.body1" Class="mb-3">
             Conformément à l'article 6 du RGPD, le traitement de vos données repose sur deux
             bases légales complémentaires :
@@ -151,7 +151,7 @@
         </MudText>
 
 
-        <MudText Typo="Typo.h6" Class="mt-6 mb-2">5. Durée de conservation des données</MudText>
+        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mt-6 mb-2">5. Durée de conservation des données</MudText>
         <MudText Typo="Typo.body1" Class="mb-3">
             Les données sont conservées pendant les durées suivantes :
         </MudText>
@@ -211,7 +211,7 @@
         </MudText>
 
 
-        <MudText Typo="Typo.h6" Class="mt-6 mb-2">6. Vos droits sur vos données</MudText>
+        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mt-6 mb-2">6. Vos droits sur vos données</MudText>
         <MudText Typo="Typo.body1" Class="mb-3">
             Conformément aux articles 15 à 22 du RGPD, vous disposez des droits suivants
             sur vos données personnelles :
@@ -274,7 +274,7 @@
         </MudText>
 
 
-        <MudText Typo="Typo.h6" Class="mt-6 mb-2">7. Contact pour exercer vos droits</MudText>
+        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mt-6 mb-2">7. Contact pour exercer vos droits</MudText>
         <MudText Typo="Typo.body1" Class="mb-3">
             Pour toute demande relative à vos données personnelles ou à l'exercice de vos droits
             (cf. section 6), vous pouvez nous contacter par email :
@@ -319,7 +319,7 @@
         </MudText>
 
 
-        <MudText Typo="Typo.h6" Class="mt-6 mb-2">8. Cookies utilisés</MudText>
+        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mt-6 mb-2">8. Cookies utilisés</MudText>
         <MudText Typo="Typo.body1" Class="mb-3">
             MemoRecipe utilise <strong>un seul cookie</strong>, indispensable au fonctionnement du service :
         </MudText>
@@ -360,7 +360,7 @@
             une bannière de consentement serait alors mise en place et cette page serait mise à jour.
         </MudText>
 
-        <MudText Typo="Typo.h6" Class="mt-6 mb-2">9. Utilisation de l'intelligence artificielle</MudText>
+        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mt-6 mb-2">9. Utilisation de l'intelligence artificielle</MudText>
 
         @if (_scanEnabled)
         {
