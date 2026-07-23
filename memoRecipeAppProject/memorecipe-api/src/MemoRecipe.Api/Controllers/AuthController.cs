@@ -40,7 +40,7 @@ public class AuthController : ControllerBase
         var validation = await _registerDtoValidator.ValidateAsync(dto);
         if (!validation.IsValid)
         {
-            return BadRequest(ValidationErrorSanitizer.Sanitize<LoginDto>(validation.Errors));
+            return BadRequest(ValidationErrorSanitizer.Sanitize<RegisterDto>(validation.Errors));
         }
 
         var token = await _authService.RegisterAsync(dto, ipAddress);
@@ -68,7 +68,7 @@ public class AuthController : ControllerBase
         var validation = await _loginDtoValidator.ValidateAsync(dto);
         if (!validation.IsValid)
         {
-            return BadRequest(validation.Errors);
+            return BadRequest(ValidationErrorSanitizer.Sanitize<LoginDto>(validation.Errors));
         }
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
