@@ -4,6 +4,7 @@ using MemoRecipe.Application.Services.Auth;
 using MemoRecipe.Application.DTOs.Auth;
 using FluentValidation;
 using Microsoft.AspNetCore.RateLimiting;
+using MemoRecipe.Application.Helpers;
 
 namespace MemoRecipe.Api.Controllers;
 
@@ -39,7 +40,7 @@ public class AuthController : ControllerBase
         var validation = await _registerDtoValidator.ValidateAsync(dto);
         if (!validation.IsValid)
         {
-            return BadRequest(validation.Errors);
+            return BadRequest(ValidationErrorSanitizer.Sanitize<RegisterDto>(validation.Errors));
         }
 
         var token = await _authService.RegisterAsync(dto, ipAddress);
@@ -67,7 +68,7 @@ public class AuthController : ControllerBase
         var validation = await _loginDtoValidator.ValidateAsync(dto);
         if (!validation.IsValid)
         {
-            return BadRequest(validation.Errors);
+            return BadRequest(ValidationErrorSanitizer.Sanitize<LoginDto>(validation.Errors));
         }
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
@@ -105,11 +106,11 @@ public class AuthController : ControllerBase
     {
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-       
+
         var validation = await _deleteAccountValidator.ValidateAsync(dto);
         if (!validation.IsValid)
         {
-            return BadRequest(validation.Errors);
+            return BadRequest(ValidationErrorSanitizer.Sanitize<DeleteAccountDto>(validation.Errors));
         }
 
         var authAccepted = await _authService.RequestAccountDeletionAsync(userId, dto.Password, ipAddress);
