@@ -237,4 +237,62 @@ public class RecipeUpdateTests : IClassFixture<CustomWebApplicationFactory<Progr
         Assert.Equal(3, orderedSteps[2].Order);
     }
 
+    [Fact]
+    public async Task UpdateRecipe_WithFewerSteps_RemovesOldOnes()
+    {
+        // Arrange — seed recipe with 3 initial steps
+        var userId = await AuthenticateAsync();
+        var recipeId = Guid.NewGuid();
+
+        using (var seedScope = _factory.Services.CreateScope())
+        {
+            var db = seedScope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
+            var recipe = new Recipe
+            {
+                Id = recipeId,
+                Title = "Recette à réduire (steps)",
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Steps = new List<Step>
+            {
+                new() { Id = Guid.NewGuid(), RecipeId = recipeId, Order = 1, Instruction = "Ancienne étape 1" },
+                new() { Id = Guid.NewGuid(), RecipeId = recipeId, Order = 2, Instruction = "Ancienne étape 2" },
+                new() { Id = Guid.NewGuid(), RecipeId = recipeId, Order = 3, Instruction = "Ancienne étape 3" }
+            }
+            };
+            db.Recipes.Add(recipe);
+            await db.SaveChangesAsync();
+        }
+
+        var updateDto = new
+        {
+            title = "Recette à réduire (steps)",
+            steps = new[]
+            {
+            new { instruction = "Seule étape finale" }
+        }
+        };
+
+        // Act
+        var response = await _client.PutAsJsonAsync($"api/recipe/{recipeId}", updateDto);
+
+        // Assert HTTP
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+
+        // Assert DB — exactly 1 step, the 3 old ones removed
+        using var assertScope = _factory.Services.CreateScope();
+        var assertDb = assertScope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
+        var persistedRecipe = await assertDb.Recipes
+            .Include(r => r.Steps)
+            .AsNoTracking()
+            .FirstAsync(r => r.Id == recipeId);
+
+        Assert.Single(persistedRecipe.Steps);
+        Assert.Equal("Seule étape finale", persistedRecipe.Steps.First().Instruction);
+        Assert.Equal(1, persistedRecipe.Steps.First().Order);
+        Assert.DoesNotContain(persistedRecipe.Steps, s => s.Instruction == "Ancienne étape 1");
+        Assert.DoesNotContain(persistedRecipe.Steps, s => s.Instruction == "Ancienne étape 2");
+        Assert.DoesNotContain(persistedRecipe.Steps, s => s.Instruction == "Ancienne étape 3");
+    }
 }
