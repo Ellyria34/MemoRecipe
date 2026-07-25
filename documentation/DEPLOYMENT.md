@@ -101,8 +101,129 @@ untouched. Rollback = put the previous tag in `.env`, then re-run
 - `docker login ghcr.io` executed once with that read-only PAT.
 - Git installed, and the repo cloned at a stable path (`<vps-path>`).
 - A `.env` file at the repo root, populated from `.env.example`
-  with production values (POSTGRES_PASSWORD, JWT_SECRET, etc.) and
-  the desired image tags.
+  with **non-secret** production values (image tags, non-sensitive
+  configuration). All sensitive values (JWT signing key, database
+  password, third-party API keys) are provisioned separately via
+  Docker Compose secrets — see [Secret management (production)](#secret-management-production).
+
+---
+
+## Secret management (production)
+
+Sensitive values (JWT key, DB password, external API tokens) live in
+**one file per secret** on the host, mounted read-only by Docker into
+`/run/secrets/*` in the container. The API reads them via ASP.NET Core's
+`AddKeyPerFile` provider (registered in `Program.cs`). This is safer
+than `.env` because file-based secrets do not appear in
+`docker inspect`, `ps aux`, or process env dumps.
+
+### Files to create
+
+One file per secret, no extension. The filename becomes the config key
+(`Section__Key` → `Section:Key` in the API).
+
+| File name                                | API config key                        |
+|------------------------------------------|---------------------------------------|
+| `JwtSettings__Secret`                    | `JwtSettings:Secret`                  |
+| `ConnectionStrings__DefaultConnection`   | `ConnectionStrings:DefaultConnection` |
+| `OcrScan__BaseUrl`                       | `OcrScan:BaseUrl`                     |
+| `Telegram__BotToken`                     | `Telegram:BotToken`                   |
+| `Telegram__ChatId`                       | `Telegram:ChatId`                     |
+| `postgres_password`                      | (used by Postgres container)          |
+
+### One-time setup on the VPS
+
+Placeholders: `<secrets-path>` = host directory (e.g. `/opt/<app>/secrets`),
+`<deploy-user>` = the non-root Linux user that runs the deployment.
+
+```bash
+# Create the directory, owner-only, off the repo
+sudo mkdir -p <secrets-path>
+sudo chown <deploy-user>:<deploy-user> <secrets-path>
+sudo chmod 700 <secrets-path>
+
+# Write each secret. IMPORTANT: use printf (not echo) — a trailing
+# newline would corrupt the value silently.
+openssl rand -base64 64 | tr -d '\n' > <secrets-path>/JwtSettings__Secret
+printf 'Host=postgres;Port=5432;Database=<db>;Username=<user>;Password=<pass>' \
+    > <secrets-path>/ConnectionStrings__DefaultConnection
+printf 'https://<function-name>.azurewebsites.net' \
+    > <secrets-path>/OcrScan__BaseUrl
+printf '<telegram-bot-token>' > <secrets-path>/Telegram__BotToken
+printf '<telegram-chat-id>'   > <secrets-path>/Telegram__ChatId
+printf '<postgres-password>'  > <secrets-path>/postgres_password
+
+# Lock down every file: read-only, owner only
+sudo chmod 400 <secrets-path>/*
+```
+
+Back up the plaintext values in a secure secrets vault immediately —
+these files are the only copies.
+
+### `docker-compose.prod.yml` (excerpt to add during BACK-007p3)
+
+```yaml
+services:
+  api:
+    image: ghcr.io/<owner>/memorecipe-api:${API_IMAGE_TAG}
+    secrets:
+      - JwtSettings__Secret
+      - ConnectionStrings__DefaultConnection
+      - OcrScan__BaseUrl
+      - Telegram__BotToken
+      - Telegram__ChatId
+
+  postgres:
+    image: postgres:16-alpine
+    secrets:
+      - postgres_password
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+
+secrets:
+  JwtSettings__Secret:
+    file: <secrets-path>/JwtSettings__Secret
+  ConnectionStrings__DefaultConnection:
+    file: <secrets-path>/ConnectionStrings__DefaultConnection
+  OcrScan__BaseUrl:
+    file: <secrets-path>/OcrScan__BaseUrl
+  Telegram__BotToken:
+    file: <secrets-path>/Telegram__BotToken
+  Telegram__ChatId:
+    file: <secrets-path>/Telegram__ChatId
+  postgres_password:
+    file: <secrets-path>/postgres_password
+```
+
+Each service only lists the secrets it actually needs (least privilege).
+
+### Verify (never print values)
+
+```bash
+# List the mounted files — shows names + sizes, not contents
+docker compose -f docker-compose.prod.yml exec api ls -la /run/secrets/
+```
+
+If a required secret is missing, the API crashes at startup with a
+`Configuration '<key>' is invalid` message from `RequireConfig`. A
+running container = all secrets present and non-placeholder.
+
+### Rotate a secret
+
+Overwrite the file on the host, then restart the consuming service:
+
+```bash
+# Example: rotate the JWT signing key
+openssl rand -base64 64 | tr -d '\n' > <secrets-path>/JwtSettings__Secret
+docker compose -f docker-compose.prod.yml up -d --force-recreate api
+```
+
+**Impact by secret type:**
+- `JwtSettings__Secret` → invalidates ALL active JWTs → every logged-in
+  user gets logged out. Rotate during low-traffic hours.
+- `ConnectionStrings__DefaultConnection` → API reconnects, ~30s of
+  possible 500s on in-flight requests.
+- Others → no visible impact on the running app.
 
 ---
 

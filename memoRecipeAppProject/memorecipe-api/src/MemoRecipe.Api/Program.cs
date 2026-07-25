@@ -24,6 +24,9 @@ using MemoRecipe.Application.Services.Alerting;
 using MemoRecipe.Application.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddKeyPerFile(
+    Environment.GetEnvironmentVariable("SECRETS_PATH") ?? "/run/secrets", 
+    optional: true);
 
 builder.Services.AddSerilog((services, lc) => lc
     .ReadFrom.Configuration(builder.Configuration)
@@ -51,7 +54,7 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(allowedOrigins)
             .WithHeaders("Content-Type")
             .WithMethods("GET", "POST", "PUT", "DELETE")
-            .AllowCredentials();   
+            .AllowCredentials();
     });
 });
 
@@ -89,14 +92,14 @@ builder.Services.AddAuthentication(options =>
             Encoding.UTF8.GetBytes(jwtSettings["Secret"]!)
         )
     };
-    
+
     options.Events = new JwtBearerEvents
     {
-         OnMessageReceived = context =>
-        {
-            context.Token = context.Request.Cookies["authCookie"];
-            return Task.CompletedTask;
-        }
+        OnMessageReceived = context =>
+       {
+           context.Token = context.Request.Cookies["authCookie"];
+           return Task.CompletedTask;
+       }
     };
 });
 
@@ -157,19 +160,19 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1)
             }));
 
-        options.AddFixedWindowLimiter("auth", opt =>
-        {
-            opt.PermitLimit = 10;
-            opt.Window = TimeSpan.FromMinutes(1);
-            opt.QueueLimit = 0;
-        });
+    options.AddFixedWindowLimiter("auth", opt =>
+    {
+        opt.PermitLimit = 10;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
 
-        options.AddFixedWindowLimiter("scan", opt =>
-        {
-            opt.PermitLimit = 5;
-            opt.Window = TimeSpan.FromMinutes(1);
-            opt.QueueLimit = 0;
-        });       
+    options.AddFixedWindowLimiter("scan", opt =>
+    {
+        opt.PermitLimit = 5;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
 });
 
 // Application services (dependency injection)
@@ -234,7 +237,7 @@ static void RequireConfig(IConfiguration config, string key, string description)
 {
     var configValue = config[key];
 
-    if(string.IsNullOrWhiteSpace(configValue) || configValue.Contains("CHANGE_ME"))
+    if (string.IsNullOrWhiteSpace(configValue) || configValue.Contains("CHANGE_ME"))
     {
         throw new InvalidOperationException($"Configuration '{key}' is invalid. {description}");
     }
