@@ -407,7 +407,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **Volonté de quitter GitHub** comme plateforme principale du projet → migrer vers Docker Hub, Azure Container Registry, ou self-hosted (Harbor).
   - **Besoin d'un registry privé en self-hosted** (compliance, on-premise, isolation réseau) → migrer vers un registry custom.
   - **Évolution des quotas GHCR** (improbable au volume actuel — repos publics gratuits illimités) → réévaluer.
-- **État** : APPLIQUÉ le 17/06/2026 via **BACK-064** (PR #18 mergée). Workflow opérationnel : `dotnet publish /t:PublishContainer` pour l'API (push direct via Container SDK) + `docker build && docker push` pour le Frontend. Procédure complète documentée dans [`documentation/DEPLOYMENT.md`](DEPLOYMENT.md). Test E2E local validé (pull GHCR + compose up + auth fonctionnelle). Application sur VPS Cloud Infomaniak prévue dans **BACK-007 partie 3**.
+- **État** : APPLIQUÉ le 17/06/2026 via **BACK-064** (PR #18 mergée). Workflow opérationnel : `dotnet publish /t:PublishContainer` pour l'API (push direct via Container SDK) + `docker build && docker push` pour le Frontend. Procédure complète documentée dans [`documentation/DEPLOYMENT.md`](DEPLOYMENT.md). Test E2E local validé (pull GHCR + compose up + auth fonctionnelle). Application sur VPS Cloud prévue dans **BACK-007 partie 3**.
 
 
 ### DEC-032 : .NET Aspire (Option B) pour orchestration du stack dev + prod
@@ -549,7 +549,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **Architecture hexagonale Port/Adapter respectée** : `IChatCompletionClient` est le Port (interface), chaque implémentation est un Adapter (Mistral, Gemini, Fake). Le code métier ne sait pas quel provider tourne — c'est la magie de la DI.
   - **Fail-Fast Principle** : valider la config au démarrage (pas à la première requête HTTP). Un déploiement en Production avec `AI_PROVIDER=Fake` (oubli humain) **refuse de démarrer** avec un message explicite, plutôt que de retourner silencieusement la recette de cheesecake hardcodée du `FakeChatCompletionClient` à tous les utilisateurs. Le coût d'un bug détecté au boot < le coût d'un bug détecté en prod sous trafic.
   - **Switch facile entre providers pour spike / debug / benchmark** : changer la valeur de `AI_PROVIDER` dans `local.settings.json` (dev) ou dans les Application Settings Azure (prod) + restart = swap du LLM en quelques secondes, sans toucher au code. Démontré dans BACK-070 pour comparer Mistral vs Gemini sur les mêmes recettes.
-  - **Préparation à BACK-069** : ce Factory Pattern simple (env var globale) est le **prélude pédagogique** au Factory Pattern par-utilisateur que BACK-069 va implémenter (`IChatCompletionClientFactory.GetForUserAsync(userId)` qui lit la config IA du user en BDD). Sarah apprend le pattern sur un cas simple avant de l'étendre.
+  - **Préparation à BACK-069** : ce Factory Pattern simple (env var globale) est le **prélude** au Factory Pattern par-utilisateur que BACK-069 va implémenter (`IChatCompletionClientFactory.GetForUserAsync(userId)` qui lit la config IA du user en BDD).
 - **Pourquoi `AI_PROVIDER` plutôt qu'un fichier de config dédié** :
   - **Cohérence avec le reste** : `MISTRAL_API_KEY`, `GEMINI_API_KEY`, `AZURE_FUNCTIONS_ENVIRONMENT` sont déjà des env vars → 1 mécanisme unique pour toute la config.
   - **Compatible Azure Functions** : les Application Settings du portail Azure deviennent automatiquement des env vars dans le worker. Pas besoin de gérer un fichier de config à part en prod.
@@ -592,22 +592,22 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 ### DEC-036 : Choix de Groq (Llama 3.3 70B) comme provider de fallback serveur pour la stratégie freemium de BACK-069
 
 - **Date** : 18 juin 2026 (spike BACK-071 préparatoire à BACK-069)
-- **Choix** : **Groq Llama 3.3 70B Versatile** est retenu comme provider de fallback serveur pour la stratégie freemium hybride de BACK-069 (essais gratuits avec clé Sarah avant que l'utilisateur configure la sienne). 3 garde-fous accompagnent ce choix : (1) **maximum 2 essais gratuits par jour par utilisateur** (compteur applicatif BDD, reset à minuit UTC), (2) **compteur applicatif par minute** côté serveur pour détecter les pics et anticiper le 429 Groq (30 req/min), (3) **message d'information visible en UI** prévenant l'utilisateur que sur la version gratuite, des difficultés de scan peuvent survenir en cas de forte affluence. Groq remplace donc Gemini Flash qui avait été initialement proposé dans BACK-069 mais s'est révélé insuffisant en throughput après le spike BACK-070.
+- **Choix** : **Groq Llama 3.3 70B Versatile** est retenu comme provider de fallback serveur pour la stratégie freemium hybride de BACK-069 (essais gratuits avec clé serveur avant que l'utilisateur configure la sienne). 3 garde-fous accompagnent ce choix : (1) **maximum 2 essais gratuits par jour par utilisateur** (compteur applicatif BDD, reset à minuit UTC), (2) **compteur applicatif par minute** côté serveur pour détecter les pics et anticiper le 429 Groq (30 req/min), (3) **message d'information visible en UI** prévenant l'utilisateur que sur la version gratuite, des difficultés de scan peuvent survenir en cas de forte affluence. Groq remplace donc Gemini Flash qui avait été initialement proposé dans BACK-069 mais s'est révélé insuffisant en throughput après le spike BACK-070.
 - **Pourquoi Groq plutôt que Gemini Flash, Mistral Small, ou autres** :
-  - **Free tier journalier le plus généreux** : **14 400 scans/jour** (reset minuit UTC) vs 1 500/jour pour Gemini Flash et ~250-500/mois pour Mistral free. Permet d'absorber confortablement les volumes "portfolio" (jusqu'à ~100k users actifs/mois) à 0€ pour Sarah.
+  - **Free tier journalier le plus généreux** : **14 400 scans/jour** (reset minuit UTC) vs 1 500/jour pour Gemini Flash et ~250-500/mois pour Mistral free. Permet d'absorber confortablement les volumes "portfolio" (jusqu'à ~100k users actifs/mois) à 0€ côté opérateur.
   - **Throughput minute correct** : 30 req/min (2× supérieur à Gemini Flash 15 req/min), suffisant pour un projet portfolio. Mistral est meilleur (60 req/min) mais perd sur le quota mensuel/journalier.
   - **Pas de carte bancaire requise** à l'inscription, ni pour activer le free tier (contrairement à OpenAI qui exige une CB dès le départ).
   - **Qualité parsing comparable** à Mistral Small / Gemini Flash pour le cas d'usage "parser une recette OCR en JSON structuré" (validé en spike BACK-070/071 sur la recette "Quiche sans pâte aux poireaux et thon").
   - **Vitesse d'inférence ultra-rapide** : LPU custom Groq → temps de réponse perçu ~200-500ms vs 1-2s pour les autres providers cloud. Meilleure UX de scan.
   - **API REST compatible OpenAI** (format `messages[].role/content`) → adapter Groq quasi-identique à Mistral, **zéro nouveau pattern à apprendre** côté code (cf. `GroqChatCompletionClient.cs` créé en 5 min sur BACK-071).
-  - **Cohérence avec l'analyse coûts** (cf. tableau ci-dessous) : 0€/mois pour Sarah jusqu'à ~100k users actifs/mois, et coût raisonnable au-delà.
+  - **Cohérence avec l'analyse coûts** (cf. tableau ci-dessous) : 0€/mois côté opérateur jusqu'à ~100k users actifs/mois, et coût raisonnable au-delà.
 - **Analyse comparative chiffrée (issue de BACK-071)** :
   - **Coût par scan** (~2 000 tokens : 1 500 input + 500 output) :
     - Gemini Flash : ~$0.00026/scan (le moins cher en absolu)
     - Mistral Small : ~$0.0006/scan
     - Groq Llama 3.3 70B : ~$0.0013/scan
     - Claude Haiku : ~$0.004/scan (le plus cher)
-  - **Coût mensuel pour Sarah selon volume** (scénario portfolio modéré, avg 3 scans/user/mois) :
+  - **Coût mensuel côté opérateur selon volume** (scénario portfolio modéré, avg 3 scans/user/mois) :
     - 10 users : 0€ avec n'importe quel provider
     - 1 000 users : 0€ avec Groq (3 000 scans absorbés free tier), ~1.50€ Mistral, ~0€ Gemini (sous free 45k)
     - 10 000 users : ✅ **0€ avec Groq** (30 000 scans), ~17€ Mistral, ~3€ Gemini (au-delà free)
@@ -635,13 +635,13 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Alternative considérée — Multi-provider rotation** (Groq → Mistral → Gemini si quota saturé) :
   - Avantage : robustesse maximale (jamais bloqué tant qu'au moins 1 provider OK).
   - Inconvénients : complexité architecture (état partagé, logique rotation, gestion des 3 clés et leurs quotas), overkill pour un projet portfolio.
-  - **Rejetée pour MVP** : à reconsidérer si Sarah atteint des volumes > 100k users actifs/mois (= "joli problème à avoir").
+  - **Rejetée pour MVP** : à reconsidérer si l'app atteint des volumes > 100k users actifs/mois (= "joli problème à avoir").
 - **Alternative considérée — Pas de fallback serveur du tout (strict BYO key)** :
-  - Avantage : 0€ pour Sarah, simplicité maximale.
+  - Avantage : 0€ côté opérateur, simplicité maximale.
   - Inconvénients : friction énorme pour la démo entretien (recruteur doit créer un compte Groq pour tester), conversion utilisateurs catastrophique sur un portfolio.
   - **Rejetée** : un projet portfolio doit pouvoir être testé en 30 secondes par un recruteur, le freemium est crucial.
 - **Conséquences** :
-  - **`GROQ_API_KEY` à provisionner** dans les Application Settings Azure en prod (créée par Sarah dans Bitwarden lors de BACK-071).
+  - **`GROQ_API_KEY` à provisionner** dans les Application Settings Azure en prod (stockée dans un gestionnaire de mots de passe côté opérateur).
   - **`AI_PROVIDER=Groq`** comme défaut serveur en prod (cf. DEC-035 — factory env var).
   - **2 nouvelles tables/structures** à ajouter dans le schéma BDD de BACK-069 :
     - `free_tier_usage` (UserId, Date, Count) — quota journalier par user.
@@ -705,7 +705,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   3. **Logging structuré obligatoire** : sans Serilog (BACK-010), impossible de tracer correctement chaque exécution du cron (combien de users purgés, lesquels, pourquoi, erreurs partielles, etc.).
   4. **Monitoring/alertes obligatoires** : sans alertes (BACK-079), un cron qui supprime 1000 users par erreur ne déclencherait aucune notification → on ne s'en rendrait compte que des jours plus tard via plaintes users.
   5. **Pas de prod publique actuellement** : MemoRecipe est en dev, pas d'users réels à protéger immédiatement. Le login-check seul couvre 80% des cas (users qui reviennent) et suffit pour MVP fonctionnel. La conformité RGPD totale (couvrir les 20% restants = users fantômes qui ne reviennent jamais) sera activée AVANT la mise en prod publique via BACK-077.
-  6. **Apprentissage progressif** : Sarah découvre `IHostedService` dans BACK-077 sans la pression du temps, après avoir mis en place les filets (BACK-078/010/079). Plus pédagogique et plus sûr.
+  6. **Introduction progressive** : `IHostedService` est mis en place dans BACK-077 après que les filets (BACK-078/010/079) soient en place — moins risqué qu'un déploiement combiné feature + observabilité.
 
 - **Alternatives écartées** :
   - **Tout faire dans BACK-005** (soft delete + login-check + cron auto + backup + monitoring) → PR énorme, risque qualité élevé, mélange de plusieurs préoccupations (RGPD + Infra + Observabilité).
@@ -718,7 +718,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **Avant la mise en prod publique** : BACK-078 → BACK-010 → BACK-079 → BACK-077 → ensuite seulement on déploie.
   - Documentation utilisateur : la `Privacy.razor` section 5 mentionne déjà que "vos données sont supprimées dans les 30 jours", et précisera "via un processus automatisé quotidien" une fois BACK-077 mergé.
 
-- **Date** : 2026-06-23, identifié pendant l'implémentation de BACK-005 quand Sarah a soulevé la question de la sécurité d'une opération destructive automatique en l'absence de backup/monitoring.
+- **Date** : 2026-06-23, identifié pendant l'implémentation de BACK-005 sur la question de la sécurité d'une opération destructive automatique en l'absence de backup/monitoring.
 
 - **État** : APPLIQUÉ le 29/06/2026 via **BACK-005** (PR #25 `feature/BACK-005-soft-delete-account`, merge commit `c2480ac`). 12 commits atomiques. Test E2E exhaustif validé (7 scénarios + purge >30j simulée via `UPDATE` SQL manuel). Stratégie login-check seule retenue pour MVP. Cron auto (BACK-077) reste à implémenter APRÈS BACK-078 (backup) + BACK-010 (Serilog) + BACK-079 (monitoring) avant mise en prod publique.
 
@@ -731,14 +731,14 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Choix** : La stratégie backup de MemoRecipe repose sur 4 décisions clés :
   1. **Format `pg_dump` custom** (`.dump` binaire compressé) plutôt que plain SQL — plus compact (~30-50%), restauration plus rapide, sélective possible.
   2. **Chiffrement asymétrique GPG** (paire de clés publique/privée) plutôt que symétrique (mot de passe partagé) — évite le paradoxe "clé co-localisée avec le backup".
-     - **Clé publique GPG** stockée sur le VPS Infomaniak (sert uniquement à chiffrer).
+     - **Clé publique GPG** stockée sur le VPS de production (sert uniquement à chiffrer).
      - **Clé privée GPG** stockée mais JAMAIS sur le VPS.
      - **Passphrase de la clé privée** dans un gestionnaire de mots de passe.
      - Résultat : compromise du VPS = attaquant vole des `.dump.gpg` illisibles sans la clé privée.
-  3. **Règle 3-2-1** appliquée : 3 copies des données (BDD prod + backup local VPS + backup externe), 2 supports différents (disque VPS + service externe), 1 copie hors-site (Swiss Backup Infomaniak ou Backblaze B2 selon disponibilité pas encore définit).
+  3. **Règle 3-2-1** appliquée : 3 copies des données (BDD prod + backup local VPS + backup externe), 2 supports différents (disque VPS + service externe), 1 copie hors-site (service off-site S3-compatible ou SFTP à définir en partie 2).
   4. **Découpage BACK-078 en 2 parties** :
      - **Partie 1 (à traiter maintenant)** : script `backup.sh` sur VPS = `pg_dump` + chiffrement GPG + stockage local `/backups/` + rétention 30j + cron quotidien 3h du matin. Débloque le principal filet de sécurité (permet de restaurer en cas de bug BDD ou migration foireuse). **Autonome, faisable en local sans VPS opérationnel.**
-     - **Partie 2 (avant mise en prod publique)** : script `upload.sh` = copie hors-site sur un autre support non définit encore (Swiss Backup ou Backblaze B2 en fallback) via `rsync`/`rclone`/`sftp` + rétention 90j côté externe + cron hebdomadaire. Complète la conformité RGPD Art. 32 (portabilité + résilience).
+     - **Partie 2 (avant mise en prod publique)** : script `upload.sh` = copie hors-site vers un service de stockage externe (S3-compatible ou SFTP, à sélectionner en partie 2) via `rsync`/`rclone`/`sftp` + rétention 90j côté externe + cron hebdomadaire. Complète la conformité RGPD Art. 32 (portabilité + résilience).
 
 - **Pourquoi ces choix** :
   - **`pg_dump` custom vs plain SQL** : compression native pgdump, restore sélectif possible (`pg_restore --table=...`), plus rapide sur grosses BDD. Pas d'inconvénient pour une BDD MemoRecipe (~quelques Go maxi).
@@ -748,22 +748,21 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **PAS de `env.gpg`** : les secrets sont dans `.env` (gitignored) et déjà backupés dans un gestionnaire de mots de passe. Redondance inutile. En cas de recovery, le `.env` se recrée à partir du gestionnaire de mots de passe.
 
 - **Alternatives écartées** :
-  - **Chiffrement symétrique GPG (mot de passe partagé)** : simple à mettre en place mais paradoxal — si on stocke le mot de passe sur le VPS pour l'automatisation, un attaquant qui compromet le VPS déchiffre les backups.Ecartée à juste titre par Sarah.
+  - **Chiffrement symétrique GPG (mot de passe partagé)** : simple à mettre en place mais paradoxal — si on stocke le mot de passe sur le VPS pour l'automatisation, un attaquant qui compromet le VPS déchiffre les backups. Écartée.
   - **`age` au lieu de GPG** : moderne (2019), syntaxe plus simple, sécurité solide (Ed25519 + ChaCha20-Poly1305). MAIS compétence moins universelle que GPG, moins portable sur les serveurs Linux "old school". GPG retenu pour valeur portfolio et universalité.
   - **Chiffrement au niveau du volume Docker (LUKS)** : protège seulement au repos local. Ne couvre PAS les backups qui sortent du volume (copies vers external storage). Insuffisant seul.
-  - **Skip BACK-078 en s'appuyant sur les backups Infomaniak** : envisageable si un service backup managé est activé (Auto Backup VPS, snapshots). MAIS conformité RGPD Art. 32 exige que le responsable de traitement (Sarah) prouve son contrôle sur les backups — un backup managé Infomaniak seul ne suffit pas (dépendance sous-traitant, portabilité limitée, restauration granulaire absente).
-  - **Backup dans Swiss Backup dès la partie 1** : possible mais complexifie la partie 1 avec setup Swiss Backup + rclone/sftp. Découpage 2 parties permet de valider le cœur (backup + restore local) avant d'ajouter la couche transport.
+  - **Skip BACK-078 en s'appuyant sur les backups managés de l'hébergeur** : envisageable si un service backup managé est activé (Auto Backup VPS, snapshots). MAIS conformité RGPD Art. 32 exige que le responsable de traitement prouve son contrôle sur les backups — un backup managé hébergeur seul ne suffit pas (dépendance sous-traitant, portabilité limitée, restauration granulaire absente).
+  - **Backup vers un service off-site dès la partie 1** : possible mais complexifie la partie 1 avec setup credentials externes + rclone/sftp. Découpage 2 parties permet de valider le cœur (backup + restore local) avant d'ajouter la couche transport.
 
 - **Sources** :
   - [PostgreSQL Docs — pg_dump / pg_restore](https://www.postgresql.org/docs/16/backup-dump.html)
   - [GPG Handbook (Free Software Foundation)](https://www.gnupg.org/documentation/manuals/gnupg/)
   - [Règle 3-2-1 backup — US-CERT](https://www.cisa.gov/uscert/ncas/tips/ST19-006)
   - [RGPD Art. 32 — Sécurité du traitement](https://gdpr-info.eu/art-32-gdpr/)
-  - Swiss Backup Infomaniak — [https://www.infomaniak.com/fr/swiss-backup](https://www.infomaniak.com/fr/swiss-backup)
-  - Alternatives externes : [Backblaze B2](https://www.backblaze.com/b2/cloud-storage.html) (S3-compatible, ~0.005$/Go/mois)
+  - Documentation générique services de stockage off-site : plusieurs options S3-compatibles ou SFTP disponibles sur le marché (comparatif tenu à jour dans les notes ops privées).
 
 - **Conséquences** :
-  - **Setup 1× (30 min)** : générer paire de clés GPG sur laptop, exporter la clé publique, sauvegarder la clé privée dans Bitwarden + clé USB.
+  - **Setup 1× (30 min)** : générer paire de clés GPG sur la workstation maintenance, exporter la clé publique, sauvegarder la clé privée dans un gestionnaire de mots de passe et un support offline additionnel.
   - **Nouveau dossier `infra/backup/`** dans le repo avec les scripts `backup.sh` + `restore.sh` + `Dockerfile` du container backup.
   - **Nouveau service `backup`** dans `docker-compose.prod.yml` (alpine + pg_dump + gpg + cron).
   - **Fiche `POSTGRES-BACKUP-CHEATSHEET.md`** ajoutée à `documentation/fiches/` pour référence rapide (chiffrer, déchiffrer, restaurer).

@@ -81,16 +81,16 @@ For production deployment (build, push, rollback procedures) see [`documentation
 | **RGPD / EU AI Act** | Privacy policy + legal mentions pages, consent on registration, AI transparency notice on scan page, hosting in Switzerland (adequacy decision), Right to erasure (Art. 17) with 30-day grace period + cascade purge |
 | **Tests** | Unit tests on validators / services / AI pipeline (deterministic fakes); integration tests via `WebApplicationFactory<Program>` with TestContainers (real PostgreSQL) |
 | **Containerization** | API image built via .NET SDK Container Support (no Dockerfile, ~194 MB Alpine); Frontend image with custom nginx Dockerfile (~40 MB); orchestration via `docker-compose.prod.yml`; images published on GitHub Container Registry — see [`DEPLOYMENT.md`](documentation/DEPLOYMENT.md) |
-| **Backup & DR** | Daily encrypted PostgreSQL backup (`pg_dump` + GPG asymmetric encryption; public key in the container, private key kept off-server); local retention 30 days; full restore procedure documented and end-to-end tested. Off-site copy (Swiss Backup or Backblaze B2, per 3-2-1 rule) is planned in part 2 before public production launch. See [DEC-038](documentation/DECISIONS.md) and [`DEPLOYMENT.md`](documentation/DEPLOYMENT.md) |
+| **Backup & DR** | Daily encrypted PostgreSQL backup (`pg_dump` + GPG asymmetric encryption; public key in the container, private key kept off-server); local retention 30 days; full restore procedure documented and end-to-end tested. Off-site copy (S3-compatible or SFTP storage service, per 3-2-1 rule) is planned in part 2 before public production launch. See [DEC-038](documentation/DECISIONS.md) and [`DEPLOYMENT.md`](documentation/DEPLOYMENT.md) |
 
 For the rationale behind these choices (alternatives considered, trade-offs), see [`documentation/DECISIONS.md`](documentation/DECISIONS.md).
 
 ## Roadmap
 
-- Off-site encrypted backup copy (Swiss Backup or Backblaze B2, part 2 of the backup pipeline)
+- Off-site encrypted backup copy (S3-compatible or SFTP storage, part 2 of the backup pipeline)
 - HTTPS forced in production (reverse proxy + Let's Encrypt)
 - CI/CD pipeline (GitHub Actions: build, test, vulnerable-package scan, CodeQL)
-- VPS deployment (Infomaniak Cloud, Apache reverse proxy)
+- VPS deployment (Cloud provider VPS with Apache reverse proxy)
 - Structured logging (Serilog) + monitoring / alerts on critical operations
 - Automated cron purge of expired accounts (past the 30-day grace period)
 - GDPR self-service flows (data export, profile management)

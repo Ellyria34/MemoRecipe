@@ -226,7 +226,7 @@ docker compose -f docker-compose.prod.yml logs -f --tail=50
 Healthchecks (postgres / api / web) ensure dependent containers wait
 for their dependencies. Allow ~45-60s for the API to become healthy.
 The `backup` service does not have a healthcheck — it runs cron in the
-background and only becomes active once a day at 3am UTC. Verify it
+background and only becomes active once a day during off-peak hours. Verify it
 runs via `docker logs memorecipe_backup` and `docker exec memorecipe_backup ls /backups`.
 
 ---
@@ -289,39 +289,39 @@ for the documented procedure).
 
 ## Backup & Restore (PostgreSQL)
 
-> ⚠️ **PART 1 ONLY — NOT PROD-READY**. This section documents the local backup pipeline implemented in BACK-078 part 1. Backups are stored **only on the VPS** (violates the 3-2-1 rule). Off-site copy (Swiss Backup or Backblaze B2) will be added in BACK-078 part 2 before the app is deployed to public production. See **DEC-038** for the full architectural rationale (GPG asymmetric encryption, 3-2-1 rule, part 1/2 split).
+> ⚠️ **PART 1 ONLY — NOT PROD-READY**. This section documents the local backup pipeline implemented in BACK-078 part 1. Backups are stored **only on the VPS** (violates the 3-2-1 rule). Off-site copy (to an S3-compatible or SFTP storage service) will be added in BACK-078 part 2 before the app is deployed to public production. See **DEC-038** for the full architectural rationale (GPG asymmetric encryption, 3-2-1 rule, part 1/2 split).
 
 ### Architecture
 
 - **Container `backup`** (`infra/backup/Dockerfile`) built from `postgres:16-alpine` + `gnupg` + `busybox-suid` (cron).
-- **Daily cron job** at 3am UTC runs `/usr/local/bin/backup.sh` (`infra/backup/backup.sh`).
+- **Daily cron job** during off-peak hours runs `/usr/local/bin/backup.sh` (`infra/backup/backup.sh`).
 - **`pg_dump` piped through `gpg --encrypt`** — the plaintext dump never touches disk, only the encrypted `.dump.gpg` is written.
-- **Asymmetric encryption**: the container holds only the GPG public key. The private key stays on Sarah's laptop + Bitwarden + USB key. Compromising the VPS does NOT compromise the backups.
+- **Asymmetric encryption**: the container holds only the GPG public key. The private key stays off the VPS (offline secure storage of your choice). Compromising the VPS does NOT compromise the backups.
 - **Retention 30 days** locally (`RETENTION_DAYS` env var). Old backups auto-deleted at each run.
 - **Volume `backup_data`** persists the encrypted files across container restarts.
 
 ### One-time setup (already done — reference)
 
-1. Generate the GPG key pair on Sarah's laptop:
+1. Generate the GPG key pair on your workstation:
    ```bash
    gpg --full-generate-key
    # Type: ECC (curve25519 = Ed25519)
-   # Real name: Sarah MemoRecipe Backup
-   # Email: backup@memorecipe.com
-   # Passphrase: strong random passphrase from Bitwarden
+   # Real name: MemoRecipe Backup (or any label of your choice)
+   # Email: backup@<your-domain>
+   # Passphrase: strong random passphrase from your password manager
    ```
 2. Export the **public key** to the repo:
    ```bash
-   gpg --export --armor -o infra/backup/memorecipe-backup-pubkey.asc backup@memorecipe.com
+   gpg --export --armor -o infra/backup/memorecipe-backup-pubkey.asc backup@<your-domain>
    ```
 3. Export the **private key** for safekeeping (never commit!):
    ```bash
-   gpg --export-secret-keys --armor -o memorecipe-privkey-BACKUP.asc backup@memorecipe.com
+   gpg --export-secret-keys --armor -o memorecipe-privkey-BACKUP.asc backup@<your-domain>
    ```
-   - Store the content in **Bitwarden** as a secure note.
-   - Optionally copy the file to a physical USB key.
+   - Store the content in **your password manager** as a secure note.
+   - Optionally copy the file to an additional offline secure medium for redundancy.
    - **Delete the local `.asc` file after backup** (`rm memorecipe-privkey-BACKUP.asc`).
-4. The passphrase is stored in **Bitwarden** as a login entry (with the "master password re-prompt" flag enabled for extra safety).
+4. The passphrase is stored in **your password manager** as a login entry (with the "master password re-prompt" flag enabled for extra safety).
 
 ### Automatic backups
 
@@ -335,7 +335,7 @@ Once the compose stack is up:
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-The cron inside the `backup` container will run `backup.sh` every day at 3am UTC. Encrypted files land in the `backup_data` volume as `memorecipe_YYYY-MM-DD_HH-MM-SS.dump.gpg`.
+The cron inside the `backup` container will run `backup.sh` daily during off-peak hours. Encrypted files land in the `backup_data` volume as `memorecipe_YYYY-MM-DD_HH-MM-SS.dump.gpg`.
 
 ### Manual backup (on-demand)
 
@@ -352,8 +352,8 @@ docker exec memorecipe_backup ls -lh /backups
 ### Restore procedure (disaster recovery)
 
 Prerequisites:
-- Sarah's laptop with the **GPG private key imported** (via Kleopatra or `gpg --import`).
-- Access to the **passphrase** (Bitwarden).
+- your workstation with the **GPG private key imported** (via Kleopatra or `gpg --import`).
+- Access to the **passphrase** (your password manager).
 
 Step 1 — Copy the encrypted backup from the container to the laptop:
 ```bash
@@ -428,7 +428,7 @@ Alerts on backup failure / staleness will be implemented in **BACK-079** (monito
 
 - **GPG keybox lock in container** (fixed in `backup.sh`): the script uses a fresh temporary `GNUPGHOME` for each run to avoid stale `keyboxd` socket locks left over by previous `docker exec` invocations. Do NOT remove that logic without re-testing end-to-end.
 - **Postgres version mismatch**: the backup container uses `postgres:16-alpine` as its base image, guaranteeing the exact same `pg_dump` binary version as the server. When bumping Postgres to a new major version, bump both containers together.
-- **Retention is local only** in part 1: 30 days rolling window on the VPS. If the VPS goes down, everything is lost. Off-site copy will land in BACK-078 part 2 (Swiss Backup or Backblaze B2).
+- **Retention is local only** in part 1: 30 days rolling window on the VPS. If the VPS goes down, everything is lost. Off-site copy will land in BACK-078 part 2 (S3-compatible or SFTP storage).
 
 ---
 
