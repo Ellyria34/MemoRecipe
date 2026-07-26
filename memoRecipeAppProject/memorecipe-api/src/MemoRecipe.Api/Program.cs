@@ -22,6 +22,7 @@ using System.Threading.RateLimiting;
 using Serilog;
 using MemoRecipe.Application.Services.Alerting;
 using MemoRecipe.Application.Configuration;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddKeyPerFile(
@@ -202,6 +203,16 @@ builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+};
+
+forwardedHeadersOptions.KnownIPNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+
+app.UseForwardedHeaders(forwardedHeadersOptions);
+
 // Auto-apply EF Core migrations on startup.
 if (Environment.GetEnvironmentVariable("DOTNET_TEST_MODE") != "true")
 {
@@ -224,7 +235,10 @@ app.UseRateLimiter();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseSerilogRequestLogging();
-app.UseHttpsRedirection();
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapHealthChecks("/health");
