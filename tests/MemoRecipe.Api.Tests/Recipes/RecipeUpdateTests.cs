@@ -1,10 +1,8 @@
 using System.Net.Http.Json;
 using MemoRecipe.Api.Tests.Helpers;
-using MemoRecipe.Application.Services.Auth;
 using MemoRecipe.Domain.Entities.Ingredients;
 using MemoRecipe.Domain.Entities.Recipes;
 using MemoRecipe.Domain.Entities.Steps;
-using MemoRecipe.Domain.Entities.Users;
 using MemoRecipe.Infrastructure.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,42 +20,11 @@ public class RecipeUpdateTests : IClassFixture<CustomWebApplicationFactory<Progr
         _client = factory.CreateClient();
     }
 
-    private async Task<Guid> AuthenticateAsync()
-    {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<PasswordHasher>();
-
-        const string email = "recipeUpdateTestUser@test.com";
-        const string password = "CorrectPassword1!";
-
-        var user = db.Users.FirstOrDefault(u => u.Email == email);
-        if (user == null)
-        {
-            user = new User
-            {
-                Id = Guid.NewGuid(),
-                Email = email,
-                Username = "recipeUpdateTestUser",
-                PasswordHash = "",
-                PasswordSalt = "",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-            user.PasswordHash = hasher.HashPassword(user, password);
-            db.Users.Add(user);
-            db.SaveChanges();
-        }
-
-        await _client.PostAsJsonAsync("api/auth/login", new { email, password });
-        return user.Id;
-    }
-
     [Fact]
     public async Task UpdateRecipe_WithNewIngredients_PersistsThem()
     {
         // Arrange : auth + seed recipe with 2 initial ingredients
-        var userId = await AuthenticateAsync();
+        var userId = await TestUserHelper.CreateAndLoginAsync(_factory, _client, "recipeUpdateTestUser@test.com");
         var recipeId = Guid.NewGuid();
 
         using (var seedScope = _factory.Services.CreateScope())
@@ -117,7 +84,7 @@ public class RecipeUpdateTests : IClassFixture<CustomWebApplicationFactory<Progr
     public async Task UpdateRecipe_WithFewerIngredients_RemovesOldOnes()
     {
         // Arrange : seed recipe with 3 initial ingredients
-        var userId = await AuthenticateAsync();
+        var userId = await TestUserHelper.CreateAndLoginAsync(_factory, _client, "recipeUpdateTestUser@test.com");
         var recipeId = Guid.NewGuid();
 
         using (var seedScope = _factory.Services.CreateScope())
@@ -175,7 +142,7 @@ public class RecipeUpdateTests : IClassFixture<CustomWebApplicationFactory<Progr
     public async Task UpdateRecipe_WithReorderedSteps_KeepsOrderIndexCorrect()
     {
         // Arrange : seed recipe with 3 steps in initial order
-        var userId = await AuthenticateAsync();
+        var userId = await TestUserHelper.CreateAndLoginAsync(_factory, _client, "recipeUpdateTestUser@test.com");
         var recipeId = Guid.NewGuid();
 
         using (var seedScope = _factory.Services.CreateScope())
@@ -241,7 +208,7 @@ public class RecipeUpdateTests : IClassFixture<CustomWebApplicationFactory<Progr
     public async Task UpdateRecipe_WithFewerSteps_RemovesOldOnes()
     {
         // Arrange — seed recipe with 3 initial steps
-        var userId = await AuthenticateAsync();
+        var userId = await TestUserHelper.CreateAndLoginAsync(_factory, _client, "recipeUpdateTestUser@test.com");
         var recipeId = Guid.NewGuid();
 
         using (var seedScope = _factory.Services.CreateScope())
