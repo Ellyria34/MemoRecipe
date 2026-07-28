@@ -47,6 +47,11 @@ public class AuthControllerDeleteAccountTests : IClassFixture<CustomWebApplicati
             .AsNoTracking()
             .FirstAsync(u => u.Email == email);
         Assert.NotNull(user.DeleteRequestedAt);
+
+        // Assert cookie is cleared - subsequent /me returns 401
+        var meAfter = await _client.GetAsync("api/auth/me");
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, meAfter.StatusCode);
+
     }
 
     [Fact]
@@ -70,6 +75,9 @@ public class AuthControllerDeleteAccountTests : IClassFixture<CustomWebApplicati
             .AsNoTracking()
             .FirstAsync(u => u.Email == email);
         Assert.Null(user.DeleteRequestedAt);
+                // Regression guard for BACK-085 - the wrong password must not leak in the response body
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("WrongPassword1!", body);
     }
 
     [Fact]

@@ -27,6 +27,11 @@ public class AuthControllerMeTests : IClassFixture<CustomWebApplicationFactory<P
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
         Assert.Contains(email, body);
+        
+        // Regression guard: Me endpoint's UserDto must not expose password-related fields
+        Assert.DoesNotContain("PasswordHash", body);
+        Assert.DoesNotContain("PasswordSalt", body);
+
     }
 
     [Fact]

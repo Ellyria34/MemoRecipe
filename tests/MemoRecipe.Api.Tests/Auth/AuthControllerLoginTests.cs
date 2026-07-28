@@ -29,6 +29,13 @@ public class AuthControllerLoginTests : IClassFixture<NoRateLimitApplicationFact
 
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
         Assert.True(response.Headers.Contains("Set-Cookie"));
+
+        // Assert cookie attributes (HttpOnly + SameSite=Strict for XSS/CSRF protection)
+        var setCookieHeaders = response.Headers.GetValues("Set-Cookie");
+        var authCookieHeader = setCookieHeaders.First(h => h.StartsWith("authCookie=", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("httponly", authCookieHeader, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("samesite=strict", authCookieHeader, StringComparison.OrdinalIgnoreCase);
+
     }
 
     [Fact]
@@ -43,6 +50,10 @@ public class AuthControllerLoginTests : IClassFixture<NoRateLimitApplicationFact
         var response = await client.PostAsJsonAsync("api/auth/login", new { email, password = "WrongPassword1!" });
 
         Assert.Equal(System.Net.HttpStatusCode.Unauthorized, response.StatusCode);
+        // the wrong password must not leak in the response body
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("WrongPassword1!", body);
+
     }
 
     [Fact]

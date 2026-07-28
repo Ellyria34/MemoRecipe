@@ -34,6 +34,12 @@ public class AuthControllerRegisterTests : IClassFixture<CustomWebApplicationFac
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
         Assert.True(response.Headers.Contains("Set-Cookie"));
 
+        // Assert cookie attributes (HttpOnly + SameSite=Strict for XSS/CSRF protection)
+        var setCookieHeaders = response.Headers.GetValues("Set-Cookie");
+        var authCookieHeader = setCookieHeaders.First(h => h.StartsWith("authCookie=", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("httponly", authCookieHeader, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("samesite=strict", authCookieHeader, StringComparison.OrdinalIgnoreCase);
+
         // Assert DB
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
@@ -84,4 +90,25 @@ public class AuthControllerRegisterTests : IClassFixture<CustomWebApplicationFac
         var body = await response.Content.ReadAsStringAsync();
         Assert.Contains("\"propertyName\":\"Password\"", body);
     }
+
+    [Fact]
+    public async Task Register_WithInvalidEmail_Returns400WithEmailValidationError()
+    {
+        // Arrange
+        var payload = new
+        {
+            email = "not-an-email",
+            username = "sanitizeReg",
+            password = "CorrectPassword1!"
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("api/auth/register", payload);
+
+        // Assert
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"propertyName\":\"Email\"", body);
+    }
+
 }
