@@ -231,7 +231,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowFrontend");
-app.UseRateLimiter();
+if (!app.Environment.IsEnvironment("Testing-NoRateLimit"))
+{
+    app.UseRateLimiter();
+}
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseSerilogRequestLogging();

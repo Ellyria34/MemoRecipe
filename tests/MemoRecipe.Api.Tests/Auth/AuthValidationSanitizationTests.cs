@@ -1,9 +1,5 @@
 using System.Net.Http.Json;
 using MemoRecipe.Api.Tests.Helpers;
-using MemoRecipe.Application.Services.Auth;
-using MemoRecipe.Domain.Entities.Users;
-using MemoRecipe.Infrastructure.Database;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace MemoRecipe.Api.Tests.Auth;
 
@@ -61,9 +57,9 @@ public class AuthValidationSanitizationTests : IClassFixture<CustomWebApplicatio
     [Fact]
     public async Task DeleteAccount_WithEmptyPassword_AttemptedValueIsSanitized()
     {
-        await AuthenticateAsync(_client);
-
+        await TestUserHelper.CreateAndLoginAsync(_factory, _client, "sanitize.deleteauth@test.com");
         var payload = new { password = "" };
+
         var request = new HttpRequestMessage(HttpMethod.Delete, "api/auth/account")
         {
             Content = JsonContent.Create(payload)
@@ -75,34 +71,5 @@ public class AuthValidationSanitizationTests : IClassFixture<CustomWebApplicatio
         var body = await response.Content.ReadAsStringAsync();
         Assert.Contains("\"propertyName\":\"Password\"", body);
         Assert.DoesNotContain("\"attemptedValue\":\"\"", body);
-    }
-
-    private async Task AuthenticateAsync(HttpClient client)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
-        var hasher = scope.ServiceProvider.GetRequiredService<PasswordHasher>();
-
-        const string email = "sanitize.deleteauth@test.com";
-        const string password = "CorrectPassword1!";
-
-        if (!db.Users.Any(u => u.Email == email))
-        {
-            var user = new User
-            {
-                Id = Guid.NewGuid(),
-                Email = email,
-                Username = "sanitizeDeleteUser",
-                PasswordHash = "",
-                PasswordSalt = "",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-            user.PasswordHash = hasher.HashPassword(user, password);
-            db.Users.Add(user);
-            db.SaveChanges();
-        }
-
-        await client.PostAsJsonAsync("api/auth/login", new { email, password });
     }
 }
