@@ -26,7 +26,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddKeyPerFile(
-    Environment.GetEnvironmentVariable("SECRETS_PATH") ?? "/run/secrets", 
+    Environment.GetEnvironmentVariable("SECRETS_PATH") ?? "/run/secrets",
     optional: true);
 
 builder.Services.AddSerilog((services, lc) => lc
@@ -196,6 +196,8 @@ builder.Services.Configure<AlertingOptions>(
 builder.Services.Configure<FeatureFlagsOptions>(
     builder.Configuration.GetSection(FeatureFlagsOptions.SectionName));
 builder.Services.AddScoped<IAlertingService, AlertingService>();
+builder.Services.Configure<AccountPurgeOptions>(
+    builder.Configuration.GetSection(AccountPurgeOptions.SectionName));
 builder.Services.AddScoped<PasswordHasher>();
 builder.Services.AddHealthChecks()
     .AddNpgSql(connectionString);
