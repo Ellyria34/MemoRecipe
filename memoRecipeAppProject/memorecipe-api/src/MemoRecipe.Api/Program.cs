@@ -23,6 +23,7 @@ using Serilog;
 using MemoRecipe.Application.Services.Alerting;
 using MemoRecipe.Application.Configuration;
 using Microsoft.AspNetCore.HttpOverrides;
+using MemoRecipe.Infrastructure.BackgroundServices;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddKeyPerFile(
@@ -193,6 +194,7 @@ builder.Services.AddHttpClient<IOcrScanService, OcrScanService>();
 builder.Services.AddHttpClient<INotificationChannel, TelegramNotificationChannel>();
 builder.Services.Configure<AlertingOptions>(
     builder.Configuration.GetSection(AlertingOptions.SectionName));
+builder.Services.AddHostedService<AccountPurgeService>();
 builder.Services.Configure<FeatureFlagsOptions>(
     builder.Configuration.GetSection(FeatureFlagsOptions.SectionName));
 builder.Services.AddScoped<IAlertingService, AlertingService>();
