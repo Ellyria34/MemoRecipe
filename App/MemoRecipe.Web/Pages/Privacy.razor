@@ -4,7 +4,7 @@
 <MudContainer MaxWidth="MaxWidth.Medium" Class="my-6">
     <MudPaper Elevation="3" Class="pa-4">
         <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Politique de confidentialité</MudText>
-        <MudText Typo="Typo.body2" Class="mb-6">Dernière mise à jour : 20/07/2026</MudText>
+        <MudText Typo="Typo.body2" Class="mb-6">Dernière mise à jour : 29/07/2026</MudText>
 
         @if (!_scanEnabled)
         {
@@ -177,20 +177,20 @@
                 <strong>Supprimés automatiquement en cascade</strong> lors de la suppression du compte
                 (relation EF Core <code>OnDelete.Cascade</code>).
             </li>
-            @* <li class="mb-2">
+            <li class="mb-2">
                 <strong>Délai de grâce après suppression du compte</strong> :
                 à compter de la demande de suppression, les données sont conservées pendant
                 <strong>30 jours en état "soft delete"</strong> (compte désactivé mais récupérable).
                 Passé ce délai, toutes les données sont <strong>définitivement effacées</strong>
                 de la base de données de production.
-            </li> *@
+            </li>
             <li class="mb-2">
-                <strong>Demande de suppression du compte</strong> : pour l'instant,
-                la suppression doit être demandée par email à
-                <em>contact@memorecipe.com</em>.
-                Une fonctionnalité de suppression en self-service avec délai de grâce de 30 jours
-                (soft delete) <strong>sera prochainement disponible</strong>
-                (cf. roadmap interne BACK-005).
+                <strong>Demande de suppression du compte</strong> : disponible en self-service
+                depuis votre page <em>Profil → Supprimer mon compte</em>.
+                Confirmation requise avec votre mot de passe, vous serez déconnecté(e)
+                immédiatement après validation. Vous pouvez annuler la suppression en vous
+                reconnectant durant les 30 jours suivants — passé ce délai, la suppression
+                est définitive et irréversible.
             </li>
             @* <li class="mb-2">
                 <strong>Logs techniques anonymisés</strong> (horodatage des connexions, erreurs serveur) :

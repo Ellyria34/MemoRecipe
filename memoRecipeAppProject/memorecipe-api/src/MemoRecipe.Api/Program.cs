@@ -23,10 +23,11 @@ using Serilog;
 using MemoRecipe.Application.Services.Alerting;
 using MemoRecipe.Application.Configuration;
 using Microsoft.AspNetCore.HttpOverrides;
+using MemoRecipe.Infrastructure.BackgroundServices;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddKeyPerFile(
-    Environment.GetEnvironmentVariable("SECRETS_PATH") ?? "/run/secrets", 
+    Environment.GetEnvironmentVariable("SECRETS_PATH") ?? "/run/secrets",
     optional: true);
 
 builder.Services.AddSerilog((services, lc) => lc
@@ -193,9 +194,12 @@ builder.Services.AddHttpClient<IOcrScanService, OcrScanService>();
 builder.Services.AddHttpClient<INotificationChannel, TelegramNotificationChannel>();
 builder.Services.Configure<AlertingOptions>(
     builder.Configuration.GetSection(AlertingOptions.SectionName));
+builder.Services.AddHostedService<AccountPurgeService>();
 builder.Services.Configure<FeatureFlagsOptions>(
     builder.Configuration.GetSection(FeatureFlagsOptions.SectionName));
 builder.Services.AddScoped<IAlertingService, AlertingService>();
+builder.Services.Configure<AccountPurgeOptions>(
+    builder.Configuration.GetSection(AccountPurgeOptions.SectionName));
 builder.Services.AddScoped<PasswordHasher>();
 builder.Services.AddHealthChecks()
     .AddNpgSql(connectionString);
