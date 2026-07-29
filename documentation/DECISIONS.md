@@ -121,7 +121,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Choix** : Le frontend envoie l'image à l'API, qui appelle l'Azure Function IA. Le frontend ne communique jamais directement avec l'Azure Function.
 - **Pourquoi** : Un seul point d'entrée sécurisé (cookies HttpOnly déjà en place). L'Azure Function peut rester privée/interne. Meilleur contrôle RGPD (traçabilité, audit, suppression des images). Compatible MAUI (même endpoint API). L'utilisateur n'a pas besoin de connaître l'existence du service IA.
 - **Conséquence** : Nouveau service `IOcrScanService` (Application) / `OcrScanService` (Infrastructure) pour l'appel HTTP. Endpoint `POST api/recipe/scan` dans `RecipeController`. URL Azure Function configurable dans `appsettings.json`.
-- **Etat** : EN COURS — endpoint créé, frontend connecté, preview fonctionnel. Reste : validation formulaire et sauvegarde en BDD.
+- **Etat** : DONE — scan IA fonctionnellement complet (endpoint `POST /api/recipes/scan` + frontend Blazor + Azure Function IA + parsing LLM + preview éditable + validation + sauvegarde BDD). Gated par le feature flag `Features:ScanRecipeEnabled` en V1 (cf. [DEC-040](#dec-040) + BACK-092) → sera réactivé sans changement de code en V1.1/V2.
 
 ### DEC-018 : RecipeFormModel séparé des DTOs API + composant RecipeForm réutilisable
 - **Date** : Mars 2026
@@ -166,7 +166,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 ### DEC-023 : CORS dynamique via appsettings + fail fast au demarrage
 - **Date** : Avril 2026
 - **Choix** : Externaliser les origines CORS dans `appsettings.json` (`Cors:AllowedOrigins` array) au lieu d'un string hard-code. Resserrer les permissions : `WithHeaders("Content-Type")` au lieu de `AllowAnyHeader()`, `WithMethods("GET", "POST", "PUT", "DELETE")` au lieu de `AllowAnyMethod()`. Validation au demarrage qui leve une exception si la config est manquante.
-- **Pourquoi** : En production, le frontend sera sur un autre domaine que `localhost:5110`. Le hard-coding empechait tout deploiement. L'array permet plusieurs origines (ex: `https://memorecipe.com` + `https://www.memorecipe.com`). Resserrer les methods/headers reduit la surface d'attaque (principe du moindre privilege).
+- **Pourquoi** : En production, le frontend sera sur un autre domaine que `localhost:5110`. Le hard-coding empechait tout deploiement. L'array permet plusieurs origines (ex: `https://<your-domain>` + `https://www.<your-domain>`). Resserrer les methods/headers reduit la surface d'attaque (principe du moindre privilege).
 - **`Authorization` non whiteliste** : L'authentification passe par le cookie `authCookie` (envoye automatiquement via `AllowCredentials()`), pas par un header `Authorization: Bearer`. Pas besoin de l'autoriser explicitement.
 - **`OPTIONS` non liste dans `WithMethods`** : Les requetes preflight sont gerees automatiquement par le middleware CORS — l'ajouter manuellement est redondant et peut causer des conflits (doc Microsoft).
 - **Fail fast** : Si `Cors:AllowedOrigins` est absent ou vide au demarrage → `InvalidOperationException`. Mieux vaut crasher avec un message clair que tourner avec un CORS mal configure.
@@ -277,15 +277,15 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **Choix** : Pour la composition prod (BACK-007 partie 3), le nginx du container Frontend **proxifie `/api/*`** vers le container API en interne au réseau Docker (`proxy_pass http://api:8080/api/`). L'API n'est **pas exposée** publiquement. Le bundle Blazor WASM utilise une **URL relative `/api/...`** (même origine), donc **zéro CORS** en prod.
 - **Pourquoi** :
   - **Surface d'attaque réduite** : l'API n'écoute qu'en interne au réseau Docker, jamais joignable depuis Internet. Vis-à-vis OWASP A05:2025 (Security Misconfiguration), c'est la posture la plus restrictive.
-  - **Simplicité TLS** : 1 seul certificat HTTPS pour le sous-domaine `app.memorecipe.com` (Apache du host + Let's Encrypt via BACK-009), au lieu de 2 certificats pour 2 sous-domaines (`api.` + `app.`).
+  - **Simplicité TLS** : 1 seul certificat HTTPS pour le sous-domaine `app.<your-domain>` (Apache du host + Let's Encrypt via BACK-009), au lieu de 2 certificats pour 2 sous-domaines (`api.` + `app.`).
   - **Same-origin** : `SameSite=Strict` sur les cookies HttpOnly (DEC-024 CSRF) fonctionne parfaitement parce que le Frontend et l'API partagent l'origine. Pas de bidouille `credentials: include` cross-origin.
   - **Bundle WASM universel** : un seul build `dotnet publish -c Release` fonctionne en dev local (avec override `appsettings.Development.json`) ET en prod (URL relative via `HostEnvironment.BaseAddress`). Pas de rebuild par environnement.
   - **Pattern standard prod** : architecture SPA + API derrière un même reverse proxy = pratique recommandée chez la majorité des déploiements modernes (Caddy, Traefik, nginx).
 - **Alternative considérée — Option A (Frontend appelle API en cross-origin)** :
-  - L'API serait exposée sur `api.memorecipe.com` avec son propre certificat
+  - L'API serait exposée sur `api.<your-domain>` avec son propre certificat
   - CORS à configurer (déjà partiellement fait dans BACK-002 + BACK-023)
   - Cookies HttpOnly cross-origin = trade-off `SameSite=None; Secure` + `credentials: include` partout
-  - Rebuild WASM par environnement (URL `api.memorecipe.com` dans le bundle compilé)
+  - Rebuild WASM par environnement (URL `api.<your-domain>` dans le bundle compilé)
   - **Rejetée** : plus de complexité, plus de surface d'attaque, pas d'avantage compensatoire.
 - **Sources** :
   - [Mozilla — Same-origin policy & CORS](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy)
@@ -299,7 +299,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **API CORS config** : peut être supprimée en prod (origins vide) puisqu'il n'y a plus de cross-origin. **À garder en dev** pour le mode `dotnet watch`.
   - **Reverse proxy edge du host** (Apache/nginx/Caddy selon le setup) : ProxyPass de l'origine publique HTTPS vers le loopback du container Frontend nginx en interne au host. Permet la cohabitation propre avec d'autres sites éventuels hébergés sur le même host.
 - **Conditions qui invalideraient ce choix** :
-  - **L'API devient consommée par d'autres clients que le Frontend Blazor** (ex: mobile MAUI futur appelant directement, partenaires externes, microservices) → là `api.memorecipe.com` sous-domaine séparé + CORS strict devient pertinent. Mais le Frontend Web pourrait continuer en Option B en parallèle.
+  - **L'API devient consommée par d'autres clients que le Frontend Blazor** (ex: mobile MAUI futur appelant directement, partenaires externes, microservices) → là `api.<your-domain>` sous-domaine séparé + CORS strict devient pertinent. Mais le Frontend Web pourrait continuer en Option B en parallèle.
   - **Découplage Frontend / API souhaité** pour les déployer séparément (versions différentes, ratios de scaling différents) → 2 containers ≠ même origine.
 - **État** : **DÉCIDÉ le 29/05/2026 et APPLIQUÉ le 01/06/2026** (BACK-007 partie 3, PR #14). Validé en E2E local : bundle Blazor WASM appelle `/api/*` en same-origin via nginx reverse proxy, **zéro CORS error** dans la console DevTools.
 
@@ -716,11 +716,14 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - BACK-005 mergeable rapidement avec un scope clair et testable.
   - 3 tickets séparés (BACK-077/078/079) avec des responsabilités claires, mergeables indépendamment dans le bon ordre.
   - **Avant la mise en prod publique** : BACK-078 → BACK-010 → BACK-079 → BACK-077 → ensuite seulement on déploie.
-  - Documentation utilisateur : la `Privacy.razor` section 5 mentionne déjà que "vos données sont supprimées dans les 30 jours", et précisera "via un processus automatisé quotidien" une fois BACK-077 mergé.
+  - Documentation utilisateur : la `Privacy.razor` section 5 mentionne le délai de grâce 30 jours et précise "via un processus automatisé quotidien" (blocs activés lors du merge BACK-077).
 
 - **Date** : 2026-06-23, identifié pendant l'implémentation de BACK-005 sur la question de la sécurité d'une opération destructive automatique en l'absence de backup/monitoring.
 
-- **État** : APPLIQUÉ le 29/06/2026 via **BACK-005** (PR #25 `feature/BACK-005-soft-delete-account`, merge commit `c2480ac`). 12 commits atomiques. Test E2E exhaustif validé (7 scénarios + purge >30j simulée via `UPDATE` SQL manuel). Stratégie login-check seule retenue pour MVP. Cron auto (BACK-077) reste à implémenter APRÈS BACK-078 (backup) + BACK-010 (Serilog) + BACK-079 (monitoring) avant mise en prod publique.
+- **État** : APPLIQUÉ EN 2 TEMPS.
+  - **Phase 1 — Login-check purge MVP** : implémentée le 29/06/2026 via **BACK-005** (PR #25 `feature/BACK-005-soft-delete-account`, merge commit `c2480ac`). 12 commits atomiques. Test E2E exhaustif validé (7 scénarios + purge >30j simulée via `UPDATE` SQL manuel). Stratégie login-check seule = MVP fonctionnel couvrant les users qui reviennent (80% des cas).
+  - **Phase 2 — Cron auto (couverture 100% des cas RGPD Art. 17)** : implémentée le 29/07/2026 via **BACK-077** (PR #41 `feature/BACK-077-account-purge-cron`, merge commit `7445588`). 5 commits atomiques : config `AccountPurgeOptions` + service `AccountPurgeService : BackgroundService` + registration + 4 tests unitaires TestContainers + activation blocs Privacy.razor. Prérequis satisfaits en amont : [BACK-078](../documentation/BACKLOG.md#back-078) partie 1 mergée (backup local chiffré GPG asymétrique, filet de sécurité en cas de bug catastrophique), [BACK-010](../documentation/BACKLOG.md#back-010) mergé (Serilog structuré pour tracer chaque exécution), [BACK-079](../documentation/BACKLOG.md#back-079) mergé (alerting `NotifyMassPurgeAsync` déclenché à chaque run). Test manuel E2E validé sur vrai Postgres dev.
+  - **RGPD Art. 17 100% couvert** : login-check + cron auto couvrent respectivement les users actifs (récupération / annulation demande) et les users fantômes (purge automatique à J+30). Aucun compte marqué pour suppression ne peut rester indéfiniment en BDD.
 
 ---
 
@@ -737,7 +740,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
      - Résultat : compromise du VPS = attaquant vole des `.dump.gpg` illisibles sans la clé privée.
   3. **Règle 3-2-1** appliquée : 3 copies des données (BDD prod + backup local VPS + backup externe), 2 supports différents (disque VPS + service externe), 1 copie hors-site (service off-site S3-compatible ou SFTP à définir en partie 2).
   4. **Découpage BACK-078 en 2 parties** :
-     - **Partie 1 (à traiter maintenant)** : script `backup.sh` sur VPS = `pg_dump` + chiffrement GPG + stockage local `/backups/` + rétention 30j + cron quotidien 3h du matin. Débloque le principal filet de sécurité (permet de restaurer en cas de bug BDD ou migration foireuse). **Autonome, faisable en local sans VPS opérationnel.**
+     - **Partie 1 (à traiter maintenant)** : script `backup.sh` sur VPS = `pg_dump` + chiffrement GPG + stockage local `/backups/` + rétention 30j + cron quotidien pendant les heures creuses. Débloque le principal filet de sécurité (permet de restaurer en cas de bug BDD ou migration foireuse). **Autonome, faisable en local sans VPS opérationnel.**
      - **Partie 2 (avant mise en prod publique)** : script `upload.sh` = copie hors-site vers un service de stockage externe (S3-compatible ou SFTP, à sélectionner en partie 2) via `rsync`/`rclone`/`sftp` + rétention 90j côté externe + cron hebdomadaire. Complète la conformité RGPD Art. 32 (portabilité + résilience).
 
 - **Pourquoi ces choix** :
@@ -767,15 +770,16 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **Nouveau service `backup`** dans `docker-compose.prod.yml` (alpine + pg_dump + gpg + cron).
   - **Fiche `POSTGRES-BACKUP-CHEATSHEET.md`** ajoutée à `documentation/fiches/` pour référence rapide (chiffrer, déchiffrer, restaurer).
   - **Section "Backup & Restore"** ajoutée à `DEPLOYMENT.md`.
-  - **PR partie 1 non prod-ready** : mention explicite dans le commit et la PR que la mise en prod publique nécessite la partie 2 (règle 3-2-1 complète).
-  - **BACK-077 (cron purge auto) débloqué** dès que partie 1 + partie 2 sont mergées (car opération destructive automatisée nécessite filet backup + monitoring).
+  - **BACK-077 (cron purge auto) débloqué** dès que la partie 1 est mergée + off-site en place (automatisé ou manuel), car opération destructive automatisée nécessite filet backup + monitoring.
 
 - **Conditions qui invalideraient ce choix** :
   - **Ajout d'un stockage de fichiers persistants** (images uploadées, PDF, etc.) → étendre BACK-078 avec `uploads.tar.gpg`.
   - **BDD très grosse** (>100 Go) → passer à un backup incrémental (WAL archiving) au lieu de full `pg_dump` quotidien.
   - **Multi-tenant avec conformité stricte** → migrer vers une solution managée type Barman ou pgBackRest avec point-in-time recovery.
 
-- **État** : DÉCIDÉ le 06/07/2026. **PARTIE 1** à implémenter dans `feature/BACK-078p1-backup-basic`. **PARTIE 2** à implémenter dans `feature/BACK-078p2-backup-offsite` avant la mise en prod publique.
+- **État** : DÉCIDÉ le 06/07/2026.
+  - **PARTIE 1** : ✅ MERGÉE le 07/07/2026 (PR #26 `feature/BACK-078p1-backup-basic`). Backup local automatisé chiffré + test E2E restore validé.
+  - **PARTIE 2** : ⚠️ REPRIORISÉE le 29/07/2026 pour tenir la fenêtre V1 launch. Le découpage initial "avant la mise en prod publique" a été révisé en 2 volets : (a) pour V1, l'off-site est **opérateur-managed sur médium physique séparé** — mesure raisonnable au sens RGPD Art. 32 pour un volume V1 (quelques dizaines d'users maxi), satisfait la règle 3-2-1 (3 copies, 2 supports, 1 hors-site) mais dépend de la discipline opérateur ; (b) l'automatisation du off-site via `rclone` + object storage S3-compatible ou SFTP est tracée dans le backlog privé pour V1.1 afin de supprimer la dépendance opérateur. Procédure de la V1 (médium physique) documentée dans le runbook ops privé, mentionnée génériquement dans `DEPLOYMENT.md` public. Le split 2-parties de la décision initiale reste conceptuellement valide — seule la temporalité de la partie 2 a été révisée.
 
 ---
 

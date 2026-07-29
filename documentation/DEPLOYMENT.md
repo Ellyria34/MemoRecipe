@@ -3,7 +3,7 @@
 This document describes how to build, publish, deploy, and rollback the
 MemoRecipe stack (API + Frontend + Backup) using GitHub Container Registry
 (GHCR) for the API and Frontend images, and a locally-built image for the
-Backup service (part 1 — see BACK-078 / DEC-038 for the rationale).
+Backup service (see BACK-078 / DEC-038 for the rationale).
 
 It follows DEC-031 (Registry GHCR over on-VPS build) and DEC-027
 (Frontend served via nginx custom Dockerfile), and DEC-038 (backup with
@@ -62,13 +62,13 @@ a publish phase on the dev machine, and a deploy phase on the VPS.
 |-----------------------------------|---------------|------------------------------------------------|
 | Code + compose + .env.example     | GitHub repo   | `git pull origin main`                         |
 | Docker images (API + Frontend)    | GHCR          | `docker compose pull`                          |
-| Backup image (part 1)             | Local build   | `docker compose build backup` (uses `infra/backup/` from the repo) |
+| Backup image                      | Local build   | `docker compose build backup` (uses `infra/backup/` from the repo) |
 
 The GitHub repo and GHCR are two separate services that both live under
 the same GitHub account, but store different things (source code vs
-built container images). The Backup image is built locally in part 1
-(BACK-078 part 1); pushing it to GHCR is deferred to part 2 (or when
-adding a CI/CD pipeline in BACK-008) to keep the initial scope focused.
+built container images). The Backup image is built locally on the VPS;
+publishing it to GHCR is deferred to a future iteration (or when adding
+a CI/CD pipeline in BACK-008) to keep the initial scope focused.
 
 ### Versioning & rollback
 
@@ -410,7 +410,7 @@ for the documented procedure).
 
 ## Backup & Restore (PostgreSQL)
 
-> ⚠️ **PART 1 ONLY — NOT PROD-READY**. This section documents the local backup pipeline implemented in BACK-078 part 1. Backups are stored **only on the VPS** (violates the 3-2-1 rule). Off-site copy (to an S3-compatible or SFTP storage service) will be added in BACK-078 part 2 before the app is deployed to public production. See **DEC-038** for the full architectural rationale (GPG asymmetric encryption, 3-2-1 rule, part 1/2 split).
+> **Backup strategy**: local automated encrypted backup (this section) combined with an off-site copy on a separate medium (operator-managed for the initial release, automation tracked as a follow-up in the private ops backlog). The 3-2-1 rule is satisfied through this dual approach. See **DEC-038** for the architectural rationale (GPG asymmetric encryption, phased delivery).
 
 ### Architecture
 
@@ -549,7 +549,7 @@ Alerts on backup failure / staleness will be implemented in **BACK-079** (monito
 
 - **GPG keybox lock in container** (fixed in `backup.sh`): the script uses a fresh temporary `GNUPGHOME` for each run to avoid stale `keyboxd` socket locks left over by previous `docker exec` invocations. Do NOT remove that logic without re-testing end-to-end.
 - **Postgres version mismatch**: the backup container uses `postgres:16-alpine` as its base image, guaranteeing the exact same `pg_dump` binary version as the server. When bumping Postgres to a new major version, bump both containers together.
-- **Retention is local only** in part 1: 30 days rolling window on the VPS. If the VPS goes down, everything is lost. Off-site copy will land in BACK-078 part 2 (S3-compatible or SFTP storage).
+- **Local retention** is a rolling window on the VPS. Off-site protection is delivered through an operator-managed copy on a separate medium; full automation of the off-site step is tracked in the private ops backlog.
 
 ---
 
