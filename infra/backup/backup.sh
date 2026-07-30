@@ -6,10 +6,14 @@
 # - Detailed logging (timestamp, step, size, duration)
 #
 # Environment variables required:
-#   PGHOST, PGUSER, PGPASSWORD, PGDATABASE
+#   PGHOST, PGUSER, PGDATABASE
 #   GPG_RECIPIENT (email of the public key imported in the container)
 #   BACKUP_DIR (default: /backups)
 #   RETENTION_DAYS (default: 30)
+#
+# Secret files (Docker Compose secrets pattern, aligned with BACK-004):
+#   /run/secrets/postgres_password (loaded and exported as PGPASSWORD if present)
+#   Fallback: PGPASSWORD env var if the secret file is absent (dev compat)
 
 # ------------------------------------------------------------
 # Section 1 - Fail-fast on error
@@ -28,6 +32,15 @@ log() {
     message="$2"
     printf '[%s] [%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$level" "$message"
 }
+
+# ------------------------------------------------------------
+# Section 3a - Load PGPASSWORD from Docker Secret file if available
+# (compose prod monte le secret dans /run/secrets/postgres_password)
+# ------------------------------------------------------------
+if [ -f /run/secrets/postgres_password ]; then
+    PGPASSWORD=$(cat /run/secrets/postgres_password)
+    export PGPASSWORD
+fi
 
 # ------------------------------------------------------------
 # Section 3 - Environment variable validation (fail-fast)
@@ -100,4 +113,3 @@ log INFO "Deleted ${DELETED} old backup(s)"
 REMAINING=$(find "${BACKUP_DIR}" -name "memorecipe_*.dump.gpg" -type f | wc -l)
 log INFO "Total backups remaining: ${REMAINING}"
 log INFO "=== MemoRecipe backup completed successfully ==="
-
