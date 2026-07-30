@@ -160,7 +160,12 @@ sudo chmod 400 <secrets-path>/*
 Back up the plaintext values in a secure secrets vault immediately —
 these files are the only copies.
 
-### `docker-compose.prod.yml` (excerpt to add during BACK-007p3)
+### `docker-compose.prod.yml` (reference — already applied)
+
+The compose file at the repo root uses the Docker Secrets pattern. The
+`file:` entries below reference `${SECRETS_PATH}` — a variable set in
+`.env` (see `.env.example`) that points to the host directory where the
+one-file-per-secret files live.
 
 ```yaml
 services:
@@ -180,22 +185,33 @@ services:
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
 
+  backup:
+    build:
+      context: .
+      dockerfile: infra/backup/Dockerfile
+    secrets:
+      - postgres_password
+    environment:
+      GPG_RECIPIENT: ${GPG_RECIPIENT}
+
 secrets:
   JwtSettings__Secret:
-    file: <secrets-path>/JwtSettings__Secret
+    file: ${SECRETS_PATH}/JwtSettings__Secret
   ConnectionStrings__DefaultConnection:
-    file: <secrets-path>/ConnectionStrings__DefaultConnection
+    file: ${SECRETS_PATH}/ConnectionStrings__DefaultConnection
   OcrScan__BaseUrl:
-    file: <secrets-path>/OcrScan__BaseUrl
+    file: ${SECRETS_PATH}/OcrScan__BaseUrl
   Telegram__BotToken:
-    file: <secrets-path>/Telegram__BotToken
+    file: ${SECRETS_PATH}/Telegram__BotToken
   Telegram__ChatId:
-    file: <secrets-path>/Telegram__ChatId
+    file: ${SECRETS_PATH}/Telegram__ChatId
   postgres_password:
-    file: <secrets-path>/postgres_password
+    file: ${SECRETS_PATH}/postgres_password
 ```
 
 Each service only lists the secrets it actually needs (least privilege).
+The `backup` service reads `postgres_password` from `/run/secrets/` in
+`infra/backup/backup.sh` (loaded into `PGPASSWORD` before `pg_dump`).
 
 ### Verify (never print values)
 
@@ -396,8 +412,9 @@ The PAT is missing, expired, or lacks `read:packages`. Re-run
 Check the logs: `docker compose ... logs api`. Most common causes:
 - PostgreSQL not ready -> the `depends_on: condition: service_healthy`
   should prevent this, but verify postgres logs first.
-- JWT_SECRET missing or too short (< 64 chars).
-- Wrong connection string (POSTGRES_USER / DB mismatch between env vars).
+- `JwtSettings__Secret` secret file missing or too short (< 64 chars). The API fails fast with `Configuration 'JwtSettings:Secret' is invalid`.
+- Mismatch between the `postgres_password` file (used by Postgres to init the user) and the `Password=...` inside the `ConnectionStrings__DefaultConnection` file. Both must be strictly identical (no trailing whitespace/newline).
+- Mismatch between `.env` `POSTGRES_USER` / `POSTGRES_DB` and the `Username=` / `Database=` values inside the `ConnectionStrings__DefaultConnection` file.
 
 ### Data appears empty after switching from dev compose to prod compose
 
@@ -448,7 +465,7 @@ for the documented procedure).
 
 The `backup` service is defined in `docker-compose.prod.yml` with:
 - `depends_on: postgres (service_healthy)` — waits for Postgres to be healthy.
-- Environment variables mapping `.env` `POSTGRES_*` to the standard PostgreSQL `PG*` names (`PGHOST`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`).
+- Environment variables passed to the container: `PGHOST` (hardcoded to the `postgres` service name), `PGUSER` and `PGDATABASE` (from `.env` via `${POSTGRES_USER}` / `${POSTGRES_DB}`). The Postgres password is NOT passed as an env var — `backup.sh` loads it from the mounted file secret `/run/secrets/postgres_password` and exports it as `PGPASSWORD` at script start (section 3a).
 - `restart: unless-stopped` — the container stays alive between backups (cron waits inside).
 
 Once the compose stack is up:
