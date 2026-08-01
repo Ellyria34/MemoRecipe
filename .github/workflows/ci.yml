@@ -56,3 +56,56 @@ jobs:
         run: dotnet restore App/MemoRecipe.Web/MemoRecipe.Web.csproj
       - name: Build
         run: dotnet build App/MemoRecipe.Web/MemoRecipe.Web.csproj --no-restore
+
+  vuln-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup .NET 8 (for IA solution)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Scan API solution
+        run: |
+          output=$(dotnet list memoRecipeAppProject/memorecipe-api/memorecipe-api.sln package --vulnerable --include-transitive)
+          echo "$output"
+          if echo "$output" | grep -qE '(High|Critical)'; then
+            echo "::error::High or Critical vulnerability detected in API solution"
+            exit 1
+          fi
+        
+      - name: Scan IA Solution
+        run: |
+          output=$(dotnet list memoRecipe-ia/memorecipe-ia.sln package --vulnerable --include-transitive)
+          echo "$output"
+          if echo "$output" | grep -qE '(High|Critical)'; then
+            echo "::error::High or Critical vulnerability detected in IA Solution"
+            exit 1
+          fi
+
+      - name: Scan Web project
+        run: |
+          output=$(dotnet list App/MemoRecipe.Web/MemoRecipe.Web.csproj package --vulnerable --include-transitive)
+          echo "$output"
+          if echo "$output" | grep -qE '(High|Critical)'; then
+            echo "::error::High or Critical vulnerability detected in Web project"
+            exit 1
+          fi
+
+      - name: Scan tests project
+        run: |
+          output=$(dotnet list tests/MemoRecipe.IA.Tests/MemoRecipe.IA.Tests.csproj package --vulnerable --include-transitive)
+          echo "$output"
+          if echo "$output" | grep -qE '(High|Critical)'; then
+            echo "::error::High or Critical vulnerability detected in IA Tests project"
+            exit 1
+          fi
+    
