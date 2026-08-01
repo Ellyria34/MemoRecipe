@@ -39,12 +39,8 @@ jobs:
         run: dotnet restore tests/MemoRecipe.IA.Tests/MemoRecipe.IA.Tests.csproj
       - name: Build
         run: dotnet build tests/MemoRecipe.IA.Tests/MemoRecipe.IA.Tests.csproj --no-restore
-      - name: Install Tesseract native libs
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y tesseract-ocr libleptonica-dev
-      - name: Test
-        run: dotnet test tests/MemoRecipe.IA.Tests/MemoRecipe.IA.Tests.csproj --no-build
+      - name: Test (unit only — integration tests requiring Tesseract native libs run locally, see RELEASING.md)
+        run: dotnet test tests/MemoRecipe.IA.Tests/MemoRecipe.IA.Tests.csproj --no-build --filter "Category!=Integration"
 
   build-web:
     runs-on: ubuntu-latest
