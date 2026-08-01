@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore
+        run: dotnet restore memoRecipeAppProject/memorecipe-api/memorecipe-api.sln
+      - name: Build
+        run: dotnet build memoRecipeAppProject/memorecipe-api/memorecipe-api.sln --no-restore
+      - name: Test
+        run: dotnet test memoRecipeAppProject/memorecipe-api/memorecipe-api.sln --no-build
+
+  test-ia:
+    runs-on: ubuntu-latest
+    # NOTE: MemoRecipe.IA.Tests is orphan (not referenced in any .sln).
+    # Targeting the .csproj directly. When BACK-062 resolves this, switch to
+    # `memoRecipe-ia/memorecipe-ia.sln` (which will then contain the tests).
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore tests/MemoRecipe.IA.Tests/MemoRecipe.IA.Tests.csproj
+      - name: Build
+        run: dotnet build tests/MemoRecipe.IA.Tests/MemoRecipe.IA.Tests.csproj --no-restore
+      - name: Test
+        run: dotnet test tests/MemoRecipe.IA.Tests/MemoRecipe.IA.Tests.csproj --no-build
+
+  build-web:
+    runs-on: ubuntu-latest
+    # NOTE: MemoRecipe.Web doesn't have tests for the moment, we only restore and build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore
+        run: dotnet restore App/MemoRecipe.Web/MemoRecipe.Web.csproj
+      - name: Build
+        run: dotnet build App/MemoRecipe.Web/MemoRecipe.Web.csproj --no-restore
