@@ -6,6 +6,7 @@ using MemoRecipe.Infrastructure.Database;
 using System.Data.Common;
 using MemoRecipe.Application.Services.OcrScan;
 using Testcontainers.PostgreSql;
+using Microsoft.Extensions.Configuration;
 
 namespace MemoRecipe.Api.Tests.Helpers;
 public class CustomWebApplicationFactory<Program> : WebApplicationFactory<Program>, IAsyncLifetime where Program : class
@@ -18,8 +19,9 @@ static CustomWebApplicationFactory()
     Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", 
     "Host=fake;Database=fake;Username=fake;Password=fake");
     Environment.SetEnvironmentVariable("OcrScan__BaseUrl", "http://fake-ocr/");
-    Environment.SetEnvironmentVariable("Telegram__BotToken", "FAKE_TEST_TOKEN_NOT_USED");   // ← ajout
-    Environment.SetEnvironmentVariable("Telegram__ChatId", "0");                            // ← ajout
+    Environment.SetEnvironmentVariable("Telegram__BotToken", "FAKE_TEST_TOKEN_NOT_USED");
+    Environment.SetEnvironmentVariable("Telegram__ChatId", "0");
+    Environment.SetEnvironmentVariable("Cors__AllowedOrigins__0", "http://localhost:5110");
 }
 
 
@@ -41,6 +43,18 @@ static CustomWebApplicationFactory()
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.ConfigureAppConfiguration((context, config) =>
+        {
+            // Test-specific overrides for values that live in appsettings.Development.json
+            // locally but are absent on CI runners. This runs AFTER Program.cs config reads,
+            // so ONLY suitable for lazy-bound configs (via IOptions<T>). For eager reads
+            // (like Cors:AllowedOrigins at Program.cs L48), set env vars in the static ctor.
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Features:ScanRecipeEnabled"] = "true",
+            });
+        });
+
         builder.ConfigureServices(services =>
         {
             // Remove all services related to the PostgreSQL DbContext

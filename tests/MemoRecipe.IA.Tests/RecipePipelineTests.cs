@@ -10,6 +10,7 @@ namespace MemoRecipe.IA.Tests.Integration.Pipeline
     public class RecipePipelineTests
     {
         [Fact]
+        [Trait("Category", "Integration")]
         public async Task ProcessAsync_WithValidImage_ReturnsParsedRecipe()
         {
             // Arrange
