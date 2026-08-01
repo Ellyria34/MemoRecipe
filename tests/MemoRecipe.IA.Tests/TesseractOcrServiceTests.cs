@@ -8,6 +8,7 @@ namespace MemoRecipe.IA.Tests.Integration.OCR
     public class TesseractOcrServiceTests
     {
         [Fact]
+        [Trait("Category", "Integration")]
         public async Task ExtractAsync_WithValidImage_ReturnsNonEmptyText()
         {
             // Arrange
