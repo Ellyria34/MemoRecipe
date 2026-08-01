@@ -21,6 +21,7 @@ static CustomWebApplicationFactory()
     Environment.SetEnvironmentVariable("OcrScan__BaseUrl", "http://fake-ocr/");
     Environment.SetEnvironmentVariable("Telegram__BotToken", "FAKE_TEST_TOKEN_NOT_USED");
     Environment.SetEnvironmentVariable("Telegram__ChatId", "0");
+    Environment.SetEnvironmentVariable("Cors__AllowedOrigins__0", "http://localhost:5110");
 }
 
 
@@ -45,12 +46,12 @@ static CustomWebApplicationFactory()
         builder.ConfigureAppConfiguration((context, config) =>
         {
             // Test-specific overrides for values that live in appsettings.Development.json
-            // locally but are absent on CI runners (Development json is gitignored).
-            // These must match what tests expect.
+            // locally but are absent on CI runners. This runs AFTER Program.cs config reads,
+            // so ONLY suitable for lazy-bound configs (via IOptions<T>). For eager reads
+            // (like Cors:AllowedOrigins at Program.cs L48), set env vars in the static ctor.
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Features:ScanRecipeEnabled"] = "true",
-                ["Cors:AllowedOrigins:0"] = "http://localhost:5110"
             });
         });
 
