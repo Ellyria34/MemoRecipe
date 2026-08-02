@@ -1,5 +1,8 @@
 # MemoRecipe
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+[![CI](https://github.com/Ellyria34/MemoRecipe/actions/workflows/ci.yml/badge.svg)](https://github.com/Ellyria34/MemoRecipe/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Ellyria34/MemoRecipe/actions/workflows/codeql.yml/badge.svg)](https://github.com/Ellyria34/MemoRecipe/actions/workflows/codeql.yml)
+
 
 MemoRecipe is a personal project that started from a concrete need: being able to import recipes from photos or scans (magazines, handwritten notes), then correct, improve, and reuse them over time.
 
