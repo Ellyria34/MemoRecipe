@@ -114,4 +114,45 @@ jobs:
             echo "::error::High or Critical vulnerability detected in IA Tests project"
             exit 1
           fi
+
+  lighthouse-a11y:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (for @lhci/cli)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli@0.15.x
+
+      - name: Build Web Docker image
+        run: docker build -t memorecipe-web:lighthouse-test App/MemoRecipe.Web
+
+      - name: Run Web container (with --add-host to bypass nginx reverse proxy DNS)
+        run: docker run --rm -d -p 8080:80 --add-host=api:127.0.0.1 --name memorecipe-web-lighthouse memorecipe-web:lighthouse-test
+
+      - name: Wait for Web container ready
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:8080/ > /dev/null; then
+              echo "Web is up"
+              exit 0
+            fi
+            echo "Waiting for Web... ($i/30)"
+            sleep 2
+          done
+          echo "::error::Web container not ready after 60s"
+          exit 1
+
+      - name: Run Lighthouse audit
+        run: lhci autorun
+
+      - name: Stop Web container
+        if: always()
+        run: docker stop memorecipe-web-lighthouse || true
+
     
