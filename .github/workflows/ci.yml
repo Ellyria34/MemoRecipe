@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege for all jobs — read repo contents only.
+# Individual jobs can override this if they need write access (e.g., future
+# build-and-push job on tag v* will need `packages: write` for GHCR).
+permissions:
+  contents: read
+
 jobs:
   test-api:
     runs-on: ubuntu-latest
