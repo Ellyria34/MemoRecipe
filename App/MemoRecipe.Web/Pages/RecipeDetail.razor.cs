@@ -24,15 +24,11 @@ public partial class RecipeDetail
     public Guid Id { get; set; }
 
     private RecipeDto? _recipe;
-    bool _isLoading = false;
-    string? _errorMessage = "";
 
     MudMessageBox _confirmDialog = default!;
 
     protected override async Task OnInitializedAsync()
     {
-        _isLoading = true;
-        _errorMessage = null;
         try
         {
             _recipe = await RecipeService.GetRecipeByIdAsync(Id);
@@ -40,13 +36,7 @@ public partial class RecipeDetail
         }
         catch (Exception)
         {
-            _errorMessage = "Un problème est survenu lors du chargement de votre recette";
-            //attendre un peu
             Navigation.NavigateTo($"/recipes");
-        }
-        finally
-        {
-            _isLoading = false;
         }
     }
     private async Task HandleRedirection()

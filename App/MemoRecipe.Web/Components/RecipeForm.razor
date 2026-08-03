@@ -4,7 +4,7 @@
 
     @* Metadata section *@
     <section aria-labelledby="recipe-metadata-heading">
-        <MudText Typo="Typo.h6" Component="h2" id="recipe-metadata-heading" Class="mb-3">
+        <MudText Typo="Typo.h6" HtmlTag="h2" id="recipe-metadata-heading" Class="mb-3">
             Informations générales
         </MudText>
 
@@ -13,12 +13,12 @@
                           @bind-Value:after="NotifyChange"
                           Label="Titre"
                           Required="true"
-                          MinLength="3" MaxLength="200"
+                          minlength="3" MaxLength="200"
                           Counter="200" />
 
             <MudTextField @bind-Value="Recipe.Description"
                           Label="Description"
-                          Lines="3" AutoGrow="true"
+                          Lines="3" Sizing="InputSizing.Auto"
                           MaxLength="2000" Counter="2000" />
 
             <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2">
@@ -55,7 +55,7 @@
 
     @* Ingredients section *@
     <section aria-labelledby="recipe-ingredients-heading">
-        <MudText Typo="Typo.h6" Component="h2" id="recipe-ingredients-heading" Class="mb-3">
+        <MudText Typo="Typo.h6" HtmlTag="h2" id="recipe-ingredients-heading" Class="mb-3">
             Ingrédients (@Recipe.Ingredients.Count)
         </MudText>
 
@@ -75,7 +75,7 @@
                         <MudIconButton Icon="@Icons.Material.Filled.Delete"
                                     Size="Size.Large"
                                     Color="Color.Error"
-                                    Title="@($"Supprimer l'ingrédient {displayNumber}")"
+                                    title="@($"Supprimer l'ingrédient {displayNumber}")"
                                     aria-label="@($"Supprimer l'ingrédient {displayNumber}")"
                                     OnClick="() => Recipe.Ingredients.RemoveAt(index)" />
                     </MudStack>
@@ -110,7 +110,7 @@
 
     @* Steps section *@
     <section aria-labelledby="recipe-steps-heading">
-        <MudText Typo="Typo.h6" Component="h2" id="recipe-steps-heading" Class="mb-3">
+        <MudText Typo="Typo.h6" HtmlTag="h2" id="recipe-steps-heading" Class="mb-3">
             Étapes (@Recipe.Steps.Count)
         </MudText>
 
@@ -125,14 +125,14 @@
                         <MudIconButton Icon="@Icons.Material.Filled.Delete"
                                        Size="Size.Large"
                                        Color="Color.Error"
-                                       Title="@($"Supprimer l'étape {stepNumber}")"
+                                       title="@($"Supprimer l'étape {stepNumber}")"
                                        aria-label="@($"Supprimer l'étape {stepNumber}")"
                                        OnClick="() => Recipe.Steps.RemoveAt(index)" />
                     </MudStack>
                     <MudTextField @bind-Value="Recipe.Steps[index].Instruction"
                                   @bind-Value:after="NotifyChange"
                                   Label="Instruction"
-                                  Lines="3" AutoGrow="true" MaxLines="10"
+                                  Lines="3" Sizing="InputSizing.Auto" MaxLines="10"
                                   aria-label="@($"Instruction de l'étape {stepNumber}")" />
                 </MudStack>
             </MudCard>
