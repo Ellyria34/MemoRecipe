@@ -14,18 +14,16 @@ namespace MemoRecipe.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
-    private readonly IJwtService _jwtService;
     private readonly IValidator<RegisterDto> _registerDtoValidator;
     private readonly IValidator<LoginDto> _loginDtoValidator;
     private readonly IValidator<DeleteAccountDto> _deleteAccountValidator;
     private readonly IWebHostEnvironment _env;
 
 
-    public AuthController(IAuthService authService, IJwtService jwtService, IValidator<RegisterDto> registerDtoValidator,
+    public AuthController(IAuthService authService, IValidator<RegisterDto> registerDtoValidator,
                 IValidator<LoginDto> loginDtoValidator, IValidator<DeleteAccountDto> deleteAccountValidator, IWebHostEnvironment env)
     {
         _authService = authService;
-        _jwtService = jwtService;
         _registerDtoValidator = registerDtoValidator;
         _loginDtoValidator = loginDtoValidator;
         _deleteAccountValidator = deleteAccountValidator;
