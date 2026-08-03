@@ -180,9 +180,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push API image
-        env:
-          SDK_CONTAINER_REGISTRY_UNAME: ${{ github.actor }}
-          SDK_CONTAINER_REGISTRY_PWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
           dotnet publish memoRecipeAppProject/memorecipe-api/src/MemoRecipe.Api/MemoRecipe.Api.csproj \
             -c Release \
