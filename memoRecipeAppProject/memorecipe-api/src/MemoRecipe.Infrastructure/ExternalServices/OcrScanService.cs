@@ -10,9 +10,11 @@ public class OcrScanService : IOcrScanService
 {
     private readonly string _baseUrl;
     private readonly HttpClient _httpClient;
+
     public OcrScanService(IConfiguration configuration,  HttpClient httpClient)
     {
-        _baseUrl = configuration["OcrScan:BaseUrl"];
+        _baseUrl = configuration["OcrScan:BaseUrl"]
+            ?? throw new InvalidOperationException("OcrScan:BaseUrl is missing in configuration");
         _httpClient = httpClient;
     }
     
@@ -27,7 +29,9 @@ public class OcrScanService : IOcrScanService
         
         var json = await response.Content.ReadAsStringAsync()
             ?? throw new InvalidOperationException("Failed to deserialize OCR response");
-        var extractedRecipe = JsonSerializer.Deserialize<ExtractedRecipeDto>(json);
+            
+        var extractedRecipe = JsonSerializer.Deserialize<ExtractedRecipeDto>(json)
+            ?? throw new InvalidOperationException("Failed to deserialize OCR response");
 
         return extractedRecipe;
     }
