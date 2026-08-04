@@ -7,8 +7,16 @@ h1:focus {
 }
 
 a, .btn-link {
-    color: #8FBF9F;
+    color: #3D7250;
 }
+/* WCAG AA contrast fix for MudLink / MudTypography Color=Primary.
+   MudBlazor 9.1.0 defines .mud-primary-text with `color: !important` which
+   forces us to use !important to override. Contrast: #8FBF9F/white = 2.0:1
+   fail → #3D7250/white = 5.7:1 pass. */
+.mud-typography.mud-primary-text {
+    color: #3D7250 !important;
+}
+
 
 .valid.modified:not([type=checkbox]) {
     outline: 1px solid #8FBF9F;
