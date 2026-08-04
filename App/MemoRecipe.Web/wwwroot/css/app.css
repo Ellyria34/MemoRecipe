@@ -7,7 +7,19 @@ h1:focus {
 }
 
 a, .btn-link {
-    color: #8FBF9F;
+    color: #3D7250;
+}
+/* WCAG AA contrast fix for MudLink / MudTypography Color=Primary.
+   MudBlazor 9.1.0 defines .mud-primary-text with `color: !important` which
+   forces us to use !important to override. Contrast: #8FBF9F/white = 2.0:1
+   fail → #3D7250/white = 5.7:1 pass. */
+.mud-typography.mud-primary-text {
+    color: #3D7250 !important;
+}
+
+/* Hover state on all MudLink — subtle color darkening for feedback */
+.mud-link:hover {
+    opacity: 0.75;
 }
 
 .valid.modified:not([type=checkbox]) {
@@ -102,6 +114,13 @@ code {
 .mud-icon-root {
     color: #6a9c7e !important;
 }
+/* Icons inside Filled Primary buttons should follow the button text color
+   (#2D3436 via PrimaryContrastText) instead of the global icon color override.
+   Needed to override the global `.mud-icon-root` rule with !important. */
+.mud-button-filled-primary .mud-icon-root {
+    color: var(--mud-palette-primary-text) !important;
+}
+
 
 .mud-snackbar.mud-alert-filled-success {
     background-color: #6A9C7E !important;
