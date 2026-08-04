@@ -27,6 +27,8 @@
                     <MudText Typo="Typo.body2">
                         Fichier : @_selectedFile.Name
                         <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Primary"
+                                       title="Retirer le fichier sélectionné"
+                                       aria-label="Retirer le fichier sélectionné"
                                        OnClick="() => _selectedFile = null" />
                     </MudText>
                 }
