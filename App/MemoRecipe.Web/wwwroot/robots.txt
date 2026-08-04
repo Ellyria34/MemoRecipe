@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Sitemap: https://app.memorecipe.com/sitemap.xml
+
