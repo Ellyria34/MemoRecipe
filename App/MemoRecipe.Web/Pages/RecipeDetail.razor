@@ -1,4 +1,5 @@
 @page "/recipes/{id:guid}"
+<PageTitle>@(_recipe?.Title ?? "Détail recette") — MemoRecipe</PageTitle>
 
 @attribute [Authorize]
 
