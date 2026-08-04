@@ -17,6 +17,10 @@ a, .btn-link {
     color: #3D7250 !important;
 }
 
+/* Hover state on all MudLink — subtle color darkening for feedback */
+.mud-link:hover {
+    opacity: 0.75;
+}
 
 .valid.modified:not([type=checkbox]) {
     outline: 1px solid #8FBF9F;
@@ -110,6 +114,13 @@ code {
 .mud-icon-root {
     color: #6a9c7e !important;
 }
+/* Icons inside Filled Primary buttons should follow the button text color
+   (#2D3436 via PrimaryContrastText) instead of the global icon color override.
+   Needed to override the global `.mud-icon-root` rule with !important. */
+.mud-button-filled-primary .mud-icon-root {
+    color: var(--mud-palette-primary-text) !important;
+}
+
 
 .mud-snackbar.mud-alert-filled-success {
     background-color: #6A9C7E !important;
