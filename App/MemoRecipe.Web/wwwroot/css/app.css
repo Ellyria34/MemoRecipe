@@ -16,6 +16,10 @@ a, .btn-link {
 .mud-typography.mud-primary-text {
     color: #3D7250 !important;
 }
+/* Force text wrap on long words/URLs — fix mobile < 400px overflow */
+.mud-typography {
+    overflow-wrap: anywhere;
+}
 
 /* Hover state on all MudLink — subtle color darkening for feedback */
 .mud-link:hover {
