@@ -908,6 +908,45 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 
 ---
 
+### DEC-042 : Hébergement production — VPS Lite dédié (Docker manuel) + IA sur plateforme serverless externe
+
+- **Date** : 04 août 2026
+
+- **Choix** :
+  1. MemoRecipe se déploie sur un **VPS Linux dédié** (offre d'entrée de gamme d'un hébergeur européen), distinct de tout autre serveur mutualisé.
+  2. **Docker n'est pas préinstallé** : il est installé manuellement via l'accès root standard (SSH + élévation de privilèges), une fois la distribution Linux choisie au provisioning.
+  3. Le composant IA (OCR + appel LLM, cf. [DEC-018](#dec-018)) reste un **service externe** appelé par l'API via une URL configurable — il n'est **pas** conteneurisé sur le VPS. Il cible une plateforme serverless de type "container à la demande" (facturation à l'usage), et non un plan toujours-actif.
+  4. Le VPS reste dimensionné pour l'usage réel actuel (site Blazor WASM + API .NET + PostgreSQL en Docker Compose), avec un chemin de montée en gamme (offre supérieure du même hébergeur) disponible sans changement d'architecture si le trafic croît.
+
+- **Pourquoi ces choix** :
+  - **Serveur dédié plutôt que mutualisation avec d'autres projets** : un service en production ne doit pas dépendre de la charge d'autres usages sur la même machine. L'isolation complète élimine tout risque de contention de ressources ou d'incident croisé entre projets indépendants.
+  - **VPS d'entrée de gamme plutôt qu'une offre supérieure** : l'empreinte mémoire des 4 services du `docker-compose.prod.yml` (web, api, postgres, backup) est modeste et documentée (plafonds `mem_limit` par service). Payer pour une capacité inutilisée n'apporte aucune valeur tant que le trafic réel ne le justifie pas ; la migration vers une offre supérieure du même hébergeur est un simple changement de palier, pas une migration technique.
+  - **Docker manuel plutôt qu'un PaaS packagé** : cohérent avec le pipeline Docker Compose déjà construit et durci (BACK-007, [DEC-027](#dec-027), [DEC-031](#dec-031)) — l'accès root sur une distribution Linux standard suffit à installer Docker sans dépendre d'une offre PaaS propriétaire de l'hébergeur.
+  - **IA sur plateforme serverless externe plutôt que conteneurisée sur le VPS** : le projet IA dépend de librairies natives de reconnaissance optique de caractères, et son usage est ponctuel et irrégulier (un appel par scan utilisateur), avec des pics CPU sur des opérations courtes. Un modèle serverless facturé à l'usage absorbe cette charge sans dimensionner le VPS en permanence pour des pics rares, et sans faire concurrence aux services toujours actifs (site, API, BDD) sur la même machine. Le rate-limiting déjà prévu ([BACK-083](../documentation/BACKLOG.md#back-083)) plafonne par ailleurs le risque de dérive de coût liée à l'usage.
+
+- **Alternatives écartées** :
+  - **Cohabitation avec d'autres sites déjà hébergés sur un serveur mutualisé existant** : écartée pour isolation complète et suppression de tout risque de contention de ressources entre projets indépendants.
+  - **Tout héberger sur une plateforme cloud managée (site + API + BDD)** : écartée — une charge "toujours active" (site/API/BDD tournant en continu) est structurellement plus coûteuse sur des services managés facturés en continu que sur un serveur dédié à coût fixe, et cela abandonnerait le pipeline Docker Compose déjà construit et testé sans bénéfice fonctionnel.
+  - **Conteneuriser le projet IA sur le même VPS que le reste** : écartée — ferait concurrencer un workload CPU-intensif ponctuel avec les services always-on, et imposerait un palier VPS supérieur en permanence pour un besoin qui n'est qu'occasionnel.
+  - **PaaS Docker managé propriétaire de l'hébergeur** : écartée — moins de contrôle et moins de valeur d'apprentissage que la gestion directe d'un VPS + Docker Compose déjà maîtrisée.
+
+- **Sources** :
+  - Documentation officielle de l'hébergeur sur l'accès root SSH des offres VPS concernées.
+  - Documentation officielle Docker — installation standard sur une distribution Linux avec accès root (indépendante de tout hébergeur spécifique).
+  - Documentation officielle de la plateforme serverless ciblée pour l'IA — modèle de facturation à l'usage avec quota gratuit mensuel.
+
+- **Conséquences** :
+  - [BACK-009](../documentation/BACKLOG.md#back-009) (HTTPS forcé) doit désormais prévoir une installation complète du reverse proxy + certificat sur un serveur vierge, et non l'ajout d'un site virtuel supplémentaire sur un reverse proxy déjà en place — le runbook sera mis à jour en conséquence.
+  - Le déploiement futur du scan IA (V2, [BACK-033](../documentation/BACKLOG.md#back-033) / [BACK-083](../documentation/BACKLOG.md#back-083)) ciblera la plateforme serverless externe, pas le VPS — à documenter dans le runbook dédié le moment venu.
+
+- **Conditions qui invalideraient ce choix** :
+  - **Croissance de trafic dépassant la capacité du palier choisi** → montée de gamme chez le même hébergeur, sans changement d'architecture Docker Compose.
+  - **Volume d'usage IA dépassant durablement le quota gratuit de la plateforme serverless** → réévaluer le modèle de facturation ou l'hébergement de ce composant.
+
+- **État** : DÉCIDÉ le 04/08/2026. À appliquer au prochain runbook de déploiement ([BACK-009](../documentation/BACKLOG.md#back-009)).
+
+---
+
 ## Dette technique
 
 ### DEBT-001 : Structure de dossiers redondante (voir DEC-006)
