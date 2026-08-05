@@ -19,10 +19,10 @@
 
         <MudForm @bind-IsValid="_isValid">
             <MudTextField T="string" Label="Email" Variant="Variant.Outlined" InputType="InputType.Email"
-                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" Class="mb-4"
+                          Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" Class="mb-4"
                           @bind-Value="_email" Validation="@((string v) => ValidateEmail(v))" Required="true" />
 
-            <MudTextField T="string" ShrinkLabel="true" Label="Mot de passe" Variant="Variant.Outlined"
+            <MudTextField T="string" ShrinkLabel="true" Label="Mot de passe" Variant="Variant.Outlined" Immediate="true"
                           InputType="@(_showPassword ? InputType.Text : InputType.Password)" Adornment="Adornment.End"
                           AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
                           AdornmentAriaLabel="@(_showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe")"
@@ -33,16 +33,17 @@
         @if (!string.IsNullOrEmpty(_errorMessage))
         {
             <MudAlert Severity="Severity.Error" Class="mb-4" role="alert">@_errorMessage</MudAlert>
-        }
+  
+            }
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large" Class="mb-4"
-                   OnClick="HandleLogin">
-            Se connecter
-        </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large" Class="mb-4"
+                    OnClick = "HandleLogin" >
+                Se connecter
+</MudButton>
 
-        <MudText Align="Align.Center">
-            Pas encore de compte ?
-            <MudLink Href="/register" Underline="Underline.Always">S'inscrire</MudLink>
-        </MudText>
-    </MudPaper>
-</MudContainer>
+                <MudText Align="Align.Center">
+                    Pas encore de compte ?
+                    <MudLink Href="/register" Underline="Underline.Always">S'inscrire</MudLink>
+                </MudText>
+            </MudPaper>
+        </MudContainer>
