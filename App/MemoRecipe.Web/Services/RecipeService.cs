@@ -27,7 +27,7 @@ public class RecipeService : IRecipeService
         MultipartFormDataContent content = new MultipartFormDataContent();
         var streamContent = new StreamContent(imageStream);
         streamContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
-        content.Add(streamContent, "imageFile",fileName);
+        content.Add(streamContent, "imageFile", fileName);
         var response = await _httpClient.PostAsync("api/recipe/scan", content);
         response.EnsureSuccessStatusCode();
 
@@ -47,19 +47,23 @@ public class RecipeService : IRecipeService
         return Deserialize<RecipeDto>(json);
     }
 
-    public async Task<List<RecipeDto>> GetAllRecipesAsync(int? limit = null, string? orderBy = null, bool descending = true)
+    public async Task<PagedResult<RecipeDto>> GetAllRecipesAsync(int page = 1, int pageSize = 10, string? orderBy = null, bool descending = true)
     {
-        var queryParams = new List<string>();
-        if (limit.HasValue) queryParams.Add($"limit={limit}");
+        var queryParams = new List<string>
+        {   
+            $"page={page}",
+            $"pageSize={pageSize}"
+        };
+        
         if (orderBy != null) queryParams.Add($"orderBy={orderBy}");
         if (!descending) queryParams.Add("descending=false");
 
-        var querystring= string.Join("&", queryParams);
+        var querystring = string.Join("&", queryParams);
 
         var response = await _httpClient.GetAsync($"api/recipe?{querystring}");
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadAsStringAsync();
-        return Deserialize<List<RecipeDto>>(json);
+        return Deserialize<PagedResult<RecipeDto>>(json);
     }
 
     public async Task<RecipeDto> GetRecipeByIdAsync(Guid id)

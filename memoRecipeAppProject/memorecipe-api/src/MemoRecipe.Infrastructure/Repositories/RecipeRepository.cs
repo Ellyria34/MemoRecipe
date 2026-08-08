@@ -3,6 +3,7 @@ using MemoRecipe.Domain.Entities.Recipes;
 using MemoRecipe.Infrastructure.Database;
 using MemoRecipe.Application.DTOs.Recipes;
 using Microsoft.EntityFrameworkCore;
+using MemoRecipe.Application.DTOs.Common;
 
 
 namespace MemoRecipe.Infrastructure.Repositories;
@@ -26,7 +27,7 @@ public class RecipeRepository : IRecipeRepository
         return recipe;
     }
 
-    public async Task<List<Recipe>> GetAllByUserIdAsync(Guid userId, RecipeQueryParams queryParams)
+    public async Task<PagedResult<Recipe>> GetAllByUserIdAsync(Guid userId, RecipeQueryParams queryParams)
     {
         IQueryable<Recipe> query = _db.Recipes.Where(r => r.UserId == userId)
             .Include(r => r.Ingredients)
@@ -51,13 +52,15 @@ public class RecipeRepository : IRecipeRepository
                 query = query.OrderByDescending(r => r.CreatedAt);
                 break;
         }
+        
+        var totalCount = await query.CountAsync();
 
-        if (queryParams.Limit.HasValue)
-        {
-            query = query.Take(queryParams.Limit.Value);
-        }
+        var items = await query
+            .Skip((queryParams.Page - 1) * queryParams.PageSize)
+            .Take(queryParams.PageSize)
+            .ToListAsync();
 
-        return await query.ToListAsync();
+        return new PagedResult<Recipe>(items, totalCount, queryParams.Page, queryParams.PageSize);
     }
 
     public async Task AddAsync(Recipe recipe)

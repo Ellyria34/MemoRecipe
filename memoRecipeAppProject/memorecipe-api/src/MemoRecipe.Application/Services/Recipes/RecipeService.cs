@@ -6,6 +6,7 @@ using MemoRecipe.Domain.Entities.Steps;
 using MemoRecipe.Application.Mappings.Profiles;
 using MemoRecipe.Application.Exceptions;
 using Microsoft.Extensions.Logging;
+using MemoRecipe.Application.DTOs.Common;
 
 namespace MemoRecipe.Application.Services.Recipes;
 
@@ -37,14 +38,16 @@ public class RecipeService : IRecipeService
                 "UnauthorizedRecipeRead", userId, id);
             return null;
         }
-        
+
         return recipe.ToDto();
     }
 
-    public async Task<List<RecipeDto>> GetAllByUserAsync(Guid userId, RecipeQueryParams queryParams)
+    public async Task<PagedResult<RecipeDto>> GetAllByUserAsync(Guid userId, RecipeQueryParams queryParams)
     {
-        var recipes = await _repository.GetAllByUserIdAsync(userId, queryParams);
-        return recipes.Select(r => r.ToDto()).ToList();
+        var pagedRecipes = await _repository.GetAllByUserIdAsync(userId, queryParams);
+        var items = pagedRecipes.Items.Select(r => r.ToDto()).ToList();
+
+        return new PagedResult<RecipeDto>(items, pagedRecipes.TotalCount, pagedRecipes.Page, pagedRecipes.PageSize);
     }
 
     public async Task<RecipeDto> CreateAsync(RecipeCreateDto dto, Guid userId)

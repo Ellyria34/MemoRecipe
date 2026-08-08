@@ -12,13 +12,10 @@
             La mémoire de vos recettes préférées
         </MudText>
 
-        <MudText Typo="Typo.body1" Align="Align.Center" Class="mb-4">
-            Votre livre contient : <strong>@_recipeCount</strong> recette(s)
-        </MudText>
-
         <section aria-labelledby="recent-recipes-heading">
             <MudText Typo="Typo.h6" HtmlTag="h2" id="recent-recipes-heading" Class="mt-4 mb-2">
-                Vos dernières recettes
+                Vos dernières recettes <MudLink Href="/recipes" rel="noopener noreferrer" Underline="Underline.Always"
+                         Typo="Typo.body2">voir les @_recipeCount recettes</MudLink>
             </MudText>
 
             @if (_isLoading || _recipes == null)
@@ -27,7 +24,7 @@
                     <MudProgressCircular Indeterminate="true" aria-label="Chargement des recettes" />
                 </div>
             }
-            else if (!_recipes.Any())
+            else if (!_recipes.Items.Any())
             {
                 <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-4">
                     Vous n'avez encore aucune recette sauvegardée.
@@ -36,7 +33,7 @@
             else
             {
                 <MudGrid Spacing="2" Class="mt-2">
-                    @foreach (RecipeDto recipe in _recipes)
+                    @foreach (RecipeDto recipe in _recipes.Items)
                     {
                         <MudItem xs="12" sm="6" md="4">
                             <RecipeListCard Recipe="@recipe" />
