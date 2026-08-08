@@ -15,16 +15,12 @@
                 <MudProgressCircular Indeterminate="true" aria-label="Chargement des recettes" />
             </div>
         }
-        else if (!_recipes.Any())
+        else if (!_recipes.Items.Any())
         {
             <MudText Typo="Typo.body1" Align="Align.Center" Class="mb-4">
                 Vous n'avez sauvegardé encore aucune recette.
             </MudText>
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       FullWidth="true"
-                       Size="Size.Large"
-                       Class="mt-4"
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large" Class="mt-4"
                        OnClick="HandleRedirection">
                 Ajouter une recette
             </MudButton>
@@ -32,14 +28,23 @@
         else
         {
             <MudGrid Spacing="2" Class="mt-2">
-                @foreach (RecipeDto recipe in _recipes)
+                @foreach (RecipeDto recipe in _recipes.Items)
                 {
                     <MudItem xs="12" sm="6" md="4">
                         <RecipeListCard Recipe="@recipe" />
                     </MudItem>
                 }
             </MudGrid>
+
+            @if (_recipes.TotalPages > 1)
+            {
+                <div class="d-flex justify-center mt-4">
+                    <MudPagination Count="_recipes.TotalPages" Selected="_currentPage" SelectedChanged="OnPageChanged"
+                                   Color="Color.Primary" aria-label="Navigation entre les pages de recettes" />
+                </div>
+            }
         }
+
 
         @if (!string.IsNullOrEmpty(_errorMessage))
         {

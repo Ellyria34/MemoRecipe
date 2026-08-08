@@ -8,7 +8,7 @@ public interface IRecipeService
 
     Task<RecipeDto> CreateRecipeAsync(RecipeCreateDto recipeCreateDto);
 
-    Task<List<RecipeDto>> GetAllRecipesAsync(int? limit = null, string? orderBy = null, bool descending = true);
+    Task<PagedResult<RecipeDto>> GetAllRecipesAsync(int page = 1, int pageSize = 10, string? orderBy = null, bool descending = true);
 
     Task<RecipeDto> GetRecipeByIdAsync(Guid id);
 
