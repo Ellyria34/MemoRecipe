@@ -167,11 +167,16 @@ public class RecipeServiceTests
         var result = await _service.GetAllByUserAsync(userId, queryParams);
 
         // Assert
-        Assert.Equal(2, result.Count);
-        Assert.All(result, r => Assert.Equal(userId, r.UserId));
+        Assert.Equal(2, result.Items.Count);
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal(1, result.Page);
+        Assert.Equal(10, result.PageSize);
+        Assert.Equal(1, result.TotalPages);
+        Assert.All(result.Items, r => Assert.Equal(userId, r.UserId));
+
     }
     #endregion
-    
+
     #region CreateAsync
     [Fact]
     public async Task CreateAsync_ReturnsRecipeWithCorrectUserIdAndGeneratedId()
@@ -229,7 +234,7 @@ public class RecipeServiceTests
         Assert.Equal("Sucre", result.Ingredients[0].Name);
         Assert.Equal(100, result.Ingredients[0].Quantity);
         Assert.Equal("g", result.Ingredients[0].Unit);
-        Assert.Equal("Beurre", result.Ingredients[1].Name); 
+        Assert.Equal("Beurre", result.Ingredients[1].Name);
         Assert.Equal(50, result.Ingredients[1].Quantity);
         Assert.Equal("g", result.Ingredients[1].Unit);
     }
@@ -407,8 +412,8 @@ public class RecipeServiceTests
         };
         await _repository.AddAsync(recipe);
 
-        var dto = new RecipeUpdateDto 
-        { 
+        var dto = new RecipeUpdateDto
+        {
             Title = "Nouveau titre",
             Description = "New Description",
             Servings = 8,
@@ -482,7 +487,7 @@ public class RecipeServiceTests
                 Title = "recette 2"
             }
         };
-        foreach(Recipe recipe in recipes)
+        foreach (Recipe recipe in recipes)
         {
             await _repository.AddAsync(recipe);
         }
@@ -529,7 +534,7 @@ public class RecipeServiceTests
                 Title = "recette 2"
             }
         };
-        foreach(Recipe recipe in recipesForUser1)
+        foreach (Recipe recipe in recipesForUser1)
         {
             await _repository.AddAsync(recipe);
         }
@@ -543,7 +548,7 @@ public class RecipeServiceTests
                 Title = "recette 1bis"
             }
         };
-        foreach(Recipe recipe in recipesForUser2)
+        foreach (Recipe recipe in recipesForUser2)
         {
             await _repository.AddAsync(recipe);
         }
@@ -557,7 +562,7 @@ public class RecipeServiceTests
     }
     #endregion
 
-        [Fact]
+    [Fact]
     public async Task CreateAsync_WhenAccountIsMarkedForDeletion_ThrowsException()
     {
         // Arrange
