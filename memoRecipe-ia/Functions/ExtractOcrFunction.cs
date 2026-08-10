@@ -52,7 +52,8 @@ namespace MemoRecipeIA.Functions
                 return await Error(req, "No file found.");
 
             // Check image
-            if (section.Headers.TryGetValue("Content-Type", out var fileType)
+            if (section.Headers != null
+                && section.Headers.TryGetValue("Content-Type", out var fileType)
                 && !fileType.ToString().StartsWith("image/"))
             {
                 return await Error(req, "File must be an image.");
