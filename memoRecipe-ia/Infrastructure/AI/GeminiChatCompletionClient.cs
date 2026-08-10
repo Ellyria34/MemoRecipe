@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using MemoRecipeIA.Application.Interfaces;
@@ -7,10 +6,10 @@ namespace MemoRecipeIA.Infrastructure.AI;
 
 public sealed class GeminiChatCompletionClient : IChatCompletionClient
 {
-        private readonly HttpClient _httpClient;
-        private readonly string _apiKey;
+    private readonly HttpClient _httpClient;
+    private readonly string _apiKey;
 
-        public GeminiChatCompletionClient(HttpClient httpClient, string apiKey)
+    public GeminiChatCompletionClient(HttpClient httpClient, string apiKey)
     {
         _httpClient = httpClient;
         _apiKey = apiKey;
@@ -28,16 +27,16 @@ public sealed class GeminiChatCompletionClient : IChatCompletionClient
                     {
                         new
                         {
-                            text = prompt 
+                            text = prompt
                         },
                     }
                 },
             },
-            generationConfig = new 
+            generationConfig = new
             {
                 temperature = 0.2
             }
-        }; 
+        };
 
         using var httpRequest = new HttpRequestMessage(
             HttpMethod.Post,
