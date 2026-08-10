@@ -29,6 +29,14 @@ namespace MemoRecipeIA.Application.Pipeline
             return new RecipeDto
             {
                 Title = parsed.Title,
+                Description = parsed.Description,
+                Servings = parsed.Servings,
+                PrepTimeMinutes = parsed.PrepTimeMinutes,
+                CookTimeMinutes = parsed.CookTimeMinutes,
+                PreparationTime = parsed.PrepTimeMinutes.HasValue
+                    ? $"{parsed.PrepTimeMinutes} min"
+                    : null,
+                Difficulty = parsed.Difficulty,
                 Ingredients = parsed.Ingredients
                     .Select(i =>
                     {

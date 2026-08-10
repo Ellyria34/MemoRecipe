@@ -4,13 +4,16 @@ namespace MemoRecipe.Web.Helpers;
 
 public static class RecipeMapper
 {
-        public static RecipeFormModel MapExtractedRecipeDtoToFormModel (ExtractedRecipeDto extractedRecipeDto)
+    public static RecipeFormModel MapExtractedRecipeDtoToFormModel(ExtractedRecipeDto extractedRecipeDto)
     {
         RecipeFormModel recipe = new RecipeFormModel
         {
             Title = extractedRecipeDto.Title,
-            Servings = extractedRecipeDto.Servings > 0 ? extractedRecipeDto.Servings : 1,
-            PrepTimeMinutes = null,
+            Description = extractedRecipeDto.Description,
+            Servings = extractedRecipeDto.Servings ?? 1,
+            PrepTimeMinutes = extractedRecipeDto.PrepTimeMinutes,
+            CookTimeMinutes = extractedRecipeDto.CookTimeMinutes,
+            Difficulty = ParseDifficulty(extractedRecipeDto.Difficulty),
             Ingredients = extractedRecipeDto.Ingredients.Select(i => new IngredientFormModel
             {
                 Name = i
@@ -24,7 +27,15 @@ public static class RecipeMapper
         return recipe;
     }
 
-    public static RecipeCreateDto MapToRecipeCreateDto (RecipeFormModel recipeFormModel)
+    private static DifficultyLevel? ParseDifficulty(string? difficulty)
+    {
+        return Enum.TryParse<DifficultyLevel>(difficulty, ignoreCase: true, out var result)
+            ? result
+            : null;
+    }
+
+
+    public static RecipeCreateDto MapToRecipeCreateDto(RecipeFormModel recipeFormModel)
     {
         RecipeCreateDto recipeCreateDto = new RecipeCreateDto
         {
@@ -50,7 +61,7 @@ public static class RecipeMapper
         return recipeCreateDto;
     }
 
-    public static RecipeFormModel MapRecipeDtoToFormModel (RecipeDto recipeDto)
+    public static RecipeFormModel MapRecipeDtoToFormModel(RecipeDto recipeDto)
     {
         RecipeFormModel recipe = new RecipeFormModel
         {
@@ -75,7 +86,7 @@ public static class RecipeMapper
         return recipe;
     }
 
-    public static RecipeUpdateDto MapToRecipeUpdateDto (RecipeFormModel recipeFormModel)
+    public static RecipeUpdateDto MapToRecipeUpdateDto(RecipeFormModel recipeFormModel)
     {
         RecipeUpdateDto recipeUpdateDto = new RecipeUpdateDto
         {

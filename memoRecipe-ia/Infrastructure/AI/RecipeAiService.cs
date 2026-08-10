@@ -20,7 +20,7 @@ namespace MemoRecipeIA.Infrastructure.AI
 
         public async Task<ParsedRecipeDto> ParseAsync(string ocrText)
         {
-            var prompt = RecipePromptBuilder.Build(ocrText);
+            var prompt = RecipePromptBuilder.BuildForText(ocrText);
 
             _logger.LogInformation("===== OCR TEXT SENT TO LLM =====");
             _logger.LogInformation("{OcrText}", ocrText);
