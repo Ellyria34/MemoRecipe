@@ -213,6 +213,8 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - Apparition d'une bibliothèque .NET de conversion WebP→PNG mature et low-overhead (changement du calcul coût/bénéfice de l'Option B)
 - **État** : DONE — choix conscient, à réévaluer si une des conditions ci-dessus devient vraie.
 
+- **Mise à jour post-[DEC-043](#dec-043) (09/08/2026)** : suite au pivot du provider IA par défaut vers un modèle multimodal (Vision LLM) qui accepte nativement WebP + PDF + HEIC + tous formats standard, le support WebP est désormais **acquis sans code additionnel dans le path Vision**. La présente DEC-025 reste **valide et applicable au path fallback** (OCR local Tesseract + text-only LLM), qui reste présent en tant que provider secondaire via le Factory Pattern ([DEC-035](#dec-035)). L'amélioration éventuelle du path fallback (US-A2-08 renommée « Améliorations OCR Tesseract fallback ») pourrait à terme rendre l'Option B (conversion serveur WebP→PNG) pertinente si le fallback devient un chemin critique en prod.
+
 ### DEC-026 : Migration AutoMapper → Mapperly (source generator, OSS MIT, mappers statiques)
 
 - **Date** : 23 mai 2026
@@ -656,6 +658,11 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **Atteinte de volumes massifs imprévus** (>500k users actifs/mois) → re-arbitrer entre Groq payant (~1 400€/mois pour 500k users à 3 scans/mois) et Gemini Flash payant (~273€/mois mais throughput catastrophique pour ce volume — improbable).
 - **État** : DÉCIDÉ le 18/06/2026 via **BACK-071** (spike technique validé E2E), **MERGÉ sur main le 19/06/2026** (PR #20, merge commit `707ef63`). À **APPLIQUER dans BACK-069** : les 3 garde-fous (compteur jour user, compteur minute serveur, bannière UI) sont à coder dans BACK-069 en même temps que la factory par-user.
 
+- **🟡 PARTIELLEMENT SUPERSEDED par [DEC-043](#dec-043) (09/08/2026)** : le rôle central de Groq positionné ici (« **provider de fallback serveur pour la stratégie freemium** de BACK-069 ») a été **réévalué** suite au pivot du provider IA par défaut vers Vision LLM (Gemini) le 09/08/2026.
+  - **Ce qui reste valide de cette DEC** : Groq (Llama 3.3 70B) reste un provider **techniquement pertinent** et **présent dans le codebase** via le Factory Pattern ([DEC-035](#dec-035)). Les rate-limits Groq analysés ici (30 RPM, 14 400 requêtes/jour free tier) restent factuels et exploitables.
+  - **Ce qui est superseded** : la position de Groq comme **provider par défaut serveur en prod** (`AI_PROVIDER=Groq` mentionné dans les conséquences) est remplacée par `AI_PROVIDER=GeminiVision` — cf. [DEC-043](#dec-043) pour la justification qualité mesurée (écart ×4 sur cas complexes) et le sizing budgétaire (~$1-5/mois beta/V1 stable, crédit gratuit cloud 90j).
+  - **Impact sur la stratégie freemium BACK-069 (V2)** : la stratégie "provider serveur par défaut + Bring-Your-Own-Key pour utilisateurs qui veulent leur propre quota" reste **pertinente sur le principe**, mais le **provider serveur par défaut change** : Gemini Vision au lieu de Groq. Groq peut rester une option "économique text-only" proposée aux utilisateurs BYO qui préfèrent ce compromis.
+  - **Décision finale sur Groq en V1** : Groq est **conservé dans le code en tant que provider de fallback secondaire** (bascule via `AI_PROVIDER=Groq`), pas retiré. Zero code mort. Utile en cas de panne Gemini ou de contrainte RGPD stricte future.
 
 ---
 
@@ -869,6 +876,12 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 
 - **État** : DÉCIDÉ le 19/07/2026 pendant la revue post-BACK-033 UI. APPLIQUÉ immédiatement : DEC-040 ajoutée, BACKLOG mis à jour pour cohérence (BACK-033 statut, BACK-083/072/069 note contexte V1/V2, nouveau BACK-092 feature flag).
 
+- **⚠️ SUPERSEDED par [DEC-043](#dec-043) (09/08/2026)** : cette DEC-040 est **caduque**. Deux pivots stratégiques successifs ont inversé la décision :
+  - **06/08/2026** (pivot #1) : décision de réintégrer le scan IA en V1 avec approche Groq-only MVP + safeguards (au lieu du report V2 initialement acté ici). Motivations : le scan IA est une feature core différenciante du produit ; ship V1 sans scan = beta test dénaturé + feedback biaisé.
+  - **09/08/2026** (pivot #2 [DEC-043](#dec-043)) : pivot du provider IA par défaut vers Vision LLM (Gemini) suite à baseline mesurée révélant écart qualitatif ×4 par rapport au pipeline OCR + text-only initialement prévu.
+  - **Conséquences concrètes du remplacement** : le feature flag [BACK-092](../documentation/BACKLOG.md#back-092) créé par cette DEC reste utile (kill switch d'urgence, activation contrôlée par environnement), mais il est désormais activé par défaut en prod V1 (`ScanRecipeEnabled = true`). Les tickets [BACK-033](../documentation/BACKLOG.md#back-033), [BACK-072](../documentation/BACKLOG.md#back-072), [BACK-069](../documentation/BACKLOG.md#back-069), [BACK-083](../documentation/BACKLOG.md#back-083) reprennent leur criticité V1 (adaptés au nouveau provider Vision).
+  - **Pourquoi garder cette DEC dans le doc plutôt que la supprimer** : traçabilité de l'historique de décision (portfolio / futur audit) + explication du feature flag [BACK-092](../documentation/BACKLOG.md#back-092) qui reste dans le code même après réactivation du scan.
+
 ---
 
 ### DEC-041 : `MainLayout.razor` — code-behind extrait, CSS `<style>` inline conservé pragmatiquement
@@ -944,6 +957,54 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - **Volume d'usage IA dépassant durablement le quota gratuit de la plateforme serverless** → réévaluer le modèle de facturation ou l'hébergement de ce composant.
 
 - **État** : DÉCIDÉ le 04/08/2026. À appliquer au prochain runbook de déploiement ([BACK-009](../documentation/BACKLOG.md#back-009)).
+
+---
+
+### DEC-043 : Pivot du provider IA par défaut — Vision LLM (Google Gemini) plutôt qu'OCR + text-only LLM (Groq)
+
+- **Date** : 09 août 2026
+
+- **Choix** :
+  1. **Google Gemini Vision (modèle Flash-Lite)** devient le provider par défaut pour la fonctionnalité de scan de recettes en V1, à la place du pipeline précédemment retenu qui consistait à extraire le texte de l'image via OCR local (Tesseract) puis à structurer ce texte via un LLM text-only (Groq / Llama 3.3 70B, cf. [DEC-036](#dec-036)).
+  2. Le pipeline OCR local + provider text-only reste **présent dans le code** en tant que **provider de fallback secondaire**, sélectionnable via la variable d'environnement `AI_PROVIDER` (cf. [DEC-035](#dec-035)). Aucun retrait de code — le Factory Pattern existant permet la coexistence sans surcoût de maintenance.
+  3. L'authentification à l'API Vision utilise une **clé API bind à un compte de service** (pattern IAM standard du fournisseur cloud), stockée en **Docker Secret** en production (pattern [BACK-004](../documentation/BACKLOG.md#back-004)) et via `appsettings.Development.json` gitignored en développement.
+  4. Un **plafond budgétaire mensuel** est configuré au niveau du compte cloud du projet, avec **coupure automatique du service** en cas de dépassement (protection "hard cap" absolue).
+
+- **Pourquoi ces choix** :
+  - **Écart qualitatif mesuré massif sur cas complexes** : sur un scan comparatif d'une photo de recette à mise en page artistique (page magazine / réseau social), le pipeline OCR local + LLM text-only atteint un score d'extraction d'environ 25% (titre tronqué, plusieurs champs métier absents du schéma, hallucinations sur les ingrédients, quantités et fractions massacrées par l'étape OCR intermédiaire), alors que le Vision LLM sur la même image atteint environ 95% (extraction complète, aucune hallucination, structuration correcte des étapes). Ratio approximatif de 4× en qualité perçue sur ce type de source.
+  - **Cause racine du différentiel** : l'étape OCR intermédiaire dégrade massivement le signal (chiffres/fractions perdus, éléments non-textuels ignorés, layout créatif non compris). Un modèle multimodal lit directement l'image et exploite le contexte visuel (positionnement, encadrés, hiérarchie typographique) — signal qui est structurellement inaccessible à un pipeline OCR → text.
+  - **Budget compatible avec l'usage cible** : le modèle Flash-Lite est facturé à un ordre de grandeur d'environ $0.0004 par scan (mesuré ~2000 tokens par scan moyen, incluant l'encodage image en tuiles + prompt + output JSON). Pour un usage cible beta (~100 scans/jour), coût mensuel estimé ~$1. Pour un scale V1 stable (~500 scans/jour), ~$5/mois. Le crédit d'essai gratuit du fournisseur cloud (~$300 sur 90 jours pour un nouveau compte) couvre plusieurs années de beta à ce rythme.
+  - **Résilience via Factory Pattern déjà en place** : le pattern retenu en [DEC-035](#dec-035) permet de switcher entre providers via une simple variable d'environnement, sans redéploiement de code. Si le fournisseur Vision change sa politique commerciale ou technique de manière défavorable, un basculement vers le provider de fallback (OCR + text-only) est immédiat.
+  - **Support natif multi-formats** : le provider Vision accepte nativement JPEG, PNG, WebP, HEIC et PDF. Cela rend obsolète le ticket initialement prévu pour ajouter le support WebP côté backend ([BACK-039](../documentation/BACKLOG.md#back-039) partie WebP) — la fonctionnalité est acquise sans code additionnel.
+
+- **Alternatives écartées** :
+  - **Rester sur le pipeline OCR + text-only et améliorer le prompt** : écarté — l'analyse du prompt existant révèle des champs métier absents du schéma JSON demandé (ex : temps de préparation, temps de cuisson, difficulté), ce qui explique une partie des extractions manquantes. Corriger ce point améliorerait le score mais ne résoudrait pas la cause racine (OCR dégradé sur cas complexes). Le plafond de qualité atteignable resterait insuffisant pour l'expérience utilisateur cible.
+  - **Rester sur le pipeline OCR et investir dans un OCR de meilleure qualité** (préprocessing image + moteur OCR différent) : écarté pour V1 — chantier de plusieurs jours pour un gain incrémental, alors qu'un modèle multimodal résout le problème structurellement et immédiatement. Reporté en optimisation V1.1 du chemin de fallback ([US-A2-08](../documentation/Backlog_V1-Alpha2.md) renommée).
+  - **Auto-hébergement d'un modèle Vision open-source** (par exemple modèle multimodal libre exécuté sur GPU) : écarté pour V1 — nécessite un investissement matériel significatif (GPU dédié) et une expertise d'exploitation qui ne se justifie ni à l'échelle actuelle ni au coût unitaire mesuré du provider cloud. Reste envisageable en V3 si un enjeu de souveraineté des données ou de scale change la donne.
+  - **Fournisseur Vision commercial d'un tiers différent** (ex : autre grand acteur cloud, ou API tierce spécialisée) : écarté pour V1 — le fournisseur retenu offre le meilleur ratio qualité/prix mesuré + un free tier généreux + un modèle de facturation à l'usage prévisible. Le pattern Factory permet de rebasculer sans coût architectural si un autre acteur devient plus intéressant plus tard.
+
+- **Sources** :
+  - Test qualitatif comparatif réalisé sur une photo de recette réelle représentative des cas d'usage difficiles ciblés (mise en page artistique multi-zones), avec le même prompt d'extraction JSON structuré pour les deux providers testés.
+  - Documentation officielle de tarification du fournisseur cloud Vision (grille de prix par million de tokens input/output du modèle Flash-Lite).
+  - Documentation officielle des quotas et rate-limits du free tier de ce fournisseur.
+  - Fiche interne `parsing-quality-baseline` documentant les résultats bruts du test comparatif (photo source, sortie JSON de chaque provider, scoring par champ).
+
+- **Conséquences** :
+  - Nouvelle User Story [US-A2-10](../documentation/Backlog_V1-Alpha2.md) ajoutée à l'Alpha.2 : implémentation du provider Vision dans le Factory existant + adaptation du pipeline scan pour passer l'image directement au provider Vision (au lieu de la faire transiter par l'OCR local).
+  - [US-A2-03](../documentation/Backlog_V1-Alpha2.md) (baseline complète 5-10 scans du pipeline précédent) devient obsolète et est marquée SUSPENDUE — un scan comparatif unique a suffi à trancher, une baseline formelle du chemin abandonné n'a plus de valeur produit.
+  - [US-A2-04](../documentation/Backlog_V1-Alpha2.md) (sécurisation LLM — [BACK-083](../documentation/BACKLOG.md#back-083)) doit être adaptée : les patterns de prompt-injection et de rate-limiting restent identiques, mais l'audit trail et le comptage de tokens ciblent le format de réponse du provider Vision.
+  - [US-A2-05](../documentation/Backlog_V1-Alpha2.md) (alertes coûts — [BACK-083](../documentation/BACKLOG.md#back-083) §3) : seuils d'alerte à recalibrer selon la grille tarifaire du provider Vision (ordre de grandeur ~$0.0004 par scan Flash-Lite).
+  - [US-A2-07](../documentation/Backlog_V1-Alpha2.md) (optimisation prompt) : le prompt de référence devient la version enrichie testée sur AI Studio (schéma JSON complet 8 champs, règles anti-hallucination, instruction de titre complet, préservation de l'ordre des étapes).
+  - [US-A2-08](../documentation/Backlog_V1-Alpha2.md) (initialement "Support WebP" — [BACK-039](../documentation/BACKLOG.md#back-039)) : renommée en "Améliorations OCR fallback" — le support WebP est acquis nativement par le provider Vision, l'US se recentre sur l'amélioration du chemin fallback (préprocessing image + cleaner post-OCR).
+  - Note de confidentialité utilisateur : le contenu OCR (privacy Section 9) reste factuellement exact mais la description du fournisseur IA doit être mise à jour lors du déploiement (transfert désormais chez le nouveau fournisseur au lieu du précédent, conditions contractuelles à re-vérifier avant activation prod).
+  - Décision produit associée : les recettes créées via le scan sont forcées en visibilité privée par défaut (droits d'auteur potentiels sur les recettes reproduites depuis livres/magazines/blogs) — à implémenter dans [US-A2-06](../documentation/Backlog_V1-Alpha2.md) et à documenter dans la clause de responsabilité utilisateur des mentions légales.
+
+- **Conditions qui invalideraient ce choix** :
+  - **Changement défavorable de la politique commerciale du fournisseur** (retrait du free tier, hausse tarifaire massive, restriction géographique) → bascule vers le provider fallback via le Factory Pattern, sans changement architectural. Coût de bascule = quelques minutes de configuration.
+  - **Dégradation mesurée de la qualité du modèle Flash-Lite** (hallucinations accrues, régression sur cas simples) → basculer vers le modèle Flash standard (5× plus cher mais dans les limites du budget cap) ou vers le provider fallback.
+  - **Enjeu réglementaire spécifique** (souveraineté des données imposée, exigence RGPD stricte incompatible avec un transfert hors UE) → réévaluer avec un provider Vision UE ou un modèle auto-hébergé.
+
+- **État** : DÉCIDÉ le 09/08/2026. Setup du compte cloud, activation de l'API, budget cap et clé API validés le même jour. Implémentation code (US-A2-10) à réaliser à la prochaine session.
 
 ---
 
