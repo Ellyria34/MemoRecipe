@@ -22,15 +22,15 @@ public sealed class GeminiVisionCompletionClient : IVisionCompletionClient
         {
             contents = new[]
                 {
-                    new
+                new
+                {
+                    parts = new object[]
                     {
-                        parts = new object[]
-                        {
-                            new { text = prompt },
-                            new { inline_data = new { mime_type = mimeType, data = base64Image } }
-                        }
+                        new { text = prompt },
+                        new { inline_data = new { mime_type = mimeType, data = base64Image } }
                     }
-                },
+                }
+            },
             generationConfig = new { temperature = 0.2 }
         };
 
@@ -46,10 +46,15 @@ public sealed class GeminiVisionCompletionClient : IVisionCompletionClient
         );
 
         var response = await _httpClient.SendAsync(httpRequest);
-        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadAsStringAsync();
 
-        using var stream = await response.Content.ReadAsStreamAsync();
-        using var doc = await JsonDocument.ParseAsync(stream);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException(
+                $"Gemini API error {(int)response.StatusCode}: {body}");
+        }
+
+        using var doc = JsonDocument.Parse(body);
 
         return doc
             .RootElement
