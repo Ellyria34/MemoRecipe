@@ -32,13 +32,13 @@ var host = new HostBuilder()
 
         // OCR
         services.AddSingleton<IOcrService, TesseractOcrService>();
-        
+
         var aiProvider = Environment.GetEnvironmentVariable("AI_PROVIDER") ?? "Fake";
         var environnement = Environment.GetEnvironmentVariable("AZURE_FUNCTIONS_ENVIRONMENT") ?? "Development";
-        
-        if (environnement == "Production" && aiProvider=="Fake") 
-        { 
-            throw new InvalidOperationException("AI_PROVIDER cannot be 'Fake' in Production. Set AI_PROVIDER to 'Mistral' or 'Gemini'."); 
+
+        if (environnement == "Production" && aiProvider == "Fake")
+        {
+            throw new InvalidOperationException("AI_PROVIDER cannot be 'Fake' in Production. Set AI_PROVIDER to 'Mistral', 'Groq', 'Gemini' or 'GeminiVision'.");
         }
 
         switch (aiProvider)
@@ -58,7 +58,7 @@ var host = new HostBuilder()
                     return new GeminiChatCompletionClient(httpClient, apiKey);
                 });
                 break;
-            case "Mistral":  
+            case "Mistral":
                 services.AddSingleton<IChatCompletionClient>(sp =>
                 {
                     var factory = sp.GetRequiredService<IHttpClientFactory>();
@@ -70,7 +70,7 @@ var host = new HostBuilder()
                     return new MistralChatCompletionClient(httpClient, apiKey);
                 });
                 break;
-            case "Groq":  
+            case "Groq":
                 services.AddSingleton<IChatCompletionClient>(sp =>
                 {
                     var factory = sp.GetRequiredService<IHttpClientFactory>();
@@ -82,10 +82,22 @@ var host = new HostBuilder()
                     return new GroqChatCompletionClient(httpClient, apiKey);
                 });
                 break;
+            case "GeminiVision":
+                services.AddSingleton<IVisionCompletionClient>(sp =>
+                {
+                    var factory = sp.GetRequiredService<IHttpClientFactory>();
+                    var httpClient = factory.CreateClient();
+
+                    var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY")
+                                ?? throw new InvalidOperationException("Missing GEMINI_API_KEY");
+
+                    return new GeminiVisionCompletionClient(httpClient, apiKey);
+                });
+                break;
             default:
                 var validValues = environnement == "Production"
-                    ? "'Mistral', 'Gemini', 'Groq'"
-                    : "'Fake', 'Mistral', 'Gemini', 'Groq'";
+                    ? "'Mistral', 'Gemini', 'Groq', 'GeminiVision'"
+                    : "'Fake', 'Mistral', 'Gemini', 'Groq', 'GeminiVision'";
                 throw new InvalidOperationException(
                     $"AI_PROVIDER '{aiProvider}' is unknown. Valid values: {validValues}.");
         }
@@ -94,7 +106,10 @@ var host = new HostBuilder()
         services.AddSingleton<IRecipeAiService, RecipeAiService>();
 
         // Pipeline
-        services.AddSingleton<IRecipePipeline, RecipePipeline>();
+        if (aiProvider == "GeminiVision")
+            services.AddSingleton<IRecipePipeline, VisionRecipePipeline>();
+        else
+            services.AddSingleton<IRecipePipeline, RecipePipeline>();
     })
     .Build();
 
