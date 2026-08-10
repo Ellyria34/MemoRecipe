@@ -4,43 +4,39 @@ using MemoRecipeIA.Application.Interfaces;
 
 namespace MemoRecipeIA.Infrastructure.AI;
 
-public sealed class GeminiChatCompletionClient : IChatCompletionClient
+public sealed class GeminiVisionCompletionClient : IVisionCompletionClient
 {
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
 
-    public GeminiChatCompletionClient(HttpClient httpClient, string apiKey)
+    public GeminiVisionCompletionClient(HttpClient httpClient, string apiKey)
     {
         _httpClient = httpClient;
         _apiKey = apiKey;
     }
 
-    public async Task<string> CompleteAsync(string prompt)
+    public async Task<string> CompleteWithImageAsync(string prompt, byte[] dataImage, string mimeType)
     {
+        string base64Image = Convert.ToBase64String(dataImage);
         var request = new
         {
             contents = new[]
-            {
+                {
                 new
                 {
-                    parts = new []
+                    parts = new object[]
                     {
-                        new
-                        {
-                            text = prompt
-                        },
+                        new { text = prompt },
+                        new { inline_data = new { mime_type = mimeType, data = base64Image } }
                     }
-                },
+                }
             },
-            generationConfig = new
-            {
-                temperature = 0.2
-            }
+            generationConfig = new { temperature = 0.2 }
         };
 
         using var httpRequest = new HttpRequestMessage(
             HttpMethod.Post,
-            $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={_apiKey}"
+            $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={_apiKey}"
         );
 
         httpRequest.Content = new StringContent(
@@ -50,10 +46,15 @@ public sealed class GeminiChatCompletionClient : IChatCompletionClient
         );
 
         var response = await _httpClient.SendAsync(httpRequest);
-        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadAsStringAsync();
 
-        using var stream = await response.Content.ReadAsStreamAsync();
-        using var doc = await JsonDocument.ParseAsync(stream);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException(
+                $"Gemini API error {(int)response.StatusCode}: {body}");
+        }
+
+        using var doc = JsonDocument.Parse(body);
 
         return doc
             .RootElement
