@@ -1008,6 +1008,69 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 
 ---
 
+### DEC-044 : Extension de `AI_PROVIDER` avec la valeur `"GeminiVision"` (plutôt qu'une seconde variable d'environnement dédiée au mode de scan)
+
+- **Date** : 10 août 2026
+
+- **Choix** :
+  1. L'implémentation Vision ([US-A2-10](../documentation/Backlog_V1-Alpha2.md)) est sélectionnée via l'ajout d'une **cinquième valeur `"GeminiVision"`** à la variable d'environnement existante `AI_PROVIDER` (à côté de `Fake`, `Mistral`, `Gemini`, `Groq`).
+  2. Cette valeur déclenche simultanément l'enregistrement du client `IVisionCompletionClient` (branche Gemini Vision multimodal) et la substitution du pipeline `RecipePipeline` (chemin OCR + text LLM) par `VisionRecipePipeline` (chemin direct image → LLM multimodal).
+  3. Aucune nouvelle variable d'environnement n'est introduite.
+
+- **Pourquoi ces choix** :
+  - **YAGNI** : un seul provider Vision est retenu pour V1 (cf. [DEC-043](#dec-043)). Découpler la sélection du "provider" et du "mode de scan" via deux variables orthogonales n'apporte aucune valeur tant qu'il n'existe qu'un seul provider Vision.
+  - **Cohérence avec le pattern existant** : la sélection par `AI_PROVIDER` + `switch` sur la valeur est déjà en place pour les quatre providers text-only (cf. [DEC-035](#dec-035)). Ajouter un cinquième case préserve l'homogénéité opérationnelle et documentaire.
+  - **Simplicité opérationnelle** : une seule variable à documenter dans les runbooks de déploiement, une seule valeur à modifier lors d'un basculement de fournisseur.
+
+- **Alternatives écartées** :
+  - **Deux variables orthogonales** (`AI_PROVIDER` + `SCAN_MODE=OcrText|Vision`) : écartée pour V1 — introduit une combinatoire de configurations (N providers × 2 modes, dont plusieurs combinaisons invalides à documenter et à valider) sans bénéfice fonctionnel tant qu'il n'existe qu'un seul provider Vision. La lisibilité opérationnelle (une variable = un mode complet) prime.
+
+- **Réversibilité** : refactor trivial vers deux variables orthogonales si un second provider Vision est introduit (par exemple, un autre acteur multimodal cloud). Le `switch case` s'éclate alors en deux résolutions successives, sans changement du contrat externe côté consommateurs de la fonction serverless.
+
+- **Impact** : `AI_PROVIDER` accepte désormais **cinq valeurs** : `Fake` (dev uniquement), `Mistral`, `Gemini`, `Groq`, `GeminiVision`. Message d'erreur du `default` case mis à jour en conséquence. Documentation opérationnelle (`.env.example`, `DEPLOYMENT.md`) à mettre à jour lors du prochain déploiement.
+
+- **État** : DÉCIDÉ le 10/08/2026, implémenté dans le cadre de [US-A2-10](../documentation/Backlog_V1-Alpha2.md).
+
+---
+
+### DEC-045 : Plan test Mistral Vision (priorité) + Groq Vision (fallback conditionnel) — activation runtime Vision sans coût
+
+- **Date** : 10 août 2026
+
+- **Choix** :
+  1. Le provider Vision par défaut visé pour l'Alpha.2 devient **Mistral Vision** (modèles Small / Medium / Large avec vision native intégrée, Experiment tier gratuit sans carte bancaire, hébergement UE, RGPD-natif, EU AI Act compliant).
+  2. Le provider **Groq Vision** (`qwen/qwen3.6-27b`, free tier 30 RPM / 1000 RPD, sans carte bancaire) est retenu comme **fallback conditionnel** — implémenté et adopté uniquement si Mistral Vision se révèle insuffisant sur la qualité empirique mesurée OU sur la contrainte de débit (Mistral Experiment tier = 2 RPM, potentiellement limitant en beta multi-utilisateurs concurrents).
+  3. Le provider **Gemini Vision** (implémentation code réalisée en [US-A2-10](../documentation/Backlog_V1-Alpha2.md)) est **conservé dans le codebase** en tant que provider optionnel via le pattern Factory existant, mais **retiré du chemin runtime par défaut** — l'authentification actuelle passe par le système AI Studio prepayment qui requiert un mode payant avec crédits prépayés, incompatible avec la contrainte opérationnelle "zéro coût fournisseur cloud" du projet en phase Alpha/Beta.
+
+- **Pourquoi ces choix** :
+  - **Souveraineté européenne** : Mistral AI (siège Paris, hébergement UE, RGPD-natif) est le seul acteur Vision multimodal européen offrant un free tier accessible sans carte bancaire en 2026. Réduit la surface RGPD (pas de transfert hors UE) et constitue un argument différenciateur produit (SaaS respectueux des données européennes).
+  - **Contrainte zéro coût opérationnel** : le provider Gemini nécessite un compte AI Studio en mode payant avec crédits prépayés — incompatible avec la posture "aucun paiement fournisseur cloud avant beta publique validée" du projet. Ce point a été découvert lors du test runtime post-implémentation code (erreur `429 RESOURCE_EXHAUSTED / prepayment credits depleted` retournée par l'API Vision quel que soit le volume de requêtes).
+  - **Cohérence architecture** : le pattern `IVisionCompletionClient` (Strategy) déjà en place permet l'ajout de Mistral Vision et Groq Vision côte à côte avec zéro modification structurelle — juste un nouveau case dans le switch factory (cf. [DEC-044](#dec-044) pour la logique d'extension d'`AI_PROVIDER`).
+  - **Prudence sur qualité empirique** : la qualité du modèle Mistral Vision sur des photos représentatives (mise en page magazine, recette manuscrite, capture de blog) n'est pas encore mesurée. Le fallback Groq Vision est prévu et budgeté si Mistral n'atteint pas le seuil de qualité utilisable.
+
+- **Alternatives écartées** :
+  - **Activer le prépaiement Gemini AI Studio (~$5 initial)** : écarté pour Alpha.2 — contrevient à la posture "zéro coût" active. Reste envisageable en V1 stable si les alternatives européenne et Groq échouent conjointement sur la qualité.
+  - **Rester exclusivement sur le chemin OCR + LLM text-only** : écarté — la baseline comparative du 09/08 (cf. [DEC-043](#dec-043)) démontre un écart qualitatif de ~4× (Vision ~95% vs OCR+text ~25%) sur les photos à mise en page complexe qui constituent une part significative des cas d'usage cibles.
+  - **Auto-hébergement d'un modèle Vision open-weight local** (LLaVA / Qwen VL / Pixtral open) : écarté pour V1 — nécessite GPU dédié + expertise d'exploitation disproportionnée à l'échelle actuelle.
+  - **Autre provider Vision commercial** (Anthropic Claude Vision, OpenAI GPT-4 Vision, etc.) : écartés — tous demandent un compte payant avec carte bancaire, aucun ne propose de free tier Vision comparable à Mistral ou Groq.
+
+- **Réversibilité** : refactor trivial. Le pattern `IVisionCompletionClient` permet d'ajouter/retirer/changer le provider par défaut via une simple modification du `switch case` dans `Program.cs` et de la variable d'environnement `AI_PROVIDER`, sans changement de contrat externe ni de logique métier.
+
+- **Impact** :
+  - Nouvelle **US-A2-12** ajoutée à l'Alpha.2 : implémentation `MistralVisionCompletionClient` + wire DI + test qualité + décision provider par défaut.
+  - Nouvelle **US-A2-13** (conditionnelle) ajoutée à l'Alpha.2 : implémentation `GroqVisionCompletionClient` en fallback si Mistral qualité insuffisante.
+  - [DEC-043](#dec-043) conserve sa validité conceptuelle (pivot Vision LLM vs OCR + text-LLM démontré empiriquement) mais son choix de provider spécifique (Gemini Flash-Lite) sera **révisé** après le test qualité empirique en US-A2-12.
+  - [DEC-044](#dec-044) (extension `AI_PROVIDER` avec `"GeminiVision"`) reste valide — les valeurs `"MistralVision"` et éventuellement `"GroqVision"` seront ajoutées dans la même logique de switch.
+
+- **Conditions qui invalideraient ce choix** :
+  - **Mistral Vision qualité < 60%** sur les photos test représentatives → bascule sur Groq Vision (US-A2-13 déclenchée).
+  - **Rate limit Mistral Experiment tier trop restrictif** sur la charge beta réelle (utilisateurs concurrents) → bascule sur Groq Vision (30 RPM vs 2 RPM).
+  - **Groq Vision qualité également insuffisante** → réévaluation de la posture "zéro coût" (activation du prépaiement Gemini OU décalage de l'activation Vision en V1.1 avec chemin fallback OCR+text-LLM en couverture).
+
+- **État** : DÉCIDÉ le 10/08/2026. Implémentation Mistral Vision (US-A2-12) prévue pour la session du 11/08/2026.
+
+---
+
 ## Dette technique
 
 ### DEBT-001 : Structure de dossiers redondante (voir DEC-006)
