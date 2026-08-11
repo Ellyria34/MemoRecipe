@@ -38,7 +38,7 @@ MemoRecipe/
 
 ## Technology Foundation
 
-ASP.NET Core .NET 10 · PostgreSQL 16 · EF Core 10 · JWT Bearer in HttpOnly cookies · FluentValidation · MudBlazor · Blazor WASM .NET 10 · Azure Functions .NET 8 · Tesseract (local OCR) · Multi-provider LLM factory (Mistral, Google Gemini, Groq) · xUnit + TestContainers.
+ASP.NET Core .NET 10 · PostgreSQL 16 · EF Core 10 · JWT Bearer in HttpOnly cookies · FluentValidation · MudBlazor · Blazor WASM .NET 10 · Azure Functions .NET 8 · Multi-provider LLM factory with multimodal Vision (Mistral / Google Gemini / Groq — text and Vision variants selectable via env var) · Tesseract (local OCR fallback) · xUnit + TestContainers.
 
 ## Running Locally
 
@@ -77,12 +77,14 @@ For production deployment (build, push, rollback procedures) see [`documentation
 
 | Area | Status |
 |---|---|
-| **AI pipeline** | OCR Tesseract + multi-provider LLM factory (Mistral / Gemini / Groq, swappable via env var) + deterministic post-processing |
+| **AI pipeline** | Two interchangeable paths behind a Strategy-pattern factory: direct multimodal Vision LLM (Mistral Vision — EU-hosted, GDPR-native — by default) or OCR Tesseract + text-only LLM (Groq / Mistral / Gemini) as fallback; swappable via a single env var; deterministic post-processing on top |
 | **Backend** | Clean Architecture, recipe CRUD with ownership rules, FluentValidation, global exception middleware, healthcheck endpoint |
 | **Frontend** | Auth (Login / Register), recipe workflow (scan, manual create, list, detail, edit), adaptive nav (sidebar desktop + bottom bar mobile), shared `RecipeForm` component |
 | **Security** | PBKDF2 password hashing, custom security headers middleware (CSP, HSTS, etc.), per-IP + per-account rate limiting, strict CORS, defense-in-depth upload validation, fail-fast config validation at startup |
 | **RGPD / EU AI Act** | Privacy policy + legal mentions pages, consent on registration, AI transparency notice on scan page, hosting in Switzerland (adequacy decision), Right to erasure (Art. 17) with 30-day grace period + cascade purge |
 | **Tests** | Unit tests on validators / services / AI pipeline (deterministic fakes); integration tests via `WebApplicationFactory<Program>` with TestContainers (real PostgreSQL) |
+| **CI/CD** | GitHub Actions: build + tests on push and PR (API + IA + Web), vulnerable-package scan (fail-fast on High/Critical), CodeQL SAST (C# + workflows), Lighthouse a11y/perf audit; container images pushed to GHCR on version tags |
+| **Observability** | Structured logging via Serilog (no PII); Telegram alerting channel on critical operations (backup failures, unhandled exceptions, cost thresholds) |
 | **Containerization** | API image built via .NET SDK Container Support (no Dockerfile, ~194 MB Alpine); Frontend image with custom nginx Dockerfile (~40 MB); orchestration via `docker-compose.prod.yml`; images published on GitHub Container Registry — see [`DEPLOYMENT.md`](documentation/DEPLOYMENT.md) |
 | **Backup & DR** | Daily encrypted PostgreSQL backup (`pg_dump` + GPG asymmetric encryption; public key in the container, private key kept off-server); local retention 30 days; full restore procedure documented and end-to-end tested. Off-site copy (S3-compatible or SFTP storage service, per 3-2-1 rule) is planned in part 2 before public production launch. See [DEC-038](documentation/DECISIONS.md) and [`DEPLOYMENT.md`](documentation/DEPLOYMENT.md) |
 
@@ -90,12 +92,9 @@ For the rationale behind these choices (alternatives considered, trade-offs), se
 
 ## Roadmap
 
-- Off-site encrypted backup copy (S3-compatible or SFTP storage, part 2 of the backup pipeline)
 - HTTPS forced in production (reverse proxy + Let's Encrypt)
-- CI/CD pipeline (GitHub Actions: build, test, vulnerable-package scan, CodeQL)
-- VPS deployment (Cloud provider VPS with Apache reverse proxy)
-- Structured logging (Serilog) + monitoring / alerts on critical operations
-- Automated cron purge of expired accounts (past the 30-day grace period)
+- VPS deployment (reverse proxy + Docker Compose orchestration)
+- Off-site encrypted backup copy (S3-compatible or SFTP storage, part 2 of the backup pipeline)
 - GDPR self-service flows (data export, profile management)
 - Bring-Your-Own-Key for AI providers (multi-provider, encrypted at rest)
 - MAUI mobile client consuming the same API
