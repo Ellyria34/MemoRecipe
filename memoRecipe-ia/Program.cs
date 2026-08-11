@@ -38,7 +38,7 @@ var host = new HostBuilder()
 
         if (environnement == "Production" && aiProvider == "Fake")
         {
-            throw new InvalidOperationException("AI_PROVIDER cannot be 'Fake' in Production. Set AI_PROVIDER to 'Mistral', 'Groq', 'Gemini' or 'GeminiVision'.");
+            throw new InvalidOperationException("AI_PROVIDER cannot be 'Fake' in Production. Set AI_PROVIDER to 'Mistral', 'Groq', 'GeminiVision' or 'MistralVision'.");
         }
 
         switch (aiProvider)
@@ -82,6 +82,19 @@ var host = new HostBuilder()
                     return new GroqChatCompletionClient(httpClient, apiKey);
                 });
                 break;
+            case "MistralVision":
+                services.AddSingleton<IVisionCompletionClient>(sp =>
+                {
+                    var factory = sp.GetRequiredService<IHttpClientFactory>();
+                    var httpClient = factory.CreateClient();
+
+                    var apiKey = Environment.GetEnvironmentVariable("MISTRAL_API_KEY")
+                                ?? throw new InvalidOperationException("Missing MISTRAL_API_KEY");
+
+                    return new MistralVisionCompletionClient(httpClient, apiKey);
+                });
+                break;
+
             case "GeminiVision":
                 services.AddSingleton<IVisionCompletionClient>(sp =>
                 {
@@ -96,8 +109,8 @@ var host = new HostBuilder()
                 break;
             default:
                 var validValues = environnement == "Production"
-                    ? "'Mistral', 'Gemini', 'Groq', 'GeminiVision'"
-                    : "'Fake', 'Mistral', 'Gemini', 'Groq', 'GeminiVision'";
+                    ? "'Mistral', 'Gemini', 'Groq', 'GeminiVision', 'MistralVision'"
+                    : "'Fake', 'Mistral', 'Gemini', 'Groq', 'GeminiVision', 'MistralVision'";
                 throw new InvalidOperationException(
                     $"AI_PROVIDER '{aiProvider}' is unknown. Valid values: {validValues}.");
         }
@@ -106,10 +119,11 @@ var host = new HostBuilder()
         services.AddSingleton<IRecipeAiService, RecipeAiService>();
 
         // Pipeline
-        if (aiProvider == "GeminiVision")
+        if (aiProvider == "GeminiVision" || aiProvider == "MistralVision")
             services.AddSingleton<IRecipePipeline, VisionRecipePipeline>();
         else
             services.AddSingleton<IRecipePipeline, RecipePipeline>();
+
     })
     .Build();
 
