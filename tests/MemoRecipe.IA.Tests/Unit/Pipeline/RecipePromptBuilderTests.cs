@@ -40,4 +40,24 @@ public class RecipePromptBuilderTests
         Assert.DoesNotContain("OCR TEXT:", prompt);
         Assert.DoesNotContain("<<<", prompt);
     }
+
+    [Fact]
+    public void BuildForText_IncludesSecurityRulesAndSealedDelimiters()
+    {
+        var prompt = RecipePromptBuilder.BuildForText("dummy");
+
+        Assert.Contains("CRITICAL SECURITY RULES", prompt);
+        Assert.Contains("UNTRUSTED user data", prompt);
+        Assert.Contains("<<<UNTRUSTED_START>>>", prompt);
+        Assert.Contains("<<<UNTRUSTED_END>>>", prompt);
+    }
+
+    [Fact]
+    public void BuildForVision_IncludesSecurityRulesForImageInjection()
+    {
+        var prompt = RecipePromptBuilder.BuildForVision();
+
+        Assert.Contains("CRITICAL SECURITY RULES", prompt);
+        Assert.Contains("text visible in the image", prompt);
+    }
 }

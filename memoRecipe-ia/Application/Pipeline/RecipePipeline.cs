@@ -1,5 +1,6 @@
 using MemoRecipeIA.Application.Dtos;
 using MemoRecipeIA.Application.Interfaces;
+using MemoRecipeIA.Application.Security;
 
 namespace MemoRecipeIA.Application.Pipeline;
 
@@ -21,10 +22,13 @@ public class RecipePipeline : IRecipePipeline
         // Step 1: OCR
         var rawText = await _ocrService.ExtractAsync(imageStream);
 
-        // Step 2: Parsing IA
+        // Step 2: Anti prompt-injection sanitize (OWASP LLM01) before sending to LLM
+        PromptSanitizer.Sanitize(rawText);
+
+        // Step 3: Parsing IA
         var parsed = await _recipeAiService.ParseAsync(rawText);
 
-        // Step 3: Mapping Parsed → RecipeDto
+        // Step 4: Mapping Parsed → RecipeDto
         return new RecipeDto
         {
             Title = parsed.Title,
@@ -49,4 +53,3 @@ public class RecipePipeline : IRecipePipeline
         };
     }
 }
-
