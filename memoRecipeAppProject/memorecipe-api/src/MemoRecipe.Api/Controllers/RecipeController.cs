@@ -2,11 +2,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MemoRecipe.Application.Services.Recipes;
 using MemoRecipe.Application.DTOs.Recipes;
+using MemoRecipe.Application.Services.AISecurity;
 using FluentValidation;
 using MemoRecipe.Application.Services.OcrScan;
-using System.Reflection.Metadata.Ecma335;
 using Microsoft.AspNetCore.RateLimiting;
-using System.Reflection;
 using Microsoft.Extensions.Options;
 using MemoRecipe.Application.Configuration;
 
@@ -17,26 +16,29 @@ namespace MemoRecipe.Api.Controllers;
 [Route("api/[controller]")]
 public class RecipeController : ControllerBase
 {
-    private readonly IRecipeService _recipeService ;
+    private readonly IRecipeService _recipeService;
     private readonly IValidator<RecipeCreateDto> _createDtoValidator;
     private readonly IValidator<RecipeUpdateDto> _updateDtoValidator;
     private readonly IOcrScanService _ocrScanService;
     private readonly FeatureFlagsOptions _flags;
+    private readonly IAiRateLimiter _aiRateLimiter;
     private readonly ILogger<RecipeController> _logger;
 
     public RecipeController(
-        IRecipeService recipeService, 
-        IValidator<RecipeCreateDto> createDtoValidator, 
+        IRecipeService recipeService,
+        IValidator<RecipeCreateDto> createDtoValidator,
         IValidator<RecipeUpdateDto> updateDtoValidator,
         IOcrScanService ocrScanService,
         IOptions<FeatureFlagsOptions> flags,
+        IAiRateLimiter aiRateLimiter,
         ILogger<RecipeController> logger)
     {
         _recipeService = recipeService;
-        _createDtoValidator  = createDtoValidator;
+        _createDtoValidator = createDtoValidator;
         _updateDtoValidator = updateDtoValidator;
         _ocrScanService = ocrScanService;
         _flags = flags.Value;
+        _aiRateLimiter = aiRateLimiter;
         _logger = logger;
     }
 
@@ -65,13 +67,13 @@ public class RecipeController : ControllerBase
     public async Task<IActionResult> CreateRecipe(RecipeCreateDto dto)
     {
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
-        
+
         var validation = await _createDtoValidator.ValidateAsync(dto);
         if (!validation.IsValid)
         {
-            return BadRequest(validation.Errors);            
+            return BadRequest(validation.Errors);
         }
-        
+
         var recipeDto = await _recipeService.CreateAsync(dto, userId);
 
         return CreatedAtAction(nameof(GetRecipeById), new { id = recipeDto.Id }, recipeDto);
@@ -85,7 +87,7 @@ public class RecipeController : ControllerBase
         var validation = await _updateDtoValidator.ValidateAsync(dto);
         if (!validation.IsValid)
         {
-            return BadRequest(validation.Errors);            
+            return BadRequest(validation.Errors);
         }
 
         var recipeDto = await _recipeService.UpdateAsync(id, dto, userId);
@@ -113,10 +115,10 @@ public class RecipeController : ControllerBase
     [RequestSizeLimit(10 * 1024 * 1024)]                                //Limit request size
     [RequestFormLimits(MultipartBodyLengthLimit = 10 * 1024 * 1024)]    //Limit upload de fichiers
     public async Task<IActionResult> CreateScannedRecipe(IFormFile imageFile)
-    {   
+    {
         // activated feature verification
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
-        if(_flags.ScanRecipeEnabled == false)
+        if (_flags.ScanRecipeEnabled == false)
         {
             _logger.LogWarning("{EventType} — user {UserId} attempted to call scan while feature is disabled",
                 "ScanFeatureDisabledAttempt", userId);
@@ -124,23 +126,23 @@ public class RecipeController : ControllerBase
         }
 
         // Size verification    
-        if(imageFile.Length > 10 * 1024 * 1024)
+        if (imageFile.Length > 10 * 1024 * 1024)
         {
             return BadRequest("File size exceeds 10 MB limit.");
         }
-        
+
         // Extension verification
-        var allowedExtensions = new []{".jpeg", ".jpg", ".png"};
+        var allowedExtensions = new[] { ".jpeg", ".jpg", ".png" };
         var extension = Path.GetExtension(imageFile.FileName).ToLowerInvariant();
-        if(!allowedExtensions.Contains(extension))
+        if (!allowedExtensions.Contains(extension))
         {
             return BadRequest($"Extension {extension} is not allowed. Allowed: .jpg, .jpeg, .png");
         }
 
         // MIME type verification
-        var allowedMimeTypes = new[]{"image/jpeg", "image/png"};
+        var allowedMimeTypes = new[] { "image/jpeg", "image/png" };
         var mime = imageFile.ContentType;
-        if(!allowedMimeTypes.Contains(mime))
+        if (!allowedMimeTypes.Contains(mime))
         {
             return BadRequest($"MIME Type {mime} is not allowed. Allowed : image/jpeg, image/png");
         }
@@ -149,13 +151,17 @@ public class RecipeController : ControllerBase
         using var stream = imageFile.OpenReadStream();
         var magicBytes = new byte[8];
         await stream.ReadExactlyAsync(magicBytes, 0, 8);
-        
-        if(!IsValidImageMagicBytes(magicBytes))
+
+        if (!IsValidImageMagicBytes(magicBytes))
         {
             return BadRequest("Invalid image file (magic bytes mismatch).");
         }
 
         stream.Position = 0; // reset the cursor to the beginning for OCR 
+
+        // AI rate limit — LLM-level enforcement (4 tiers)
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        _aiRateLimiter.CheckAndThrow(userId.ToString(), ipAddress);
 
         var result = await _ocrScanService.ProcessImageAsync(stream);
         return Ok(result);
@@ -164,25 +170,25 @@ public class RecipeController : ControllerBase
     [HttpGet("count")]
     public async Task<IActionResult> CountByUser(Guid id)
     {
-            var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
-            var count = await _recipeService.CountByUserAsync(userId);
-            return Ok(count);
+        var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+        var count = await _recipeService.CountByUserAsync(userId);
+        return Ok(count);
     }
 
     private static bool IsValidImageMagicBytes(byte[] magicBytes)
     {
-        if(magicBytes == null ||  magicBytes.Length < 8)
+        if (magicBytes == null || magicBytes.Length < 8)
         {
             return false;
         }
-        byte[] jpegSignature = {0xFF, 0xD8, 0xFF};
-        byte[] pngSignature = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+        byte[] jpegSignature = { 0xFF, 0xD8, 0xFF };
+        byte[] pngSignature = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
 
-        if(magicBytes.Take(3).SequenceEqual(jpegSignature))
+        if (magicBytes.Take(3).SequenceEqual(jpegSignature))
         {
             return true;
         }
-        if(magicBytes.Take(8).SequenceEqual(pngSignature))
+        if (magicBytes.Take(8).SequenceEqual(pngSignature))
         {
             return true;
         }

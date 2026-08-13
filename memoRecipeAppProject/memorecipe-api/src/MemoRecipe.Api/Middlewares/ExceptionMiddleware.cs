@@ -1,5 +1,6 @@
 using MemoRecipe.Application.Exceptions;
 using MemoRecipe.Application.Services.Alerting;
+using MemoRecipe.Application.Services.AISecurity;
 
 namespace MemoRecipe.Api.Middlewares;
 
@@ -29,6 +30,22 @@ public class ExceptionMiddleware
             context.Response.StatusCode = 403;
             await context.Response.WriteAsJsonAsync(new { status = 403, title = ex.Message });
         }
+        catch (AiRateLimitExceededException ex)
+        {
+            _logger.LogWarning(
+                "AI rate limit exceeded on tier '{Tier}', retry after {RetryAfterSeconds}s",
+                ex.Tier, ex.RetryAfterSeconds);
+            context.Response.ContentType = "application/json";
+            context.Response.StatusCode = 429;
+            context.Response.Headers.Append("Retry-After", ex.RetryAfterSeconds.ToString());
+            await context.Response.WriteAsJsonAsync(new
+            {
+                status = 429,
+                title = "AI request rate limit exceeded",
+                retryAfterSeconds = ex.RetryAfterSeconds
+            });
+        }
+
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception");
