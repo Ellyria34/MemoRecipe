@@ -24,6 +24,7 @@ using MemoRecipe.Application.Services.Alerting;
 using MemoRecipe.Application.Configuration;
 using Microsoft.AspNetCore.HttpOverrides;
 using MemoRecipe.Infrastructure.BackgroundServices;
+using MemoRecipe.Application.Services.AISecurity;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddKeyPerFile(
@@ -203,6 +204,12 @@ builder.Services.Configure<AccountPurgeOptions>(
 builder.Services.AddScoped<PasswordHasher>();
 builder.Services.AddHealthChecks()
     .AddNpgSql(connectionString);
+// AI Security — Rate Limiter (US-A2-04)
+builder.Services.Configure<AiRateLimitOptions>(
+    builder.Configuration.GetSection(AiRateLimitOptions.SectionName));
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IAiRateLimiter, AiRateLimiter>();
+
 builder.Services.AddMemoryCache();
 
 var app = builder.Build();
@@ -263,4 +270,3 @@ static void RequireConfig(IConfiguration config, string key, string description)
         throw new InvalidOperationException($"Configuration '{key}' is invalid. {description}");
     }
 }
-public partial class Program { }
