@@ -50,13 +50,7 @@ public sealed class MistralVisionCompletionClient : IVisionCompletionClient
         );
 
         var response = await _httpClient.SendAsync(httpRequest);
-        var body = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new HttpRequestException(
-                $"Mistral API error {(int)response.StatusCode}: {body}");
-        }
+        var body = await response.ReadBodyAndEnsureSuccessAsync("MistralVision");
 
         using var doc = JsonDocument.Parse(body);
 

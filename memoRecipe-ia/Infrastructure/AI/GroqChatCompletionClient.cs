@@ -43,10 +43,10 @@ public sealed class GroqChatCompletionClient : IChatCompletionClient
         );
 
         var response = await _httpClient.SendAsync(httpRequest);
-        response.EnsureSuccessStatusCode();
+        var body = await response.ReadBodyAndEnsureSuccessAsync("Groq");
 
-        using var stream = await response.Content.ReadAsStreamAsync();
-        using var doc = await JsonDocument.ParseAsync(stream);
+        using var doc = JsonDocument.Parse(body);
+
 
         return doc
             .RootElement

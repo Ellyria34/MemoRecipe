@@ -46,13 +46,7 @@ public sealed class GeminiVisionCompletionClient : IVisionCompletionClient
         );
 
         var response = await _httpClient.SendAsync(httpRequest);
-        var body = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new HttpRequestException(
-                $"Gemini API error {(int)response.StatusCode}: {body}");
-        }
+        var body = await response.ReadBodyAndEnsureSuccessAsync("GeminiVision");
 
         using var doc = JsonDocument.Parse(body);
 

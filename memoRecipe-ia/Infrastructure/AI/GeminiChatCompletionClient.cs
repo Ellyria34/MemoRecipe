@@ -50,10 +50,10 @@ public sealed class GeminiChatCompletionClient : IChatCompletionClient
         );
 
         var response = await _httpClient.SendAsync(httpRequest);
-        response.EnsureSuccessStatusCode();
+        var body = await response.ReadBodyAndEnsureSuccessAsync("Gemini");
 
-        using var stream = await response.Content.ReadAsStreamAsync();
-        using var doc = await JsonDocument.ParseAsync(stream);
+        using var doc = JsonDocument.Parse(body);
+
 
         return doc
             .RootElement
