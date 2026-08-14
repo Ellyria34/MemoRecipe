@@ -18,7 +18,7 @@ namespace MemoRecipeIA.Infrastructure.AI
 
         }
 
-        public async Task<ParsedRecipeDto> ParseAsync(string ocrText)
+        public async Task<(ParsedRecipeDto Parsed, AiUsageDto Usage)> ParseAsync(string ocrText)
         {
             var prompt = RecipePromptBuilder.BuildForText(ocrText);
 
@@ -39,16 +39,21 @@ namespace MemoRecipeIA.Infrastructure.AI
             var json = ExtractJson(raw.Text);
 
             // 3. Désérialisation robuste
-            var result = JsonSerializer.Deserialize<ParsedRecipeDto>(
+            var parsed = JsonSerializer.Deserialize<ParsedRecipeDto>(
                 json,
-                new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
-
-            return result
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                 ?? throw new InvalidOperationException("Failed to deserialize AI response.");
+
+            var usage = new AiUsageDto
+            {
+                ProviderName = _client.ProviderName,
+                PromptTokens = raw.PromptTokens,
+                CompletionTokens = raw.CompletionTokens
+            };
+
+            return (parsed, usage);
         }
+
 
         private static string ExtractJson(string text)
         {

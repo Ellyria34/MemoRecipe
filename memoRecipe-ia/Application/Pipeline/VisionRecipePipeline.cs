@@ -36,6 +36,13 @@ public class VisionRecipePipeline : IRecipePipeline
         var parsed = JsonSerializer.Deserialize<ParsedRecipeDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
             ?? throw new InvalidOperationException("Failed to deserialize AI Vision response.");
 
+        var usage = new AiUsageDto
+        {
+            ProviderName = _visionClient.ProviderName,
+            PromptTokens = raw.PromptTokens,
+            CompletionTokens = raw.CompletionTokens
+        };
+
         return new RecipeDto
         {
             Title = parsed.Title,
@@ -56,7 +63,8 @@ public class VisionRecipePipeline : IRecipePipeline
                         : $"{quantity} {i.Name}";
                 })
                 .ToList(),
-            Steps = parsed.Steps
+            Steps = parsed.Steps,
+            AiUsage = usage
         };
     }
 
