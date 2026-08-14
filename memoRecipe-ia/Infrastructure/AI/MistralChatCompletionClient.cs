@@ -11,6 +11,7 @@ public sealed class MistralChatCompletionClient : IChatCompletionClient
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
 
+    public string ProviderName => "Mistral";
     public MistralChatCompletionClient(HttpClient httpClient, string apiKey)
     {
         _httpClient = httpClient;
@@ -44,7 +45,7 @@ public sealed class MistralChatCompletionClient : IChatCompletionClient
         );
 
         var response = await _httpClient.SendAsync(httpRequest);
-        var body = await response.ReadBodyAndEnsureSuccessAsync("Mistral");
+        var body = await response.ReadBodyAndEnsureSuccessAsync(ProviderName);
 
         using var doc = JsonDocument.Parse(body);
 
@@ -52,7 +53,7 @@ public sealed class MistralChatCompletionClient : IChatCompletionClient
             .RootElement
             .GetProperty("choices")[0]
             .GetProperty("message")
-            .GetProperty("content")            
+            .GetProperty("content")
             .GetString()
             ?? throw new InvalidOperationException("Empty LLM response");
 

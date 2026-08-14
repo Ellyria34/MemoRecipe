@@ -60,6 +60,8 @@ public class VisionRecipePipelineTests
     private class FakeVisionCompletionClient : IVisionCompletionClient
     {
         private readonly string _response;
+
+        public string ProviderName => "Fake";
         public FakeVisionCompletionClient(string response) => _response = response;
 
         public Task<LlmCompletionResult> CompleteWithImageAsync(string prompt, byte[] imageData, string mimeType)

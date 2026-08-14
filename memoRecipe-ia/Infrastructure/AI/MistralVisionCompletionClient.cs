@@ -10,6 +10,7 @@ public sealed class MistralVisionCompletionClient : IVisionCompletionClient
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
 
+    public string ProviderName => "MistralVision";
     public MistralVisionCompletionClient(HttpClient httpClient, string apiKey)
     {
         _httpClient = httpClient;
@@ -51,7 +52,7 @@ public sealed class MistralVisionCompletionClient : IVisionCompletionClient
         );
 
         var response = await _httpClient.SendAsync(httpRequest);
-        var body = await response.ReadBodyAndEnsureSuccessAsync("MistralVision");
+        var body = await response.ReadBodyAndEnsureSuccessAsync(ProviderName);
 
         using var doc = JsonDocument.Parse(body);
 
@@ -59,7 +60,7 @@ public sealed class MistralVisionCompletionClient : IVisionCompletionClient
             .RootElement
             .GetProperty("choices")[0]
             .GetProperty("message")
-            .GetProperty("content")            
+            .GetProperty("content")
             .GetString()
             ?? throw new InvalidOperationException("Empty LLM response");
 

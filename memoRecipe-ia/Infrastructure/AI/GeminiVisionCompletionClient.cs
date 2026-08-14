@@ -10,6 +10,8 @@ public sealed class GeminiVisionCompletionClient : IVisionCompletionClient
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
 
+    public string ProviderName => "GeminiVision";
+
     public GeminiVisionCompletionClient(HttpClient httpClient, string apiKey)
     {
         _httpClient = httpClient;
@@ -47,7 +49,7 @@ public sealed class GeminiVisionCompletionClient : IVisionCompletionClient
         );
 
         var response = await _httpClient.SendAsync(httpRequest);
-        var body = await response.ReadBodyAndEnsureSuccessAsync("GeminiVision");
+        var body = await response.ReadBodyAndEnsureSuccessAsync(ProviderName);
 
         using var doc = JsonDocument.Parse(body);
 
@@ -56,7 +58,7 @@ public sealed class GeminiVisionCompletionClient : IVisionCompletionClient
             .GetProperty("choices")[0]
             .GetProperty("message")
             .GetProperty("content")
-            .GetProperty("parts")[0]            
+            .GetProperty("parts")[0]
             .GetString()
             ?? throw new InvalidOperationException("Empty LLM response");
 

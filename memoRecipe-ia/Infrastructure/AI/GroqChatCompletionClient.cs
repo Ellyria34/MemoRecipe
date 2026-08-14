@@ -11,6 +11,7 @@ public sealed class GroqChatCompletionClient : IChatCompletionClient
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
 
+    public string ProviderName => "Groq";
     public GroqChatCompletionClient(HttpClient httpClient, string apiKey)
     {
         _httpClient = httpClient;
@@ -21,7 +22,7 @@ public sealed class GroqChatCompletionClient : IChatCompletionClient
     {
         var request = new
         {
-            model = "llama-3.3-70b-versatile",
+            model = "openai/gpt-oss-120b",
             messages = new[]
             {
                 new { role = "user", content = prompt }
@@ -44,7 +45,7 @@ public sealed class GroqChatCompletionClient : IChatCompletionClient
         );
 
         var response = await _httpClient.SendAsync(httpRequest);
-        var body = await response.ReadBodyAndEnsureSuccessAsync("Groq");
+        var body = await response.ReadBodyAndEnsureSuccessAsync(ProviderName);
 
         using var doc = JsonDocument.Parse(body);
 

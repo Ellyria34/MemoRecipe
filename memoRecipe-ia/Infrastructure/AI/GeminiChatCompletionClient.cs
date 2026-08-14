@@ -11,6 +11,8 @@ public sealed class GeminiChatCompletionClient : IChatCompletionClient
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
 
+    public string ProviderName => "Gemini";
+
     public GeminiChatCompletionClient(HttpClient httpClient, string apiKey)
     {
         _httpClient = httpClient;
@@ -52,7 +54,7 @@ public sealed class GeminiChatCompletionClient : IChatCompletionClient
         );
 
         var response = await _httpClient.SendAsync(httpRequest);
-        var body = await response.ReadBodyAndEnsureSuccessAsync("Gemini");
+        var body = await response.ReadBodyAndEnsureSuccessAsync(ProviderName);
 
         using var doc = JsonDocument.Parse(body);
 

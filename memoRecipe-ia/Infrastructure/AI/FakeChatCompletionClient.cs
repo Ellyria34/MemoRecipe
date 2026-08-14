@@ -3,11 +3,13 @@ using MemoRecipeIA.Application.Interfaces;
 
 namespace MemoRecipeIA.Infrastructure.AI
 {
-    public class FakeChatCompletionClient : IChatCompletionClient
+  public class FakeChatCompletionClient : IChatCompletionClient
+  {
+    public string ProviderName => "Fake";
+
+    public Task<LlmCompletionResult> CompleteAsync(string prompt)
     {
-        public Task<LlmCompletionResult> CompleteAsync(string prompt)
-        {
-            const string fakeJson = """
+      const string fakeJson = """
             {
               "title": "Cheesecake maison",
               "servings": 8,
@@ -30,8 +32,8 @@ namespace MemoRecipeIA.Infrastructure.AI
             }
             """;
 
-            // Fake: 0 tokens (no real LLM call, no measurement)
-            return Task.FromResult(new LlmCompletionResult(fakeJson, 0, 0));
-        }
+      // Fake: 0 tokens (no real LLM call, no measurement)
+      return Task.FromResult(new LlmCompletionResult(fakeJson, 0, 0));
     }
+  }
 }

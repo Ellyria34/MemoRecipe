@@ -53,6 +53,7 @@ namespace MemoRecipe.IA.Tests.Unit.AI
         private class FakeChatCompletionClient : IChatCompletionClient
         {
             private readonly string _response;
+            public string ProviderName => "Fake";
 
             public FakeChatCompletionClient(string response)
             {
