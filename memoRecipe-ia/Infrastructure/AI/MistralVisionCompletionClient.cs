@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using MemoRecipeIA.Application.Dtos;
 using MemoRecipeIA.Application.Interfaces;
 
 namespace MemoRecipeIA.Infrastructure.AI;
@@ -15,7 +16,7 @@ public sealed class MistralVisionCompletionClient : IVisionCompletionClient
         _apiKey = apiKey;
     }
 
-    public async Task<string> CompleteWithImageAsync(string prompt, byte[] dataImage, string mimeType)
+    public async Task<LlmCompletionResult> CompleteWithImageAsync(string prompt, byte[] dataImage, string mimeType)
     {
         string base64Image = Convert.ToBase64String(dataImage);
         var request = new
@@ -54,12 +55,16 @@ public sealed class MistralVisionCompletionClient : IVisionCompletionClient
 
         using var doc = JsonDocument.Parse(body);
 
-        return doc
+        var text = doc
             .RootElement
             .GetProperty("choices")[0]
             .GetProperty("message")
-            .GetProperty("content")
+            .GetProperty("content")            
             .GetString()
             ?? throw new InvalidOperationException("Empty LLM response");
+
+        var (promptTokens, completionTokens) = doc.ParseOpenAiUsage();
+        return new LlmCompletionResult(text, promptTokens, completionTokens);
+
     }
 }

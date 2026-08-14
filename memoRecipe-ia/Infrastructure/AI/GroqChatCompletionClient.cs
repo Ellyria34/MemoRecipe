@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using MemoRecipeIA.Application.Dtos;
 using MemoRecipeIA.Application.Interfaces;
 
 namespace MemoRecipeIA.Infrastructure.AI;
@@ -16,7 +17,7 @@ public sealed class GroqChatCompletionClient : IChatCompletionClient
         _apiKey = apiKey;
     }
 
-    public async Task<string> CompleteAsync(string prompt)
+    public async Task<LlmCompletionResult> CompleteAsync(string prompt)
     {
         var request = new
         {
@@ -47,13 +48,15 @@ public sealed class GroqChatCompletionClient : IChatCompletionClient
 
         using var doc = JsonDocument.Parse(body);
 
-
-        return doc
+        var text = doc
             .RootElement
             .GetProperty("choices")[0]
             .GetProperty("message")
-            .GetProperty("content")
+            .GetProperty("content")            
             .GetString()
             ?? throw new InvalidOperationException("Empty LLM response");
+
+        var (promptTokens, completionTokens) = doc.ParseOpenAiUsage();
+        return new LlmCompletionResult(text, promptTokens, completionTokens);
     }
 }

@@ -31,12 +31,12 @@ namespace MemoRecipeIA.Infrastructure.AI
             var raw = await _client.CompleteAsync(prompt);
 
             _logger.LogInformation("===== RAW LLM RESPONSE =====");
-            _logger.LogInformation("{RawResponse}", raw);
+            _logger.LogInformation("{RawResponse}", raw.Text);
             _logger.LogInformation("============================");
 
 
             // 2. Extraction du JSON strict
-            var json = ExtractJson(raw);
+            var json = ExtractJson(raw.Text);
 
             // 3. Désérialisation robuste
             var result = JsonSerializer.Deserialize<ParsedRecipeDto>(

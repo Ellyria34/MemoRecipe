@@ -27,11 +27,11 @@ public class VisionRecipePipeline : IRecipePipeline
         var raw = await _visionClient.CompleteWithImageAsync(prompt, data, "image/jpeg");
 
         _logger.LogInformation("===== RAW LLM RESPONSE =====");
-        _logger.LogInformation("{RawResponse}", raw);
+        _logger.LogInformation("{RawResponse}", raw.Text);
         _logger.LogInformation("============================");
 
         // Extract strict JSON from response
-        var json = ExtractJson(raw);
+        var json = ExtractJson(raw.Text);
 
         var parsed = JsonSerializer.Deserialize<ParsedRecipeDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
             ?? throw new InvalidOperationException("Failed to deserialize AI Vision response.");

@@ -1,13 +1,13 @@
+using MemoRecipeIA.Application.Dtos;
 using MemoRecipeIA.Application.Interfaces;
 
 namespace MemoRecipeIA.Infrastructure.AI
 {
     public class FakeChatCompletionClient : IChatCompletionClient
     {
-        public Task<string> CompleteAsync(string prompt)
+        public Task<LlmCompletionResult> CompleteAsync(string prompt)
         {
-            // Valid minimal JSON for testing purposes
-            return Task.FromResult("""
+            const string fakeJson = """
             {
               "title": "Cheesecake maison",
               "servings": 8,
@@ -28,7 +28,10 @@ namespace MemoRecipeIA.Infrastructure.AI
                 "Verser le tout dans le moule. Couvrir et laisser reposer 6h minimum au frais."
               ]
             }
-            """);
+            """;
+
+            // Fake: 0 tokens (no real LLM call, no measurement)
+            return Task.FromResult(new LlmCompletionResult(fakeJson, 0, 0));
         }
     }
 }

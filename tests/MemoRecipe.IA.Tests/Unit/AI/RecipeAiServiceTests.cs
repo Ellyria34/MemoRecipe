@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using MemoRecipeIA.Application.Interfaces;
 using MemoRecipeIA.Infrastructure.AI;
 using Xunit;
+using MemoRecipeIA.Application.Dtos;
 
 namespace MemoRecipe.IA.Tests.Unit.AI
 {
@@ -35,7 +36,7 @@ namespace MemoRecipe.IA.Tests.Unit.AI
             var logger = NullLogger<RecipeAiService>.Instance;
 
             var service = new RecipeAiService(fakeClient, logger);
-    
+
 
             // Act
             var result = await service.ParseAsync(ocrText);
@@ -58,10 +59,8 @@ namespace MemoRecipe.IA.Tests.Unit.AI
                 _response = response;
             }
 
-            public Task<string> CompleteAsync(string prompt)
-            {
-                return Task.FromResult(_response);
-            }
+            public Task<LlmCompletionResult> CompleteAsync(string prompt)
+                => Task.FromResult(new LlmCompletionResult(_response, 0, 0));
         }
     }
 }

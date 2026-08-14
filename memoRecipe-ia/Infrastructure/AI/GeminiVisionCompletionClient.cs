@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using MemoRecipeIA.Application.Dtos;
 using MemoRecipeIA.Application.Interfaces;
 
 namespace MemoRecipeIA.Infrastructure.AI;
@@ -15,7 +16,7 @@ public sealed class GeminiVisionCompletionClient : IVisionCompletionClient
         _apiKey = apiKey;
     }
 
-    public async Task<string> CompleteWithImageAsync(string prompt, byte[] dataImage, string mimeType)
+    public async Task<LlmCompletionResult> CompleteWithImageAsync(string prompt, byte[] dataImage, string mimeType)
     {
         string base64Image = Convert.ToBase64String(dataImage);
         var request = new
@@ -50,13 +51,17 @@ public sealed class GeminiVisionCompletionClient : IVisionCompletionClient
 
         using var doc = JsonDocument.Parse(body);
 
-        return doc
+        var text = doc
             .RootElement
-            .GetProperty("candidates")[0]
+            .GetProperty("choices")[0]
+            .GetProperty("message")
             .GetProperty("content")
-            .GetProperty("parts")[0]
-            .GetProperty("text")
+            .GetProperty("parts")[0]            
             .GetString()
             ?? throw new InvalidOperationException("Empty LLM response");
+
+        var (promptTokens, completionTokens) = doc.ParseGeminiUsage();
+        return new LlmCompletionResult(text, promptTokens, completionTokens);
+
     }
 }

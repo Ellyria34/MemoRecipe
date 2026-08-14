@@ -1,6 +1,8 @@
 using System.Text;
 using System.Text.Json;
 using MemoRecipeIA.Application.Interfaces;
+using MemoRecipeIA.Application.Dtos;
+
 
 namespace MemoRecipeIA.Infrastructure.AI;
 
@@ -15,7 +17,7 @@ public sealed class GeminiChatCompletionClient : IChatCompletionClient
         _apiKey = apiKey;
     }
 
-    public async Task<string> CompleteAsync(string prompt)
+    public async Task<LlmCompletionResult> CompleteAsync(string prompt)
     {
         var request = new
         {
@@ -54,8 +56,7 @@ public sealed class GeminiChatCompletionClient : IChatCompletionClient
 
         using var doc = JsonDocument.Parse(body);
 
-
-        return doc
+        var text = doc
             .RootElement
             .GetProperty("candidates")[0]
             .GetProperty("content")
@@ -63,5 +64,9 @@ public sealed class GeminiChatCompletionClient : IChatCompletionClient
             .GetProperty("text")
             .GetString()
             ?? throw new InvalidOperationException("Empty LLM response");
+
+        var (promptTokens, completionTokens) = doc.ParseGeminiUsage();
+        return new LlmCompletionResult(text, promptTokens, completionTokens);
+
     }
 }
