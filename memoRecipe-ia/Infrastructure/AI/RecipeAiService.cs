@@ -22,18 +22,12 @@ namespace MemoRecipeIA.Infrastructure.AI
         {
             var prompt = RecipePromptBuilder.BuildForText(ocrText);
 
-            _logger.LogInformation("===== OCR TEXT SENT TO LLM =====");
-            _logger.LogInformation("{OcrText}", ocrText);
-            _logger.LogInformation("================================");
-
+            _logger.LogInformation("OCR text sent to LLM: length={Length} chars", ocrText.Length);
 
             // 1. Appel LLM (réponse brute)
             var raw = await _client.CompleteAsync(prompt);
 
-            _logger.LogInformation("===== RAW LLM RESPONSE =====");
-            _logger.LogInformation("{RawResponse}", raw.Text);
-            _logger.LogInformation("============================");
-
+            _logger.LogInformation("LLM response received: length={Length} chars", raw.Text.Length);
 
             // 2. Extraction du JSON strict
             var json = ExtractJson(raw.Text);

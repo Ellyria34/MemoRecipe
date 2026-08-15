@@ -25,10 +25,8 @@ public class VisionRecipePipeline : IRecipePipeline
         byte[] data = memoryStream.ToArray();
 
         var raw = await _visionClient.CompleteWithImageAsync(prompt, data, "image/jpeg");
-
-        _logger.LogInformation("===== RAW LLM RESPONSE =====");
-        _logger.LogInformation("{RawResponse}", raw.Text);
-        _logger.LogInformation("============================");
+        
+        _logger.LogInformation("LLM Vision response received: length={Length} chars", raw.Text.Length);
 
         // Extract strict JSON from response
         var json = ExtractJson(raw.Text);
