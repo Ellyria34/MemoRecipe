@@ -20,10 +20,11 @@ namespace MemoRecipe.IA.Tests.Unit.AI
             {
               "title": "Cheesecake maison",
               "servings": 8,
-              "ingredients": [
-                { "name": "biscuits", "quantity": "225 g" },
-                { "name": "beurre", "quantity": "100 g" }
-              ],
+                "ingredients": [
+                { "name": "biscuits", "quantity": 225, "unit": "g" },
+                { "name": "beurre", "quantity": 100, "unit": "g" }
+            ],
+
               "steps": [
                 "Mélanger les biscuits avec le beurre.",
                 "Verser dans un moule et tasser.",
@@ -46,7 +47,8 @@ namespace MemoRecipe.IA.Tests.Unit.AI
             Assert.Equal(8, parsed.Servings);
             Assert.Equal(2, parsed.Ingredients.Count);
             Assert.Equal("biscuits", parsed.Ingredients[0].Name);
-            Assert.Equal("225 g", parsed.Ingredients[0].Quantity);
+            Assert.Equal(225m, parsed.Ingredients[0].Quantity);
+            Assert.Equal("g", parsed.Ingredients[0].Unit);
             Assert.Equal(3, parsed.Steps.Count);
 
         }

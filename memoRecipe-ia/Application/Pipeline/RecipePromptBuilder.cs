@@ -16,7 +16,7 @@ public static class RecipePromptBuilder
           "cookTimeMinutes": number | null,
           "difficulty": "easy" | "medium" | "hard" | null,
           "ingredients": [
-            { "name": string, "quantity": string | null }
+            { "name": string, "quantity": number | null, "unit": string | null }
           ],
           "steps": [ string ]
         }
@@ -26,7 +26,8 @@ public static class RecipePromptBuilder
         - Do NOT invent ingredients, quantities, or steps.
         - Preserve the ORIGINAL step count and order.
         - Include the FULL title including subtitles.
-        - Do NOT normalize or transform quantities (no unit conversion, no reformatting).
+        - For each ingredient, separate the numeric quantity (e.g., 225) and the unit (e.g., "g") into distinct fields. If quantity is a fraction like "1/2", convert to decimal (0.5). If quantity is vague or missing ("a pinch", "some"), use null.
+        - Keep units as-is — do NOT convert (grams stay "g", not "gram" or "kg").
         - If a value is ambiguous or unclear, return null rather than guessing.
         - Return raw JSON only. No markdown, no explanations, no code fences.
         """;

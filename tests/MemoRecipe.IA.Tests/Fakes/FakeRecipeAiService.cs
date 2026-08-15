@@ -16,9 +16,11 @@ namespace MemoRecipe.IA.Tests.Fakes
                     new ParsedIngredientDto
                     {
                         Name = "Biscuits",
-                        Quantity = "225 g"
+                        Quantity = 225m,
+                        Unit = "g"
                     }
                 },
+
                 Steps =
                 {
                     "Mélanger les biscuits et le beurre."
@@ -26,7 +28,7 @@ namespace MemoRecipe.IA.Tests.Fakes
             };
 
             var usage = new AiUsageDto
-            {          
+            {
                 ProviderName = "Fake",
                 PromptTokens = 0,
                 CompletionTokens = 0
