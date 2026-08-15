@@ -8,6 +8,7 @@ using MemoRecipe.Application.Services.OcrScan;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using MemoRecipe.Application.Configuration;
+using System.Diagnostics;
 
 namespace MemoRecipe.Api.Controllers;
 
@@ -22,6 +23,7 @@ public class RecipeController : ControllerBase
     private readonly IOcrScanService _ocrScanService;
     private readonly FeatureFlagsOptions _flags;
     private readonly IAiRateLimiter _aiRateLimiter;
+    private readonly IAiAuditLogger _auditLogger;
     private readonly ILogger<RecipeController> _logger;
 
     public RecipeController(
@@ -31,6 +33,7 @@ public class RecipeController : ControllerBase
         IOcrScanService ocrScanService,
         IOptions<FeatureFlagsOptions> flags,
         IAiRateLimiter aiRateLimiter,
+        IAiAuditLogger auditLogger,
         ILogger<RecipeController> logger)
     {
         _recipeService = recipeService;
@@ -39,6 +42,7 @@ public class RecipeController : ControllerBase
         _ocrScanService = ocrScanService;
         _flags = flags.Value;
         _aiRateLimiter = aiRateLimiter;
+        _auditLogger = auditLogger;
         _logger = logger;
     }
 
@@ -144,8 +148,9 @@ public class RecipeController : ControllerBase
         var mime = imageFile.ContentType;
         if (!allowedMimeTypes.Contains(mime))
         {
-            return BadRequest($"MIME Type {mime} is not allowed. Allowed : image/jpeg, image/png");
+            return BadRequest("MIME type not allowed. Allowed: image/jpeg, image/png");
         }
+
 
         //Magic bytes vérification
         using var stream = imageFile.OpenReadStream();
@@ -163,8 +168,40 @@ public class RecipeController : ControllerBase
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         _aiRateLimiter.CheckAndThrow(userId.ToString(), ipAddress);
 
-        var result = await _ocrScanService.ProcessImageAsync(stream);
-        return Ok(result);
+        // Audit input hash — GDPR Art. 5.1.c minimization (no PII)
+        var inputHash = AiInputHasher.Sha256($"{userId}:{imageFile.FileName}:{imageFile.Length}");
+
+        // Timed LLM call for audit trail
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            var result = await _ocrScanService.ProcessImageAsync(stream);
+            stopwatch.Stop();
+
+            _auditLogger.LogScanSuccess(
+                userId,
+                result.AiUsage?.ProviderName ?? "unknown",
+                result.AiUsage?.PromptTokens ?? 0,
+                result.AiUsage?.CompletionTokens ?? 0,
+                stopwatch.ElapsedMilliseconds,
+                inputHash);
+
+            // Strip audit-only metadata before returning to client (no leak of provider internals)
+            result.AiUsage = null;
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            _auditLogger.LogScanError(
+                userId,
+                provider: "unknown",
+                errorCode: ex.GetType().Name,
+                stopwatch.ElapsedMilliseconds,
+                inputHash);
+            throw;
+        }
     }
 
     [HttpGet("count")]

@@ -1,3 +1,4 @@
+using MemoRecipeIA.Application.Dtos;
 using MemoRecipeIA.Application.Interfaces;
 using MemoRecipeIA.Application.Pipeline;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -59,9 +60,11 @@ public class VisionRecipePipelineTests
     private class FakeVisionCompletionClient : IVisionCompletionClient
     {
         private readonly string _response;
+
+        public string ProviderName => "Fake";
         public FakeVisionCompletionClient(string response) => _response = response;
 
-        public Task<string> CompleteWithImageAsync(string prompt, byte[] imageData, string mimeType)
-            => Task.FromResult(_response);
+        public Task<LlmCompletionResult> CompleteWithImageAsync(string prompt, byte[] imageData, string mimeType)
+            => Task.FromResult(new LlmCompletionResult(_response, 0, 0));
     }
 }

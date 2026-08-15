@@ -5,9 +5,9 @@ namespace MemoRecipe.IA.Tests.Fakes
 {
     public class FakeRecipeAiService : IRecipeAiService
     {
-        public Task<ParsedRecipeDto> ParseAsync(string ocrText)
+        public Task<(ParsedRecipeDto Parsed, AiUsageDto Usage)> ParseAsync(string ocrText)
         {
-            return Task.FromResult(new ParsedRecipeDto
+            var parsed = new ParsedRecipeDto
             {
                 Title = "Cheesecake maison",
                 Servings = 8,
@@ -23,7 +23,15 @@ namespace MemoRecipe.IA.Tests.Fakes
                 {
                     "Mélanger les biscuits et le beurre."
                 }
-            });
+            };
+
+            var usage = new AiUsageDto
+            {          
+                ProviderName = "Fake",
+                PromptTokens = 0,
+                CompletionTokens = 0
+            };
+            return Task.FromResult((parsed, usage));
         }
     }
 }

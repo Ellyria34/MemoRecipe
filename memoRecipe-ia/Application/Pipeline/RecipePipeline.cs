@@ -26,7 +26,7 @@ public class RecipePipeline : IRecipePipeline
         PromptSanitizer.Sanitize(rawText);
 
         // Step 3: Parsing IA
-        var parsed = await _recipeAiService.ParseAsync(rawText);
+        var (parsed, usage) = await _recipeAiService.ParseAsync(rawText);
 
         // Step 4: Mapping Parsed → RecipeDto
         return new RecipeDto
@@ -49,7 +49,8 @@ public class RecipePipeline : IRecipePipeline
                         : $"{quantity} {i.Name}";
                 })
                 .ToList(),
-            Steps = parsed.Steps
+            Steps = parsed.Steps,
+            AiUsage = usage
         };
     }
 }

@@ -4,6 +4,6 @@ namespace MemoRecipeIA.Application.Interfaces
 {
     public interface IRecipeAiService
     {
-        Task<ParsedRecipeDto> ParseAsync(string ocrText);
+        Task<(ParsedRecipeDto Parsed, AiUsageDto Usage)> ParseAsync(string ocrText);
     }
 }

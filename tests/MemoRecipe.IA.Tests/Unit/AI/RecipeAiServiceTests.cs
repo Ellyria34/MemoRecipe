@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using MemoRecipeIA.Application.Interfaces;
 using MemoRecipeIA.Infrastructure.AI;
 using Xunit;
+using MemoRecipeIA.Application.Dtos;
 
 namespace MemoRecipe.IA.Tests.Unit.AI
 {
@@ -35,33 +36,34 @@ namespace MemoRecipe.IA.Tests.Unit.AI
             var logger = NullLogger<RecipeAiService>.Instance;
 
             var service = new RecipeAiService(fakeClient, logger);
-    
+
 
             // Act
-            var result = await service.ParseAsync(ocrText);
+            var (parsed, _) = await service.ParseAsync(ocrText);
 
             // Assert
-            Assert.Equal("Cheesecake maison", result.Title);
-            Assert.Equal(8, result.Servings);
-            Assert.Equal(2, result.Ingredients.Count);
-            Assert.Equal("biscuits", result.Ingredients[0].Name);
-            Assert.Equal("225 g", result.Ingredients[0].Quantity);
-            Assert.Equal(3, result.Steps.Count);
+            Assert.Equal("Cheesecake maison", parsed.Title);
+            Assert.Equal(8, parsed.Servings);
+            Assert.Equal(2, parsed.Ingredients.Count);
+            Assert.Equal("biscuits", parsed.Ingredients[0].Name);
+            Assert.Equal("225 g", parsed.Ingredients[0].Quantity);
+            Assert.Equal(3, parsed.Steps.Count);
+
         }
 
         private class FakeChatCompletionClient : IChatCompletionClient
         {
             private readonly string _response;
+            public string ProviderName => "Fake";
 
             public FakeChatCompletionClient(string response)
             {
                 _response = response;
             }
 
-            public Task<string> CompleteAsync(string prompt)
-            {
-                return Task.FromResult(_response);
-            }
+            public Task<LlmCompletionResult> CompleteAsync(string prompt)
+                => Task.FromResult(new LlmCompletionResult(_response, 0, 0));
         }
+
     }
 }

@@ -25,16 +25,21 @@ public class VisionRecipePipeline : IRecipePipeline
         byte[] data = memoryStream.ToArray();
 
         var raw = await _visionClient.CompleteWithImageAsync(prompt, data, "image/jpeg");
-
-        _logger.LogInformation("===== RAW LLM RESPONSE =====");
-        _logger.LogInformation("{RawResponse}", raw);
-        _logger.LogInformation("============================");
+        
+        _logger.LogInformation("LLM Vision response received: length={Length} chars", raw.Text.Length);
 
         // Extract strict JSON from response
-        var json = ExtractJson(raw);
+        var json = ExtractJson(raw.Text);
 
         var parsed = JsonSerializer.Deserialize<ParsedRecipeDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
             ?? throw new InvalidOperationException("Failed to deserialize AI Vision response.");
+
+        var usage = new AiUsageDto
+        {
+            ProviderName = _visionClient.ProviderName,
+            PromptTokens = raw.PromptTokens,
+            CompletionTokens = raw.CompletionTokens
+        };
 
         return new RecipeDto
         {
@@ -56,7 +61,8 @@ public class VisionRecipePipeline : IRecipePipeline
                         : $"{quantity} {i.Name}";
                 })
                 .ToList(),
-            Steps = parsed.Steps
+            Steps = parsed.Steps,
+            AiUsage = usage
         };
     }
 

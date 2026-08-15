@@ -11,5 +11,6 @@ namespace MemoRecipeIA.Application.Dtos
         public string? Difficulty { get; set; }
         public List<string> Ingredients { get; set; } = new();
         public List<string> Steps { get; set; } = new();
+        public AiUsageDto? AiUsage { get; set; }
     }
 }

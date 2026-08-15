@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using MemoRecipeIA.Application.Dtos;
 using MemoRecipeIA.Application.Interfaces;
 
 namespace MemoRecipeIA.Infrastructure.AI;
@@ -9,13 +10,15 @@ public sealed class GeminiVisionCompletionClient : IVisionCompletionClient
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
 
+    public string ProviderName => "GeminiVision";
+
     public GeminiVisionCompletionClient(HttpClient httpClient, string apiKey)
     {
         _httpClient = httpClient;
         _apiKey = apiKey;
     }
 
-    public async Task<string> CompleteWithImageAsync(string prompt, byte[] dataImage, string mimeType)
+    public async Task<LlmCompletionResult> CompleteWithImageAsync(string prompt, byte[] dataImage, string mimeType)
     {
         string base64Image = Convert.ToBase64String(dataImage);
         var request = new
@@ -46,23 +49,21 @@ public sealed class GeminiVisionCompletionClient : IVisionCompletionClient
         );
 
         var response = await _httpClient.SendAsync(httpRequest);
-        var body = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new HttpRequestException(
-                $"Gemini API error {(int)response.StatusCode}: {body}");
-        }
+        var body = await response.ReadBodyAndEnsureSuccessAsync(ProviderName);
 
         using var doc = JsonDocument.Parse(body);
 
-        return doc
+        var text = doc
             .RootElement
-            .GetProperty("candidates")[0]
+            .GetProperty("choices")[0]
+            .GetProperty("message")
             .GetProperty("content")
             .GetProperty("parts")[0]
-            .GetProperty("text")
             .GetString()
             ?? throw new InvalidOperationException("Empty LLM response");
+
+        var (promptTokens, completionTokens) = doc.ParseGeminiUsage();
+        return new LlmCompletionResult(text, promptTokens, completionTokens);
+
     }
 }
