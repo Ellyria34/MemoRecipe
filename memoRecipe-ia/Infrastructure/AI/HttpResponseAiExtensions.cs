@@ -16,9 +16,16 @@ public static class HttpResponseAiExtensions
         var body = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
         {
+            // Truncate error body to 500 chars to prevent log inflation
+            // and reduce leakage surface of provider internals (US-A2-04c)
+            var truncated = body.Length > 500
+                ? body[..500] + "... [truncated]"
+                : body;
+
             throw new HttpRequestException(
-                $"{providerName} API error {(int)response.StatusCode}: {body}");
+                $"{providerName} API error {(int)response.StatusCode}: {truncated}");
         }
         return body;
     }
+
 }

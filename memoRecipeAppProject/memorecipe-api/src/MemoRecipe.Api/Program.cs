@@ -209,6 +209,7 @@ builder.Services.Configure<AiRateLimitOptions>(
     builder.Configuration.GetSection(AiRateLimitOptions.SectionName));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IAiRateLimiter, AiRateLimiter>();
+builder.Services.AddScoped<IAiAuditLogger, AiAuditLogger>();
 
 builder.Services.AddMemoryCache();
 
