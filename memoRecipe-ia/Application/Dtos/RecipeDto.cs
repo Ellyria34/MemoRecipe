@@ -7,9 +7,9 @@ namespace MemoRecipeIA.Application.Dtos
         public int? Servings { get; set; }
         public int? PrepTimeMinutes { get; set; }
         public int? CookTimeMinutes { get; set; }
-        public string? PreparationTime { get; set; } 
+        public string? PreparationTime { get; set; }
         public string? Difficulty { get; set; }
-        public List<string> Ingredients { get; set; } = new();
+        public List<IngredientDto> Ingredients { get; set; } = new();
         public List<string> Steps { get; set; } = new();
         public AiUsageDto? AiUsage { get; set; }
     }

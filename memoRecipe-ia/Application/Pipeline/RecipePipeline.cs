@@ -41,14 +41,14 @@ public class RecipePipeline : IRecipePipeline
                 : null,
             Difficulty = parsed.Difficulty,
             Ingredients = parsed.Ingredients
-                .Select(i =>
+                .Select(i => new IngredientDto
                 {
-                    var quantity = OcrQuantityNormalizer.Normalize(i.Quantity);
-                    return string.IsNullOrWhiteSpace(quantity)
-                        ? i.Name
-                        : $"{quantity} {i.Name}";
+                    Name = i.Name,
+                    Quantity = i.Quantity,
+                    Unit = i.Unit
                 })
                 .ToList(),
+
             Steps = parsed.Steps,
             AiUsage = usage
         };

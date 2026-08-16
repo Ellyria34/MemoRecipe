@@ -1,3 +1,5 @@
+using MemoRecipe.Application.DTOs.Ingredients;
+
 namespace MemoRecipe.Application.DTOs.Recipes
 {
     public class ExtractedRecipeDto
@@ -9,7 +11,7 @@ namespace MemoRecipe.Application.DTOs.Recipes
         public int? CookTimeMinutes { get; set; }
         public string? PreparationTime { get; set; } 
         public string? Difficulty { get; set; }
-        public List<string> Ingredients { get; set; } = new();
+        public List<IngredientCreateDto> Ingredients { get; set; } = new();
         public List<string> Steps { get; set; } = new();
         public AiUsageDto? AiUsage { get; set; }
     }

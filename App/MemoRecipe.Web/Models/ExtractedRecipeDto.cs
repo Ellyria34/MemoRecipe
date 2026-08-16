@@ -9,6 +9,6 @@ public class ExtractedRecipeDto
         public int? CookTimeMinutes { get; set; }
         public string? PreparationTime { get; set; } 
         public string? Difficulty { get; set; }
-        public List<string> Ingredients { get; set; } = new();
+        public List<IngredientCreateDto> Ingredients { get; set; } = new();
         public List<string> Steps { get; set; } = new();
 }

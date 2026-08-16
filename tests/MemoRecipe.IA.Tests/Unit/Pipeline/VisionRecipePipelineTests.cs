@@ -20,7 +20,7 @@ public class VisionRecipePipelineTests
               "prepTimeMinutes": 15,
               "cookTimeMinutes": 25,
               "difficulty": "easy",
-              "ingredients": [{ "name": "poulet", "quantity": "450 g" }],
+              "ingredients": [{ "name": "poulet", "quantity": 450, "unit": "g" }],
               "steps": ["Couper le poulet", "Cuire à feu doux"]
             }
             """;
@@ -40,6 +40,9 @@ public class VisionRecipePipelineTests
         Assert.Equal("easy", result.Difficulty);
         Assert.Equal("15 min", result.PreparationTime);
         Assert.Single(result.Ingredients);
+        Assert.Equal("poulet", result.Ingredients[0].Name);
+        Assert.Equal(450m, result.Ingredients[0].Quantity);
+        Assert.Equal("g", result.Ingredients[0].Unit);
         Assert.Equal(2, result.Steps.Count);
     }
 
