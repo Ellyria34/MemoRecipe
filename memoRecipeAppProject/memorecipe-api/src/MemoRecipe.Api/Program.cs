@@ -25,6 +25,7 @@ using MemoRecipe.Application.Configuration;
 using Microsoft.AspNetCore.HttpOverrides;
 using MemoRecipe.Infrastructure.BackgroundServices;
 using MemoRecipe.Application.Services.AISecurity;
+using MemoRecipe.Application.Services.Monitoring;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddKeyPerFile(
@@ -210,6 +211,9 @@ builder.Services.Configure<AiRateLimitOptions>(
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IAiRateLimiter, AiRateLimiter>();
 builder.Services.AddScoped<IAiAuditLogger, AiAuditLogger>();
+builder.Services.Configure<AiCostAlertingOptions>(
+    builder.Configuration.GetSection(AiCostAlertingOptions.SectionName));
+builder.Services.AddScoped<IAiCostCounter, AiCostCounter>();
 
 builder.Services.AddMemoryCache();
 

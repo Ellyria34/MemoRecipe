@@ -178,7 +178,7 @@ public class RecipeController : ControllerBase
             var result = await _ocrScanService.ProcessImageAsync(stream);
             stopwatch.Stop();
 
-            _auditLogger.LogScanSuccess(
+            await _auditLogger.LogScanSuccessAsync(
                 userId,
                 result.AiUsage?.ProviderName ?? "unknown",
                 result.AiUsage?.PromptTokens ?? 0,
@@ -194,7 +194,7 @@ public class RecipeController : ControllerBase
         catch (Exception ex)
         {
             stopwatch.Stop();
-            _auditLogger.LogScanError(
+            await _auditLogger.LogScanErrorAsync(
                 userId,
                 provider: "unknown",
                 errorCode: ex.GetType().Name,
