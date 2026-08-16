@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text;
 using MemoRecipe.Web.Models;
 using System.Net.Http.Headers;
+using MemoRecipe.Web.Exceptions;
 
 namespace MemoRecipe.Web.Services;
 
@@ -29,6 +30,14 @@ public class RecipeService : IRecipeService
         streamContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
         content.Add(streamContent, "imageFile", fileName);
         var response = await _httpClient.PostAsync("api/recipe/scan", content);
+        if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            var errorJson = await response.Content.ReadAsStringAsync();
+            var errorDoc = System.Text.Json.JsonDocument.Parse(errorJson);
+            var retryAfter = errorDoc.RootElement.GetProperty("retryAfterSeconds").GetInt32();
+            throw new AiRateLimitException(retryAfter);
+        }
+
         response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync();
@@ -50,11 +59,11 @@ public class RecipeService : IRecipeService
     public async Task<PagedResult<RecipeDto>> GetAllRecipesAsync(int page = 1, int pageSize = 10, string? orderBy = null, bool descending = true)
     {
         var queryParams = new List<string>
-        {   
+        {
             $"page={page}",
             $"pageSize={pageSize}"
         };
-        
+
         if (orderBy != null) queryParams.Add($"orderBy={orderBy}");
         if (!descending) queryParams.Add("descending=false");
 

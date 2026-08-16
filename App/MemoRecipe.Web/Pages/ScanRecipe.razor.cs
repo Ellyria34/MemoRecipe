@@ -4,6 +4,7 @@ using MemoRecipe.Web.Services;
 using MudBlazor;
 using Microsoft.AspNetCore.Components.Forms;
 using MemoRecipe.Web.Helpers;
+using MemoRecipe.Web.Exceptions;
 
 namespace MemoRecipe.Web.Pages;
 
@@ -18,11 +19,11 @@ public partial class ScanRecipe
     [Inject]
     private ISnackbar Snackbar { get; set; } = default!;
 
-    [Inject] 
-    private IFeatureFlagsService FeatureFlags {get; set; } = default!;
+    [Inject]
+    private IFeatureFlagsService FeatureFlags { get; set; } = default!;
 
-    [Inject] 
-    private ILogger<ScanRecipe> Logger {get; set; } = default!;
+    [Inject]
+    private ILogger<ScanRecipe> Logger { get; set; } = default!;
     private bool _scanEnabled = false;
 
     private ExtractedRecipeDto? _extractedRecipe;
@@ -51,15 +52,27 @@ public partial class ScanRecipe
             _extractedRecipe = await RecipeService.ScanImageAsync(stream, _selectedFile.ContentType, _selectedFile.Name);
             _newRecipe = RecipeMapper.MapExtractedRecipeDtoToFormModel(_extractedRecipe);
         }
-        catch (Exception)
+        catch (AiRateLimitException ex)
         {
-            _errorMessage = "Un problème est survenu lors du scan de la recette";
+            _errorMessage = FormatRateLimitMessage(ex.RetryAfterSeconds);
         }
         finally
         {
             _isLoading = false;
         }
     }
+
+    private static string FormatRateLimitMessage(int retryAfterSeconds)
+    {
+        if (retryAfterSeconds < 3600)
+        {
+            var minutes = Math.Ceiling(retryAfterSeconds / 60.0);
+            return $"Limite quotidienne de scans atteinte. Réessayez dans {minutes} minute(s).";
+        }
+        var hours = Math.Ceiling(retryAfterSeconds / 3600.0);
+        return $"Limite quotidienne de scans atteinte. Réessayez dans {hours} heure(s).";
+    }
+
 
     private async Task HandleCreation(RecipeFormModel recipeFormModel)
     {
