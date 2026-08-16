@@ -113,4 +113,34 @@ public class AlertingService : IAlertingService
 
         await _notificationChannel.SendAsync(alert, cancellationToken);
     }
+
+    public async Task NotifyAiCostDailyAsync(
+    string provider,
+    long tokensUsed,
+    long threshold,
+    CancellationToken cancellationToken = default)
+    {
+        var alert = new Alert(
+            AlertLevel.Warning,
+            "AI cost daily threshold reached",
+            $"{provider}: {tokensUsed} tokens used today (threshold: {threshold})",
+            DateTimeOffset.UtcNow);
+
+        await _notificationChannel.SendAsync(alert, cancellationToken);
+    }
+
+    public async Task NotifyAiCostWeeklyAsync(
+        string provider,
+        long tokensUsed,
+        long threshold,
+        CancellationToken cancellationToken = default)
+    {
+        var alert = new Alert(
+            AlertLevel.Critical,
+            "AI cost weekly threshold reached",
+            $"{provider}: {tokensUsed} tokens used this week (threshold: {threshold})",
+            DateTimeOffset.UtcNow);
+
+        await _notificationChannel.SendAsync(alert, cancellationToken);
+    }
 }

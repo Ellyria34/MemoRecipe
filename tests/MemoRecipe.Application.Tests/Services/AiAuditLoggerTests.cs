@@ -1,4 +1,5 @@
 using MemoRecipe.Application.Services.AISecurity;
+using MemoRecipe.Application.Services.Monitoring;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Testing;
 using Xunit;
@@ -39,13 +40,14 @@ public class AiAuditLoggerTests
     // ===== AiAuditLogger =====
 
     [Fact]
-    public void LogScanSuccess_EmitsInformationWithStructuredProperties()
+    public async Task LogScanSuccessAsync_EmitsInformationWithStructuredProperties()
     {
         var logger = new FakeLogger<AiAuditLogger>();
-        var auditLogger = new AiAuditLogger(logger);
+        var costCounter = new FakeAiCostCounter();
+        var auditLogger = new AiAuditLogger(logger, costCounter);
         var userId = Guid.NewGuid();
 
-        auditLogger.LogScanSuccess(userId, "MistralVision", 1200, 350, 4500, "abc123");
+        await auditLogger.LogScanSuccessAsync(userId, "MistralVision", 1200, 350, 4500, "abc123");
 
         var entry = Assert.Single(logger.Collector.GetSnapshot());
         Assert.Equal(LogLevel.Information, entry.Level);
@@ -58,13 +60,14 @@ public class AiAuditLoggerTests
     }
 
     [Fact]
-    public void LogScanBlocked_EmitsWarningWithStructuredProperties()
+    public async Task LogScanBlockedAsync_EmitsWarningWithStructuredProperties()
     {
         var logger = new FakeLogger<AiAuditLogger>();
-        var auditLogger = new AiAuditLogger(logger);
+        var costCounter = new FakeAiCostCounter();
+        var auditLogger = new AiAuditLogger(logger, costCounter);
         var userId = Guid.NewGuid();
 
-        auditLogger.LogScanBlocked(userId, "rate-limit", "per-user-hour", "abc123");
+        await auditLogger.LogScanBlockedAsync(userId, "rate-limit", "per-user-hour", "abc123");
 
         var entry = Assert.Single(logger.Collector.GetSnapshot());
         Assert.Equal(LogLevel.Warning, entry.Level);
@@ -75,13 +78,14 @@ public class AiAuditLoggerTests
     }
 
     [Fact]
-    public void LogScanError_EmitsErrorWithStructuredProperties()
+    public async Task LogScanErrorAsync_EmitsErrorWithStructuredProperties()
     {
         var logger = new FakeLogger<AiAuditLogger>();
-        var auditLogger = new AiAuditLogger(logger);
+        var costCounter = new FakeAiCostCounter();
+        var auditLogger = new AiAuditLogger(logger, costCounter);
         var userId = Guid.NewGuid();
 
-        auditLogger.LogScanError(userId, "MistralVision", "429", 200, "abc123");
+        await auditLogger.LogScanErrorAsync(userId, "MistralVision", "429", 200, "abc123");
 
         var entry = Assert.Single(logger.Collector.GetSnapshot());
         Assert.Equal(LogLevel.Error, entry.Level);
@@ -90,5 +94,16 @@ public class AiAuditLoggerTests
         Assert.Contains(entry.StructuredState!, kv => kv.Key == "ErrorCode" && kv.Value == "429");
         Assert.Contains(entry.StructuredState!, kv => kv.Key == "DurationMs" && kv.Value == "200");
         Assert.Contains(entry.StructuredState!, kv => kv.Key == "InputHash" && kv.Value == "abc123");
+    }
+
+    private class FakeAiCostCounter : IAiCostCounter
+    {
+        public int IncrementCallCount { get; private set; }
+
+        public Task IncrementAsync(string providerName, long tokens, CancellationToken cancellationToken = default)
+        {
+            IncrementCallCount++;
+            return Task.CompletedTask;
+        }
     }
 }

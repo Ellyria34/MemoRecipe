@@ -1,5 +1,5 @@
 using MemoRecipe.Api.Middlewares;
-using MemoRecipe.Api.Tests.Helpers;
+using MemoRecipe.Tests.Shared.Fakes;
 using MemoRecipe.Application.Exceptions;
 using MemoRecipe.Application.Services.AISecurity;
 using Microsoft.AspNetCore.Http;

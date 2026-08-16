@@ -5,7 +5,7 @@ using MemoRecipe.Domain.Entities.Recipes;
 using MemoRecipe.Domain.Entities.Users;
 using MemoRecipe.Infrastructure.BackgroundServices;
 using MemoRecipe.Infrastructure.Database;
-using MemoRecipe.Infrastructure.Tests.BackgroudServices;
+using MemoRecipe.Tests.Shared.Fakes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
