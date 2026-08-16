@@ -252,12 +252,12 @@ if (!app.Environment.IsEnvironment("Testing-NoRateLimit"))
     app.UseRateLimiter();
 }
 app.UseMiddleware<SecurityHeadersMiddleware>();
-app.UseMiddleware<ExceptionMiddleware>();
 app.UseSerilogRequestLogging();
 if (!app.Environment.IsProduction())
 {
     app.UseHttpsRedirection();
 }
+app.UseMiddleware<ExceptionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapHealthChecks("/health");
