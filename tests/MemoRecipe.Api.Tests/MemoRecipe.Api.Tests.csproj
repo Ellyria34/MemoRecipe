@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\memoRecipeAppProject\memorecipe-api\src\MemoRecipe.Api\MemoRecipe.Api.csproj" />
+    <ProjectReference Include="..\MemoRecipe.Tests.Shared\MemoRecipe.Tests.Shared.csproj" />
   </ItemGroup>
 
 </Project>

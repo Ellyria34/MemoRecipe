@@ -1,9 +1,10 @@
 using MemoRecipe.Application.DTOs.Auth;
 using MemoRecipe.Application.Services.Auth;
-using MemoRecipe.Application.Tests.Fakes;
+using MemoRecipe.Tests.Shared.Fakes;
 using MemoRecipe.Domain.Entities.Users;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
+using MemoRecipe.Application.Tests.Fakes;
 
 namespace MemoRecipe.Application.Tests.Services;
 
