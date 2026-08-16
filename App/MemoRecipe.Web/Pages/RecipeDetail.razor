@@ -81,9 +81,9 @@
                             @if (ingredient.Quantity > 0 || !string.IsNullOrWhiteSpace(ingredient.Unit))
                             {
                                 <span class="ml-2" style="color: #6C757D;">
-                                    @if (ingredient.Quantity > 0)
+                                    @if (ingredient.Quantity.HasValue)
                                     {
-                                        @ingredient.Quantity.ToString("0.##")
+                                        @ingredient.Quantity.Value.ToString("0.##")
                                         <text> </text>
                                     }
                                     @ingredient.Unit
@@ -110,21 +110,13 @@
             </section>
 
             <MudStack Class="mt-6">
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Size="Size.Large"
-                           FullWidth="true"
-                           StartIcon="@Icons.Material.Filled.Edit"
-                           Href="@($"/recipes/{Id}/edit")">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Edit" Href="@($"/recipes/{Id}/edit")">
                     Modifier
                 </MudButton>
 
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Error"
-                           Size="Size.Large"
-                           FullWidth="true"
-                           StartIcon="@Icons.Material.Filled.DeleteForever"
-                           OnClick="Delete">
+                <MudButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Large" FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.DeleteForever" OnClick="Delete">
                     Supprimer
                 </MudButton>
             </MudStack>

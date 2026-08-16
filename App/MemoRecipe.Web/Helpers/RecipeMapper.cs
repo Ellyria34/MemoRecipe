@@ -16,7 +16,9 @@ public static class RecipeMapper
             Difficulty = ParseDifficulty(extractedRecipeDto.Difficulty),
             Ingredients = extractedRecipeDto.Ingredients.Select(i => new IngredientFormModel
             {
-                Name = i
+                Name = i.Name,
+                Quantity = i.Quantity,
+                Unit = i.Unit
             }).ToList(),
             Steps = extractedRecipeDto.Steps.Select((s, index) => new StepFormModel
             {
@@ -49,7 +51,7 @@ public static class RecipeMapper
             Ingredients = recipeFormModel.Ingredients.Select(i => new IngredientCreateDto
             {
                 Name = i.Name,
-                Quantity = i.Quantity ?? 0,
+                Quantity = i.Quantity,
                 Unit = i.Unit
             }).ToList(),
             Steps = recipeFormModel.Steps.Select(s => new StepCreateDto
