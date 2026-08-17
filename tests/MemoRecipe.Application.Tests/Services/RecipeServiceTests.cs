@@ -7,8 +7,8 @@ using MemoRecipe.Domain.Entities.Recipes;
 using MemoRecipe.Domain.Entities.Users;
 using MemoRecipe.Application.Exceptions;
 using Microsoft.Extensions.Logging.Abstractions;
-
-
+using MemoRecipe.Application.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace MemoRecipe.Application.Tests.Services;
 
@@ -23,7 +23,11 @@ public class RecipeServiceTests
     {
         _repository = new FakeRecipeRepository();
         _userRepository = new FakeUserRepository();
-        _service = new RecipeService(_repository, _userRepository, NullLogger<RecipeService>.Instance);
+        _service = new RecipeService(
+            _repository,
+            _userRepository,
+            Options.Create(new RecipeLimitsOptions { MaxPerUser = 200 }),
+            NullLogger<RecipeService>.Instance);
     }
 
     #region GetByIdAsync

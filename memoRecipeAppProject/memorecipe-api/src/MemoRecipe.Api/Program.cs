@@ -214,6 +214,8 @@ builder.Services.AddScoped<IAiAuditLogger, AiAuditLogger>();
 builder.Services.Configure<AiCostAlertingOptions>(
     builder.Configuration.GetSection(AiCostAlertingOptions.SectionName));
 builder.Services.AddScoped<IAiCostCounter, AiCostCounter>();
+builder.Services.Configure<RecipeLimitsOptions>(
+    builder.Configuration.GetSection(RecipeLimitsOptions.SectionName));
 
 builder.Services.AddMemoryCache();
 

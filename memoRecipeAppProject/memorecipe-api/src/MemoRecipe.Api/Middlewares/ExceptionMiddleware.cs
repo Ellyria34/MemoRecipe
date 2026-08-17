@@ -46,6 +46,22 @@ public class ExceptionMiddleware
             });
         }
 
+        catch (RecipeLimitReachedException ex)
+        {
+            _logger.LogWarning(
+                "Recipe limit reached for user request (limit: {Limit})",
+                ex.Limit);
+            context.Response.ContentType = "application/json";
+            context.Response.StatusCode = 403;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                status = 403,
+                error = "recipe_limit_reached",
+                title = ex.Message,
+                limit = ex.Limit
+            });
+        }
+
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception");
