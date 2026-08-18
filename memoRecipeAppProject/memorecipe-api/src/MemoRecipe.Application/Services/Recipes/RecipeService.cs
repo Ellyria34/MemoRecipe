@@ -7,6 +7,8 @@ using MemoRecipe.Application.Mappings.Profiles;
 using MemoRecipe.Application.Exceptions;
 using Microsoft.Extensions.Logging;
 using MemoRecipe.Application.DTOs.Common;
+using MemoRecipe.Application.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace MemoRecipe.Application.Services.Recipes;
 
@@ -14,13 +16,14 @@ public class RecipeService : IRecipeService
 {
     private readonly IRecipeRepository _repository;
     private readonly IUserRepository _userRepository;
+    private readonly RecipeLimitsOptions _recipeLimits;
     private readonly ILogger<RecipeService> _logger;
 
-
-    public RecipeService(IRecipeRepository repository, IUserRepository userRepository, ILogger<RecipeService> logger)
+    public RecipeService(IRecipeRepository repository, IUserRepository userRepository, IOptions<RecipeLimitsOptions> recipeLimits, ILogger<RecipeService> logger)
     {
         _repository = repository;
         _userRepository = userRepository;
+        _recipeLimits = recipeLimits.Value;
         _logger = logger;
     }
 
@@ -54,6 +57,12 @@ public class RecipeService : IRecipeService
     {
         await EnsureAccountActiveAsync(userId);
 
+        var currentCount = await _repository.CountByUserAsync(userId);
+        if (currentCount >= _recipeLimits.MaxPerUser)
+        {
+            throw new RecipeLimitReachedException(_recipeLimits.MaxPerUser);
+        }
+        
         var newRecipe = dto.ToEntity();
         newRecipe.Id = Guid.NewGuid();
         newRecipe.UserId = userId;

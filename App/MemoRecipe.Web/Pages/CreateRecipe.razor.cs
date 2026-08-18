@@ -3,6 +3,7 @@ using MemoRecipe.Web.Models;
 using MemoRecipe.Web.Services;
 using MudBlazor;
 using MemoRecipe.Web.Helpers;
+using MemoRecipe.Web.Exceptions;
 
 namespace MemoRecipe.Web.Pages;
 
@@ -16,7 +17,7 @@ public partial class CreateRecipe
 
     [Inject]
     private ISnackbar Snackbar { get; set; } = default!;
-    
+
 
     private RecipeFormModel _newRecipe = new RecipeFormModel
     {
@@ -46,6 +47,10 @@ public partial class CreateRecipe
                 config.ShowCloseIcon = false;
             });
             Navigation.NavigateTo($"/recipes");
+        }
+        catch (RecipeLimitException ex)
+        {
+            _errorMessage = $"Vous avez atteint la limite de {ex.Limit} recettes. Supprimez-en pour en créer de nouvelles.";
         }
         catch (Exception)
         {

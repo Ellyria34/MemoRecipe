@@ -36,7 +36,7 @@ public class AiCostCounterTests
     public async Task IncrementAsync_WhenDailyThresholdReached_NotifiesDailyOnce()
     {
         var alerting = new FakeAlertingService();
-        var time = new FakeTimeProvider(new DateTimeOffset(2026, 8, 16, 10, 0, 0, TimeSpan.Zero));
+        var time = new FakeTimeProvider(DateTimeOffset.UtcNow);
         var counter = CreateCounter(alerting, time, dailyThreshold: 1000, weeklyThreshold: 999999);
 
         await counter.IncrementAsync("Mistral", 500);
@@ -50,7 +50,7 @@ public class AiCostCounterTests
     public async Task IncrementAsync_WhenWeeklyThresholdReached_NotifiesWeeklyOnce()
     {
         var alerting = new FakeAlertingService();
-        var time = new FakeTimeProvider(new DateTimeOffset(2026, 8, 16, 10, 0, 0, TimeSpan.Zero));
+        var time = new FakeTimeProvider(DateTimeOffset.UtcNow);
         var counter = CreateCounter(alerting, time, dailyThreshold: 999999, weeklyThreshold: 5000);
 
         await counter.IncrementAsync("Mistral", 3000);
@@ -64,7 +64,7 @@ public class AiCostCounterTests
     public async Task IncrementAsync_WhenDailyThresholdExceededMultipleTimes_NotifiesOnlyOnce()
     {
         var alerting = new FakeAlertingService();
-        var time = new FakeTimeProvider(new DateTimeOffset(2026, 8, 16, 10, 0, 0, TimeSpan.Zero));
+        var time = new FakeTimeProvider(DateTimeOffset.UtcNow);
         var counter = CreateCounter(alerting, time, dailyThreshold: 1000, weeklyThreshold: 999999);
 
         await counter.IncrementAsync("Mistral", 1000); // seuil atteint → alerte

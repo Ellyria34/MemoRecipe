@@ -43,3 +43,5 @@ backup-test.*
 
 .lighthouseci/
 
+# Test results (dotnet test --logger trx)
+[Tt]est[Rr]esult*/
