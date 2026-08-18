@@ -90,6 +90,11 @@ public partial class ScanRecipe
             });
             Navigation.NavigateTo($"/recipes");
         }
+        catch (RecipeLimitException ex)
+        {
+            _errorMessage = $"Vous avez atteint la limite de {ex.Limit} recettes. Supprimez-en pour en créer de nouvelles.";
+        }
+
         catch (Exception)
         {
             _errorMessage = "Un problème est survenu lors de la sauvegarde de la recette";

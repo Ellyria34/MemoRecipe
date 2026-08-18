@@ -3,6 +3,7 @@ using System.Text;
 using MemoRecipe.Web.Models;
 using System.Net.Http.Headers;
 using MemoRecipe.Web.Exceptions;
+using System.Net;
 
 namespace MemoRecipe.Web.Services;
 
@@ -30,10 +31,10 @@ public class RecipeService : IRecipeService
         streamContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
         content.Add(streamContent, "imageFile", fileName);
         var response = await _httpClient.PostAsync("api/recipe/scan", content);
-        if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
         {
             var errorJson = await response.Content.ReadAsStringAsync();
-            var errorDoc = System.Text.Json.JsonDocument.Parse(errorJson);
+            var errorDoc = JsonDocument.Parse(errorJson);
             var retryAfter = errorDoc.RootElement.GetProperty("retryAfterSeconds").GetInt32();
             throw new AiRateLimitException(retryAfter);
         }
@@ -53,6 +54,18 @@ public class RecipeService : IRecipeService
         response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync();
+
+        if (response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            var errorJson = await response.Content.ReadAsStringAsync();
+            var errorDoc = JsonDocument.Parse(errorJson);
+            if (errorDoc.RootElement.TryGetProperty("error", out var errorProp) &&
+                errorProp.GetString() == "recipe_limit_reached")
+            {
+                var limit = errorDoc.RootElement.GetProperty("limit").GetInt32();
+                throw new RecipeLimitException(limit);
+            }
+        }
         return Deserialize<RecipeDto>(json);
     }
 
