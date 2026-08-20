@@ -165,7 +165,7 @@ public class RecipeController : ControllerBase
         stream.Position = 0; // reset the cursor to the beginning for OCR 
 
         // Recipe quota check — prevent LLM waste if user already at limit
-        await _recipeService.CheckQuotaOrThrowAsync(userId);
+        await _recipeService.EnsureQuotaAvailableAsync(userId);
 
         // AI rate limit — LLM-level enforcement (4 tiers)
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";

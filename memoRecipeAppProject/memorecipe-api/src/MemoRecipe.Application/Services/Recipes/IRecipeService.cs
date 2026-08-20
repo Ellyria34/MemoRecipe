@@ -12,5 +12,5 @@ public interface IRecipeService
     Task<RecipeDto?> UpdateAsync(Guid id, RecipeUpdateDto dto, Guid userId);
     Task<bool> DeleteAsync(Guid id, Guid userId);
     Task<int> CountByUserAsync(Guid userId);
-    Task CheckQuotaOrThrowAsync(Guid userId);
+    Task EnsureQuotaAvailableAsync(Guid userId);
 }

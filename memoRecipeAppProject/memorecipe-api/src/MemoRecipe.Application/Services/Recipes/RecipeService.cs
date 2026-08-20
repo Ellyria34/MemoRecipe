@@ -56,7 +56,7 @@ public class RecipeService : IRecipeService
     public async Task<RecipeDto> CreateAsync(RecipeCreateDto dto, Guid userId)
     {
         await EnsureAccountActiveAsync(userId);
-        await CheckQuotaOrThrowAsync(userId);
+        await EnsureQuotaAvailableAsync(userId);
 
         var newRecipe = dto.ToEntity();
 
@@ -183,7 +183,7 @@ public class RecipeService : IRecipeService
         return true;
     }
 
-    public async Task CheckQuotaOrThrowAsync(Guid userId)
+    public async Task EnsureQuotaAvailableAsync(Guid userId)
     {
         var currentCount = await _repository.CountByUserAsync(userId);
         if (currentCount >= _recipeLimits.MaxPerUser)
