@@ -1,1101 +1,229 @@
-# Decisions & Technical Debt
+# Décisions Techniques (vue thématique)
 
-Ce fichier trace les decisions architecturales, les choix techniques et la dette technique identifiee.
+> Vue synthétique par thème des choix techniques structurants de MemoRecipe. Pour l'historique complet et détaillé de chaque décision, avec contexte, alternatives écartées, sources et conséquences, voir [`ADR.md`](ADR.md).
+
+## Comment lire ce document
+
+Chaque section correspond à un thème. Pour chaque thème vous trouvez d'abord ce qui est appliqué aujourd'hui, puis un rappel synthétique de l'historique des décisions qui ont conduit à cet état. Les liens `[DEC-XXX](ADR.md#dec-xxx)` renvoient vers l'ADR complet pour aller en profondeur.
+
+## Convention de mise à jour
+
+Toute évolution technique structurelle suit un workflow en 2 temps pour maintenir les deux documents cohérents.
+
+**1. Enregistrer dans ADR.md** : ajouter une nouvelle `DEC-XXX` (format ADR standard : Statut, Date, Choix, Pourquoi, Alternatives écartées, Sources, Conséquences, Conditions qui invalideraient ce choix, État) OU mettre à jour le champ `Statut` d'une DEC existante en cas de supersede, d'extension ou de nuance. Si la nouvelle DEC supersede une DEC précédente, enrichir la nouvelle pour qu'elle soit auto-suffisante en lecture.
+
+**2. Répercuter dans DECISIONS.md** : localiser la section thématique impactée (parmi les 8), mettre à jour le paragraphe `État actuel` si l'évolution change ce qui est en place aujourd'hui, ajouter une entrée dans `Historique des décisions` en respectant l'ordre chronologique, et ajouter le lien `[DEC-XXX](ADR.md#dec-xxx)` dans la ligne `DEC détaillées` en fin de section.
+
+**Principe** : ADR.md est la source de vérité chronologique et détaillée. DECISIONS.md est la vitrine thématique lisible qui pointe vers ADR.md. Les deux doivent rester synchronisés.
+
+## Sommaire
+
+1. [Architecture et fondations](#architecture-et-fondations)
+2. [Frontend et UI](#frontend-et-ui)
+3. [Authentification, sécurité et RGPD](#authentification-sécurité-et-rgpd)
+4. [Base de données et backup](#base-de-données-et-backup)
+5. [IA, LLM et scan](#ia-llm-et-scan)
+6. [Infrastructure, Docker et déploiement](#infrastructure-docker-et-déploiement)
+7. [Tests](#tests)
+8. [Framework et patterns backend](#framework-et-patterns-backend)
 
 ---
 
-## Decisions architecturales
+## Architecture et fondations
 
-### DEC-001 : Monorepo avec separation claire des responsabilites
-- **Date** : Nov 2025
-- **Choix** : Un seul repo Git contenant 3 briques (IA, API, Front)
-- **Pourquoi** : Simplifie le versionning et les PRs cross-projets pour un projet solo. Chaque brique reste independante (solutions .sln separees, frameworks differents).
-- **Consequence** : Le front ne communique jamais directement avec les Azure Functions, tout passe par l'API.
+**État actuel**
 
-### DEC-002 : Clean Architecture pour l'API (4 couches)
-- **Date** : Nov 2025
-- **Choix** : Api > Application > Domain > Infrastructure
-- **Pourquoi** : Separation des responsabilites (SRP), testabilite, independance du framework. Le Domain ne depend de rien, l'Application contient la logique metier, l'Infrastructure gere la persistance.
-- **Consequence** : Les services metier vivent dans Application, pas dans Api.
+MemoRecipe est un monorepo Git qui abrite 3 briques indépendantes (IA, API, Frontend Web), chacune avec sa propre solution .NET et sa propre version de framework. Le Frontend ne communique jamais directement avec le service IA, tous les appels passent par l'API centrale.
 
-### DEC-003 : L'IA comme source de donnees, pas source de verite
-- **Date** : Nov 2025
-- **Choix** : Le LLM propose, le code decide. Toutes les corrections sont deterministes et testables.
-- **Pourquoi** : Fiabilite, reproductibilite, testabilite. Un changement de modele IA ne doit pas casser le comportement metier.
+L'API suit une Clean Architecture stricte en 4 couches (`MemoRecipe.Api`, `MemoRecipe.Application`, `MemoRecipe.Domain`, `MemoRecipe.Infrastructure`) avec le Repository Pattern pour tous les agrégats persistés (`Recipe`, `User`). Le principe fondateur "l'IA propose, le code décide" garantit qu'un changement de modèle IA ne casse pas le comportement métier (post-processing déterministe systématique sur toutes les sorties LLM).
 
-### DEC-004 : PostgreSQL avec colonnes JSONB
-- **Date** : Nov 2025
-- **Choix** : Données structurées en tables relationnelles + JSONB pour les données flexibles (OCR brut, nutrition, metadata).
-- **Pourquoi** : PostgreSQL gère nativement le JSON avec indexation. Évite de créer des tables pour des données semi-structurées qui varient beaucoup.
-- **Colonnes concrètes** :
-  - `IngredientNutrition.AllergensJson` : liste d'allergènes
-  - `OCRExtraction.JsonData` : sortie brute OCR + IA structurée
-  - `RecipeSource.MetadataJson` : metadata source variable (URL, livre, etc.)
-- **Conséquence sur les tests (identifiée 02/06/2026)** :
-  Les tests d'intégration actuels utilisent SQLite in-memory via `WebApplicationFactory`. **Deux divergences silencieuses** vs Postgres prod :
-  **1. JSONB** : SQLite ne supporte pas le type `jsonb` — traduit en `TEXT`. Aujourd'hui sans risque (aucune query JSONB-specific dans le code), mais dès que des queries `@>`, `?`, `->` seront ajoutées (ex: recherche par allergène), il faudra TestContainers.
-  **2. Dates et timestamps** : SQLite n'a pas de type date natif (stockage en TEXT/ISO string), donc :
-    - Pas de support `TIMESTAMP WITH TIME ZONE` (les colonnes `CreatedAt`/`UpdatedAt` perdent la sémantique TIMESTAMPTZ)
-    - Précision microseconde Postgres → précision variable SQLite
-    - `DateTime.Kind` perdu au round-trip (revient `Unspecified` en SQLite vs `Utc` en Postgres + Npgsql)
-  Aujourd'hui le code utilise systématiquement `DateTime.UtcNow` et aucune logique métier ne dépend de `.Kind` après lecture DB → risque dates faible. Mais le risque latent grandira avec les features futures (search par période, filtre temporel).
-  **A Faire** : migration vers TestContainers tracée dans **BACK-062**.
-- **État** : DÉCIDÉ et appliqué — Postgres avec JSONB en place depuis InitialCreate migration.
+**Historique des décisions**
 
+La séparation en 3 briques indépendantes a été actée dès novembre 2025 ([DEC-001](ADR.md#dec-001)) pour permettre de faire évoluer chaque brique à son rythme (versions .NET différentes possibles, cycles de release découplés). Dans la foulée, l'API a adopté la Clean Architecture 4 couches ([DEC-002](ADR.md#dec-002)) et le principe "IA comme source de données, pas de vérité" ([DEC-003](ADR.md#dec-003)) qui reste un pilier du produit.
 
-### DEC-005 : JWT pour l'authentification API-first
-- **Date** : Nov 2025
-- **Choix** : JWT Bearer stateless, pas de cookies de session.
-- **Pourquoi** : L'API sera consommee par un client web (Blazor) ET une app mobile (MAUI). JWT fonctionne sur les deux sans gestion de session serveur.
+En mars 2026, deux décisions cadres ont été prises. D'abord, ne pas restructurer les dossiers du monorepo malgré une redondance cosmétique connue ([DEC-006](ADR.md#dec-006)), pour éviter de casser les chemins dans les .sln, .csproj, migrations et compose sans bénéfice réel. Ensuite, généraliser le Repository Pattern à tous les agrégats persistés ([DEC-007](ADR.md#dec-007)) via des interfaces dans `Application/Repositories/` et des implémentations dans `Infrastructure/Repositories/`, ce qui a corrigé une référence circulaire entre couches et permet les tests unitaires avec des fakes en mémoire.
 
-### DEC-006 : Ne pas restructurer les dossiers du monorepo maintenant
-- **Date** : Mars 2026
-- **Choix** : Garder la structure actuelle `memoRecipeAppProject/memorecipe-api/src/...` meme si `memorecipe-api` est un niveau de dossier redondant.
-- **Pourquoi** : Le gain est cosmetique. Restructurer casserait les chemins dans .sln, .csproj, migrations, docker-compose. On applique YAGNI : on restructure quand c'est bloquant, pas pour du cosmetique.
-
-### DEC-007 : Repository Pattern pour tous les agregats (Recipe + User)
-- **Date** : Mars 2026
-- **Choix** : `IRecipeRepository` et `IUserRepository` dans Application, implementations dans Infrastructure.
-- **Pourquoi** : DIP (Dependency Inversion Principle) — Application definit le contrat, Infrastructure l'implemente. Permet les tests unitaires avec FakeRepository sans base de donnees. Corrige la reference circulaire Application ↔ Infrastructure.
-- **Consequence** : Architecture propre : Api → Application ← Infrastructure → Domain.
-
-### DEC-008 : Verification IsPublic dans GetByIdAsync
-- **Date** : Mars 2026
-- **Choix** : Un user ne peut voir la recette d'un autre que si elle est publique (`IsPublic = true`).
-- **Pourquoi** : Securite par defaut. `[Authorize]` verifie seulement l'authentification ("qui es-tu ?"), pas l'autorisation ("as-tu le droit ?"). La logique metier vit dans le service (SRP).
-- **Consequence** : `GetByIdAsync` prend un `userId` en parametre pour evaluer les droits d'acces.
-
-### DEC-009 : Tests unitaires avec FakeRepository
-- **Date** : Mars 2026
-- **Choix** : Implémenter `IRecipeRepository` avec une `List<Recipe>` en memoire pour les tests.
-- **Pourquoi** : Tests deterministes, rapides (< 1s), sans base de donnees, sans Docker. Meme pattern que `FakeRecipeAiService` dans les tests IA.
-- **Consequence** : Les tests unitaires ne testent pas la persistance (c'est voulu). Les tests d'integration avec vraie DB sont une dette a traiter.
-
-### DEC-010 : MudBlazor comme librairie UI pour Blazor
-- **Date** : Mars 2026
-- **Choix** : MudBlazor plutot que Bootstrap ou Tailwind
-- **Pourquoi** : Composants natifs Blazor (C#, pas du HTML+classes CSS). Theme centralise, responsive integre, zero JS a ecrire. Lib la plus utilisee dans l'ecosysteme Blazor.
-- **Risque** : Dependance a une lib tierce. Mitige par Clean Architecture — seule la couche Web utilise MudBlazor, Domain/Application restent independants.
-
-### DEC-011 : FluentValidation plutot que Data Annotations
-- **Date** : Mars 2026
-- **Choix** : FluentValidation pour valider les DTOs (RecipeCreate, RecipeUpdate, Register, Login)
-- **Pourquoi** : Regles dans une classe separee (SRP — le DTO reste un DTO). Testable unitairement avec `TestValidate`. Messages personnalisables. Validations conditionnelles avec `.When(...)` pour le partial update.
-- **Consequence** : Validation dans les controllers avant appel aux services. 71 tests unitaires couvrent tous les validators.
-
-### DEC-012 : Global Exception Middleware
-- **Date** : Mars 2026
-- **Choix** : Middleware custom (`ExceptionMiddleware`) plutot que le handler par defaut d'ASP.NET
-- **Pourquoi** : Controle total sur la reponse d'erreur. Le client recoit toujours un message generique (`An unexpected error occurred.`), jamais de stack trace. Les logs serveur recoivent l'exception complete via `ILogger`.
-- **Consequence** : Enregistre en premier dans le pipeline (`app.UseMiddleware<ExceptionMiddleware>()`). Principe "fail safely".
-
-### DEC-013 : FakeAuthService pour le developpement frontend
-- **Date** : Mars 2026
-- **Choix** : Implementer `IAuthService` avec une version fake (`FakeAuthService`) pour le developpement frontend sans API.
-- **Pourquoi** : Permet de developper et tester toute l'UX sans avoir besoin de l'API, de la base de donnees ou de Docker. Une seule ligne a changer dans `Program.cs` pour switcher. Meme pattern que `FakeRecipeAiService` cote IA.
-- **Consequence** : `FakeAuthService` n'est jamais deploye en production. Il est remplace par `AuthService` (HTTP) des que l'API est disponible.
-
-### DEC-014 : Migration localStorage → cookies HttpOnly pour les tokens JWT
-- **Date** : Mars 2026
-- **Choix** : Abandonner `localStorage` pour stocker les tokens JWT, migrer vers des cookies `HttpOnly + Secure + SameSite=Strict`.
-- **Pourquoi** : `localStorage` est accessible en clair via les DevTools du navigateur et lisible par JavaScript → vulnerable aux attaques XSS. Un cookie `HttpOnly` ne peut pas etre lu par JavaScript — le navigateur l'envoie uniquement directement au serveur.
-- **Impact** : Backend — `Login` et `Register` posent un cookie au lieu de retourner `{ token }`. Frontend — `AuthService` n'a plus besoin de `ILocalStorageService`, plus de gestion manuelle du token.
-- **Etat** : DONE — branche `feature/auth-frontend`. Backend pose le cookie, frontend utilise `CookieHandler` + `IHttpClientFactory`. DEBT-002 et DEBT-003 resolus.
-
-### DEC-015 : Routes protegees avec CookieAuthStateProvider
-- **Date** : Mars 2026
-- **Choix** : `AuthenticationStateProvider` custom qui appelle `api/auth/me` pour verifier l'auth, avec cache en memoire.
-- **Pourquoi** : Avec les cookies HttpOnly, le frontend ne peut pas lire le token. Le seul moyen de savoir si l'utilisateur est connecte est de demander au serveur. Le cache evite de refaire l'appel API a chaque navigation entre pages.
-- **Impact** : `App.razor` utilise `CascadingAuthenticationState` + `AuthorizeRouteView`. Les pages protegees utilisent `@attribute [Authorize]`. Les pages publiques (`/login`, `/register`) restent accessibles sans auth. `RedirectToLogin` redirige vers `/login` si non authentifie.
-- **Etat** : DONE — branche `feature/protected-routes`.
-
-### DEC-016 : Layout responsive — sidebar desktop + bottom bar mobile
-- **Date** : Mars 2026
-- **Choix** : Layout adaptatif selon la taille d'ecran. Desktop : top bar (logo, user, logout) + sidebar gauche (navigation). Mobile : top bar + bottom bar (navigation). Memes liens, affichage conditionnel.
-- **Pourquoi** : UX mobile-first. Sur mobile, le pouce atteint facilement le bas de l'ecran (pattern standard : Instagram, Spotify). Sur desktop, la sidebar offre plus d'espace pour les labels + icones. La top bar reste presente dans les deux cas pour le branding et les actions utilisateur.
-- **Composants MudBlazor** : `MudAppBar` (top bar), `MudDrawer` (sidebar desktop), bottom bar custom (mobile). Affichage conditionnel via CSS media queries ou `MudHidden`.
-- **Pages** : `/` (dashboard), `/recipes` (mon livre), `/recipes/{id}` (detail + edition inline), `/recipes/new` (import scan/photo), `/login`, `/register`.
-
-### DEC-017 : Frontend → API → Azure Function IA (pas d'appel direct)
-- **Date** : Mars 2026
-- **Choix** : Le frontend envoie l'image à l'API, qui appelle l'Azure Function IA. Le frontend ne communique jamais directement avec l'Azure Function.
-- **Pourquoi** : Un seul point d'entrée sécurisé (cookies HttpOnly déjà en place). L'Azure Function peut rester privée/interne. Meilleur contrôle RGPD (traçabilité, audit, suppression des images). Compatible MAUI (même endpoint API). L'utilisateur n'a pas besoin de connaître l'existence du service IA.
-- **Conséquence** : Nouveau service `IOcrScanService` (Application) / `OcrScanService` (Infrastructure) pour l'appel HTTP. Endpoint `POST api/recipe/scan` dans `RecipeController`. URL Azure Function configurable dans `appsettings.json`.
-- **Etat** : DONE — scan IA fonctionnellement complet (endpoint `POST /api/recipes/scan` + frontend Blazor + Azure Function IA + parsing LLM + preview éditable + validation + sauvegarde BDD). Gated par le feature flag `Features:ScanRecipeEnabled` en V1 (cf. [DEC-040](#dec-040) + BACK-092) → sera réactivé sans changement de code en V1.1/V2.
-
-### DEC-018 : RecipeFormModel séparé des DTOs API + composant RecipeForm réutilisable
-- **Date** : Mars 2026
-- **Choix** : Le formulaire de recette utilise un `RecipeFormModel` dédié (pas un DTO API) et vit dans un composant `RecipeForm.razor` réutilisable. Chaque page parente mappe vers le DTO approprié (`RecipeCreateDto` ou `RecipeUpdateDto`) avant d'appeler l'API.
-- **Pourquoi** : Single Responsibility — le formulaire ne doit pas dépendre d'un contrat API. `RecipeFormModel` = ce que l'utilisateur voit et édite. Le même composant est réutilisé dans 3 contextes : scan (pré-rempli par l'IA), création manuelle (vide), modification (pré-rempli depuis l'API). Le parent décide du verbe HTTP (POST vs PUT), pas le formulaire.
-- **Conséquence** : `RecipeFormModel` dans `Models/`, `RecipeForm.razor` dans `Components/`. Le composant expose un `[Parameter] RecipeFormModel` et un `[Parameter] EventCallback<RecipeFormModel>` pour notifier le parent au clic "Sauvegarder".
-- **Etat** : DONE — composant intégré dans Scan, Edit et création manuelle (future).
-
-### DEC-019 : Code-behind pattern + `= default!;` pour les pages Blazor
-- **Date** : Mars 2026
-- **Choix** : Séparer chaque page en `.razor` (template) + `.razor.cs` (code C#). Utiliser `= default!;` sur les propriétés `[Inject]` pour supprimer les warnings nullable.
-- **Pourquoi** : Séparation des responsabilités (SRP) — le template ne contient que du HTML/Razor, le C# est dans une classe `partial`. `= default!;` est le pattern recommandé par Microsoft pour les injections Blazor ([doc officielle](https://learn.microsoft.com/en-us/aspnet/core/blazor/fundamentals/dependency-injection)).
-- **Conséquence** : Les `@inject` du `.razor` deviennent `[Inject]` dans le `.razor.cs` avec `{ get; set; } = default!;`. Les `using` doivent être ajoutés manuellement dans le `.razor.cs` (pas d'accès aux `@using` de `_Imports.razor`).
-- **Etat** : DONE — appliqué sur RecipeDetail, Recipes, ScanRecipe, EditRecipe.
-
-### DEC-020 : Migration du hashing des mots de passe — HMAC-SHA512 → PBKDF2 (PasswordHasher\<T\>)
-- **Date** : Avril 2026
-- **Choix** : Remplacer le hashing custom `HMACSHA512` par `PasswordHasher<User>` de `Microsoft.AspNetCore.Identity` (PBKDF2, 100 000 itérations, salt intégré).
-- **Pourquoi** : `HMACSHA512` est un algorithme rapide (milliards de hash/seconde) — vulnérable au brute force si la BDD est compromise. `PasswordHasher<T>` utilise PBKDF2 avec un work factor élevé, rendant le brute force impraticable. C'est le standard recommandé par Microsoft ([doc officielle](https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.identity.passwordhasher-1?view=aspnetcore-10.0)).
-- **Migration douce** : Les utilisateurs existants (hashés avec l'ancien algo) sont migrés automatiquement à la prochaine connexion — le login vérifie l'ancien hash, re-hash avec PBKDF2, vide le `PasswordSalt`, et sauvegarde. La méthode `VerifyLegacy()` est conservée temporairement pour la rétrocompatibilité.
-- **Conséquence** : `PasswordHasher` n'est plus `static`, injecté via DI. Le champ `PasswordSalt` reste en BDD (pour vérifier les anciens hash) mais est vide pour les nouveaux users. `IUserRepository` a une nouvelle méthode `Update()`. À terme : supprimer `VerifyLegacy()` et le champ `PasswordSalt` quand tous les users auront migré.
-- **Etat** : DONE — migration douce en place, testée avec comptes existants.
-
-### DEC-021 : SecurityHeadersMiddleware custom plutot que packages tiers
-- **Date** : Avril 2026
-- **Choix** : Middleware custom dans `MemoRecipe.Api/Middlewares/SecurityHeadersMiddleware.cs` qui ajoute 6 headers de securite (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, CSP, HSTS) sur chaque reponse.
-- **Pourquoi** : Les headers sont statiques et peu nombreux — un middleware custom de ~20 lignes est plus simple et transparent qu'un package tiers (NWebsec, etc.). On garde le controle total sur les valeurs. CSP adapte a Blazor WASM (`wasm-unsafe-eval`) + MudBlazor (`unsafe-inline` pour style-src) + Google Fonts.
-- **HSTS conditionnel** : `Strict-Transport-Security` ajoute uniquement en production (`!IsDevelopment()`), car HSTS casserait le dev local en HTTP/certificats auto-signes.
-- **X-XSS-Protection volontairement omis** : Header deprecie (MDN 2025), peut creer des failles XSS. CSP le remplace entierement.
-- **Sources** : [OWASP HTTP Headers Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html), [MDN Security Headers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers), [ASP.NET Core Security](https://learn.microsoft.com/en-us/aspnet/core/security/).
-- **Etat** : DONE — BACK-001, 7 tests d'integration.
-
-### DEC-022 : Rate limiting double couche — IP natif + per-account custom
-- **Date** : Avril 2026
-- **Choix** : Deux niveaux de rate limiting complementaires. Niveau 1 : `AddRateLimiter()` natif ASP.NET Core avec Fixed Window par IP (global 100/min, auth 10/min, scan 5/min). Niveau 2 : compteur custom par email dans `AuthService` avec `IMemoryCache` (5 echecs → blocage 15 min).
-- **Pourquoi** : Le rate limiting par IP ne suffit pas contre le credential stuffing (botnets avec milliers d'IP). Le rate limiting par compte via `IMemoryCache` bloque AVANT la verification du mot de passe (evite le timing attack). Le rate limiter natif `AddPolicy()` avec partition par `httpContext.User` ne fonctionne PAS pour le login car `UseRateLimiter` s'execute avant `UseAuthentication`.
-- **LoginResult pattern** : `LoginAsync` retourne un objet `LoginResult` (Token + IsLockedOut) au lieu de `string?` pour permettre au controller de distinguer 401 (mauvais identifiants) de 429 (compte bloque).
-- **Retry-After** : Header ajoute via `OnRejected` callback (valeur fixe 60s). Le `RejectionStatusCode` par defaut est 503, pas 429 — doit etre configure explicitement ou gere dans `OnRejected`.
-- **Sources** : [ASP.NET Core Rate Limiting](https://learn.microsoft.com/en-us/aspnet/core/performance/rate-limit), [OWASP Credential Stuffing Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Credential_Stuffing_Prevention_Cheat_Sheet.html).
-- **Etat** : DONE — BACK-002, 3 tests d'integration. Logs des tentatives bloquees reportes a BACK-010 (Serilog).
-
-### DEC-023 : CORS dynamique via appsettings + fail fast au demarrage
-- **Date** : Avril 2026
-- **Choix** : Externaliser les origines CORS dans `appsettings.json` (`Cors:AllowedOrigins` array) au lieu d'un string hard-code. Resserrer les permissions : `WithHeaders("Content-Type")` au lieu de `AllowAnyHeader()`, `WithMethods("GET", "POST", "PUT", "DELETE")` au lieu de `AllowAnyMethod()`. Validation au demarrage qui leve une exception si la config est manquante.
-- **Pourquoi** : En production, le frontend sera sur un autre domaine que `localhost:5110`. Le hard-coding empechait tout deploiement. L'array permet plusieurs origines (ex: `https://<your-domain>` + `https://www.<your-domain>`). Resserrer les methods/headers reduit la surface d'attaque (principe du moindre privilege).
-- **`Authorization` non whiteliste** : L'authentification passe par le cookie `authCookie` (envoye automatiquement via `AllowCredentials()`), pas par un header `Authorization: Bearer`. Pas besoin de l'autoriser explicitement.
-- **`OPTIONS` non liste dans `WithMethods`** : Les requetes preflight sont gerees automatiquement par le middleware CORS — l'ajouter manuellement est redondant et peut causer des conflits (doc Microsoft).
-- **Fail fast** : Si `Cors:AllowedOrigins` est absent ou vide au demarrage → `InvalidOperationException`. Mieux vaut crasher avec un message clair que tourner avec un CORS mal configure.
-- **Sources** : [ASP.NET Core CORS](https://learn.microsoft.com/en-us/aspnet/core/security/cors), [MDN CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS).
-- **Etat** : DONE — BACK-003, 3 tests d'integration.
-
-### DEC-024 : Pas de token anti-CSRF (protection par SameSite=Strict + CORS)
-
-- **Date** : Mai 2026
-- **Choix** : MemoRecipe ne met PAS en place de token anti-CSRF dédié.
-- **Pourquoi** : La combinaison **cookie `SameSite=Strict`** (DEC-014) + **CORS whitelist stricte** (DEC-023) couvre déjà l'attaque CSRF par deux barrières indépendantes :
-  - Le navigateur n'envoie pas le cookie `authCookie` si la requête vient d'un autre site (`SameSite=Strict`)
-  - Même si le cookie passait, l'API rejette les `Origin` non whitelistées (CORS)
-- **Sources** : [OWASP CSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html), [MDN SameSite cookies](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie/SameSite)
-- **Conditions qui invalideraient ce choix** :
-  - Passer à `SameSite=Lax` (cookie envoyé en GET cross-site) → token anti-CSRF requis
-  - Acceptation d'origines partenaires (CORS plus permissif) → token anti-CSRF requis
-  - Schéma d'auth sans cookie → réévaluer
-- **État** : DONE — choix conscient, à réévaluer si une des conditions ci-dessus devient vraie.
-
-### DEC-025 : Retrait du support WebP (Tesseract Windows sans libwebp)
-
-- **Date** : 22 mai 2026
-- **Choix** : MemoRecipe **ne supporte pas** le format WebP pour l'upload de recettes scannées. Seuls **JPG/JPEG et PNG** sont acceptés.
-- **Pourquoi** :
-  - L'installeur Tesseract-OCR Windows par défaut **n'inclut pas le support `libwebp`** dans le composant Leptonica utilisé pour le décodage des images.
-  - Conséquence runtime observée : `Error in pixReadMemWebP: function not present` → `System.IO.IOException: Failed to load image from memory.` au moment de `Tesseract.Pix.LoadFromMemory(...)` pour toute image WebP.
-  - Trois options ont été considérées (cf. BACK-051 + BACK-039) :
-    - **Option A — Recompiler Tesseract avec `libwebp`** : complexifie le déploiement (Docker, CI/CD), crée une dépendance fragile et environnement-spécifique difficile à reproduire entre dev / CI / prod.
-    - **Option B — Conversion serveur WebP → PNG avant Tesseract** (via `ImageSharp` ou `SkiaSharp`) : ajoute une dépendance NuGet et un overhead perf (~50-200 ms par image). Solution propre mais ajoute une couche de code à maintenir et tester.
-    - **Option C — Retirer WebP du périmètre supporté** *(choix retenu)* : KISS, alignement avec ce que Tesseract sait lire nativement, moins de surface d'attaque, code plus simple à maintenir, pas de dépendance supplémentaire.
-  - **Argument pragmatique MVP** : la valeur métier de WebP est marginale face à JPG/PNG (formats majoritaires dans le partage de recettes — appareils photo, exports Photoshop par défaut, WhatsApp, blogs culinaires). Décision **réversible** plus tard sans contrainte forte.
-- **Sources** :
-  - [Tesseract InputFormats](https://tesseract-ocr.github.io/tessdoc/InputFormats.html) — formats nativement supportés
-  - Logs Function : `Error in pixReadMemWebP: function not present` (observé pendant BACK-051, 22/05/2026)
-  - [OWASP File Upload Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html) — principe de whitelist stricte des formats supportés
-- **Conséquences** :
-  - 3 fichiers modifiés : `RecipeController.cs` (extensions + MIME + magic bytes), `ScanRecipe.razor` (attribut `Accept`), `README.md` (section defense in depth)
-  - BACK-039 mis à jour pour porter la **future ré-introduction du WebP** (Option B recommandée à terme — conversion serveur, dépendance unique vs build système custom)
-  - Aucune régression pour les utilisateurs actuels (le scan n'avait jamais réellement fonctionné avec WebP en l'absence de libwebp)
-- **Conditions qui invalideraient ce choix** :
-  - Migration vers un build de Tesseract avec `libwebp` (ex : image Docker custom Linux, package alternatif maintenu)
-  - Besoin utilisateur fort exprimé après mise en production (feedback récurrent "je n'arrive pas à uploader mon image")
-  - Apparition d'une bibliothèque .NET de conversion WebP→PNG mature et low-overhead (changement du calcul coût/bénéfice de l'Option B)
-- **État** : DONE — choix conscient, à réévaluer si une des conditions ci-dessus devient vraie.
-
-- **Mise à jour post-[DEC-043](#dec-043) (09/08/2026)** : suite au pivot du provider IA par défaut vers un modèle multimodal (Vision LLM) qui accepte nativement WebP + PDF + HEIC + tous formats standard, le support WebP est désormais **acquis sans code additionnel dans le path Vision**. La présente DEC-025 reste **valide et applicable au path fallback** (OCR local Tesseract + text-only LLM), qui reste présent en tant que provider secondaire via le Factory Pattern ([DEC-035](#dec-035)). L'amélioration éventuelle du path fallback (US-A2-08 renommée « Améliorations OCR Tesseract fallback ») pourrait à terme rendre l'Option B (conversion serveur WebP→PNG) pertinente si le fallback devient un chemin critique en prod.
-
-### DEC-026 : Migration AutoMapper → Mapperly (source generator, OSS MIT, mappers statiques)
-
-- **Date** : 23 mai 2026
-- **Choix** : MemoRecipe abandonne **AutoMapper** au profit de **Mapperly** (`Riok.Mapperly`, OSS MIT), avec une approche **mappers statiques** plutôt que l'instanciation + injection DI traditionnelle.
-- **Pourquoi** :
-  - **Changement de licence AutoMapper** : depuis fin 2024 / début 2025, AutoMapper (créé par Jimmy Bogard en 2008, OSS depuis 17 ans) est passé sous licence commerciale **Lucky Penny Software**. Warning au build : `You do not have a valid license key for the Lucky Penny software AutoMapper. This is allowed for development and testing scenarios. If you are running in production you are required to have a licensed version.` → bloquant pour la prod sans achat de licence (~$300/an).
-  - **Trois options évaluées** (cf. BACK-046) :
-    - **Option A — Acheter licence Lucky Penny** : 0 code à toucher, mais ~$300/an + dépendance commerciale + mauvais signal sur un projet perso d'apprentissage.
-    - **Option B — Downgrade vers AutoMapper v13 (dernière OSS)** : gratuit mais **dette technique** (version morte, plus de fixes sécurité). À éviter.
-    - **Option C — Migrer vers Mapperly** *(choix retenu)* : OSS MIT, **source generator** (mappings générés à la compilation, zéro reflection runtime, 30-50× plus rapide), erreurs détectées à la compilation, apprentissage d'un outil moderne .NET.
-  - **Style "mappers statiques" plutôt que DI** : Mapperly est conçu pour être appelé directement via `RecipeMapper.ToDto(recipe)` sans injection. Avantages : pas de DI à configurer, pas d'interfaces à créer, services simplifiés (plus de `private readonly IMapper _mapper;`). Les tests utilisant `FakeRepository` (pas Moq) ne mockent jamais le mapper de toute façon — pas de perte de testabilité.
-- **Sources** :
-  - [Mapperly GitHub (riok/mapperly)](https://github.com/riok/mapperly) — OSS MIT, maintenu actif
-  - [Annonce Lucky Penny / AutoMapper commercial](https://www.jimmybogard.com/automapper-and-mediatr-going-commercial/)
-  - [Comparaison perf AutoMapper vs Mapperly (benchmarks)](https://mapperly.riok.app/docs/intro/)
-  - [OWASP A03:2025 Software Supply Chain Failures](https://owasp.org/Top10/2025/A03_2025-Software_and_Data_Integrity_Failures/) — vendor lock-in OSS comme risque
-- **Conséquences** :
-  - **5 profiles** à réécrire (UserProfile, RecipeProfile, CategoryProfile, IngredientProfile, StepProfile) en classes statiques partielles avec `[Mapper]` attribute
-  - **2 services** à simplifier (`AuthService`, `RecipeService`) — retrait du paramètre `IMapper mapper` dans le constructeur + appels directs `XxxMapper.ToDto(...)`
-  - **`Program.cs`** : retrait de `builder.Services.AddAutoMapper(...)` (Mapperly ne nécessite pas d'enregistrement DI en mode statique)
-  - **2 csproj** : retrait du `PackageReference Include="AutoMapper"`, ajout de `PackageReference Include="Riok.Mapperly"`
-  - **Gains attendus** : warning licence parti, perf mapping ~30-50× plus rapide, erreurs typo détectées à la compilation (build cassé) au lieu du runtime (`AutoMapperMappingException`)
-  - **Bonus pédagogique** : découverte des **source generators** .NET (concept moderne très valorisé en entretien — utilisés aussi par System.Text.Json, Serilog source-gen, etc.)
-- **Conditions qui invalideraient ce choix** :
-  - **Mapperly devient commercial** lui aussi (peu probable, OSS MIT avec gouvernance communautaire — mais on a un précédent récent avec AutoMapper)
-  - **Besoin de mock dynamique du mapper** dans les tests (ex : passage à Moq) → revenir au pattern instance + interface (Style 2). Aujourd'hui non pertinent : tests via `FakeRepository`.
-  - **Émergence d'un nouveau standard** dans l'écosystème .NET pour le mapping (ex : feature native EF Core ou primitive de runtime) → réévaluer.
-- **État** : APPLIQUÉ via **BACK-046** (mergé). Migration AutoMapper → Mapperly terminée : 5 profiles convertis en static partial classes (`UserMapper`, `RecipeMapper`, `IngredientMapper`, `StepMapper`, `CategoryMapper`), 2 services simplifiés (`AuthService`, `RecipeService` — retrait du paramètre `IMapper` du constructeur), `Program.cs` nettoyé (`AddAutoMapper` retiré, pas de DI à enregistrer pour Mapperly statique), packages NuGet swappés. Convention `[MapperIgnoreSource]` / `[MapperIgnoreTarget]` explicite préférée à `RequiredMappingStrategy.None` (cf. feedback projet : meilleure documentation des exclusions). Warning licence AutoMapper supprimé, perf mapping 30-50× plus rapide, erreurs typo désormais détectées au build. **Aucun rollback nécessaire à ce jour**, l'expérience est positive.
-
-
-### DEC-027 : nginx:alpine pour servir le Blazor WASM (au lieu d'aspnet runtime)
-
-- **Date** : 28 mai 2026
-- **Choix** : Le Dockerfile du Frontend Blazor WASM utilise **`nginx:alpine`** au stage runtime, **pas** `mcr.microsoft.com/dotnet/aspnet:10.0-alpine` (qu'on utilise côté API).
-- **Pourquoi** :
-  - **Blazor WASM = SPA statique** : le résultat de `dotnet publish` produit un dossier `wwwroot/` contenant uniquement des fichiers statiques (`index.html`, `_framework/` avec le bundle WASM, CSS, JS, images). Le navigateur télécharge ces fichiers et **exécute le WebAssembly côté client**. **Aucun runtime .NET n'est nécessaire côté serveur**.
-  - Embarquer `aspnet:10.0-alpine` (~150 MB) juste pour servir des fichiers statiques = gâchis : 100% du runtime .NET inutilisé.
-  - **`nginx:alpine`** (~40 MB) est conçu pour ça : **4× plus léger**, performances imbattables sur le statique, optimisé pour des dizaines de milliers de connexions concurrentes, configuration simple via fichiers `.conf`.
-  - **Trade-off** : on perd la possibilité de servir des assets dynamiques côté serveur (SSR, middleware), mais c'est inapplicable au modèle Blazor WASM (tout est client-side).
-- **Sources** :
-  - [Blazor WebAssembly hosting & deployment (Microsoft)](https://learn.microsoft.com/en-us/aspnet/core/blazor/host-and-deploy/webassembly) — confirme que tout serveur HTTP statique convient
-  - [nginx official Docker image](https://hub.docker.com/_/nginx) — image officielle, mainline branch, scans CVE réguliers
-  - Fiche [DOCKERFILE-CHEATSHEET.md](fiches/DOCKERFILE-CHEATSHEET.md) section Partie 2 — détail technique
-- **Conséquences** :
-  - **`nginx.conf` requis** dans le projet Frontend pour gérer le **SPA routing fallback** (`try_files $uri $uri/ /index.html =404`) sans lequel un F5 sur une route interne (`/recipes/abc`) renvoie un 404 nginx
-  - **Pas d'`ENV ASPNETCORE_ENVIRONMENT=Production`** côté Frontend : nginx n'est pas un runtime .NET, et le mode Production est figé dans le bundle au moment du publish (`-c Release`)
-  - **Port exposé = 80** (convention nginx), pas 8080 comme côté API
-  - **Pas d'`ENTRYPOINT` à définir** : l'image officielle nginx lance nginx en foreground par défaut (container-compatible)
-  - **Image finale ~40 MB** (vs ~150 MB avec aspnet) — gain net 110 MB par image. À l'échelle d'un CI/CD ou d'un registry, c'est significatif (bandwidth, storage, pull time)
-  - Optimisations prod nginx (gzip avancé, cache headers immutables sur assets hashés, security headers) tracées dans **BACK-054** pour application juste avant le déploiement
-  - **Frontend non impacté par DEC-030** (Container Support natif SDK .NET, scope API uniquement) : le Frontend Blazor WASM garde son `Dockerfile` nginx custom — le SDK .NET ne sait pas générer une image avec nginx comme runtime
-- **Conditions qui invalideraient ce choix** :
-  - **Passage à Blazor Server** ou **Blazor United/SSR** : ces modèles nécessitent un runtime .NET côté serveur. Il faudrait revenir à `aspnet:10.0-alpine`.
-  - **Besoin de middleware/API routes côté serveur** dans le même container (ex: BFF pattern). Mais c'est mieux d'avoir une API séparée (déjà notre cas).
-  - **Migration vers Caddy** (alternative à nginx avec HTTPS auto via Let's Encrypt) : à considérer au moment de BACK-009 si on veut simplifier la chaîne TLS, mais nginx reste la baseline.
-- **État** : DÉCIDÉ et appliqué le 28/05/2026 (BACK-007 partie 2, PR #13).
-
-
-### DEC-028 : Frontend ↔ API via reverse proxy nginx (Option B), pas de CORS exposé
-
-- **Date** : 29 mai 2026
-- **Choix** : Pour la composition prod (BACK-007 partie 3), le nginx du container Frontend **proxifie `/api/*`** vers le container API en interne au réseau Docker (`proxy_pass http://api:8080/api/`). L'API n'est **pas exposée** publiquement. Le bundle Blazor WASM utilise une **URL relative `/api/...`** (même origine), donc **zéro CORS** en prod.
-- **Pourquoi** :
-  - **Surface d'attaque réduite** : l'API n'écoute qu'en interne au réseau Docker, jamais joignable depuis Internet. Vis-à-vis OWASP A05:2025 (Security Misconfiguration), c'est la posture la plus restrictive.
-  - **Simplicité TLS** : 1 seul certificat HTTPS pour le sous-domaine `app.<your-domain>` (Apache du host + Let's Encrypt via BACK-009), au lieu de 2 certificats pour 2 sous-domaines (`api.` + `app.`).
-  - **Same-origin** : `SameSite=Strict` sur les cookies HttpOnly (DEC-024 CSRF) fonctionne parfaitement parce que le Frontend et l'API partagent l'origine. Pas de bidouille `credentials: include` cross-origin.
-  - **Bundle WASM universel** : un seul build `dotnet publish -c Release` fonctionne en dev local (avec override `appsettings.Development.json`) ET en prod (URL relative via `HostEnvironment.BaseAddress`). Pas de rebuild par environnement.
-  - **Pattern standard prod** : architecture SPA + API derrière un même reverse proxy = pratique recommandée chez la majorité des déploiements modernes (Caddy, Traefik, nginx).
-- **Alternative considérée — Option A (Frontend appelle API en cross-origin)** :
-  - L'API serait exposée sur `api.<your-domain>` avec son propre certificat
-  - CORS à configurer (déjà partiellement fait dans BACK-002 + BACK-023)
-  - Cookies HttpOnly cross-origin = trade-off `SameSite=None; Secure` + `credentials: include` partout
-  - Rebuild WASM par environnement (URL `api.<your-domain>` dans le bundle compilé)
-  - **Rejetée** : plus de complexité, plus de surface d'attaque, pas d'avantage compensatoire.
-- **Sources** :
-  - [Mozilla — Same-origin policy & CORS](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy)
-  - [OWASP A05:2025 — Security Misconfiguration](https://owasp.org/Top10/2025/A05_2025-Security_Misconfiguration/)
-  - [Blazor WASM hosting models (Microsoft)](https://learn.microsoft.com/en-us/aspnet/core/blazor/host-and-deploy/webassembly)
-  - DEC-024 — CSRF protection via SameSite=Strict + strict CORS (cette décision renforce DEC-024)
-- **Conséquences** :
-  - **Modifs Frontend** : 3 fichiers — `wwwroot/appsettings.json` (`ApiBaseUrl: ""`), `wwwroot/appsettings.Development.json` (`ApiBaseUrl: "http://localhost:5131/"` pour le dev `dotnet watch`), `Program.cs` (lecture depuis config avec fallback sur `HostEnvironment.BaseAddress`)
-  - **Modif `nginx.conf`** : ajout d'un bloc `location /api/ { proxy_pass http://api:8080/api/; ... }` avant le `location /` existant
-  - **`docker-compose.prod.yml`** : API et Postgres utilisent `expose:` (interne) au lieu de `ports:` (mappé sur host)
-  - **API CORS config** : peut être supprimée en prod (origins vide) puisqu'il n'y a plus de cross-origin. **À garder en dev** pour le mode `dotnet watch`.
-  - **Reverse proxy edge du host** (Apache/nginx/Caddy selon le setup) : ProxyPass de l'origine publique HTTPS vers le loopback du container Frontend nginx en interne au host. Permet la cohabitation propre avec d'autres sites éventuels hébergés sur le même host.
-- **Conditions qui invalideraient ce choix** :
-  - **L'API devient consommée par d'autres clients que le Frontend Blazor** (ex: mobile MAUI futur appelant directement, partenaires externes, microservices) → là `api.<your-domain>` sous-domaine séparé + CORS strict devient pertinent. Mais le Frontend Web pourrait continuer en Option B en parallèle.
-  - **Découplage Frontend / API souhaité** pour les déployer séparément (versions différentes, ratios de scaling différents) → 2 containers ≠ même origine.
-- **État** : **DÉCIDÉ le 29/05/2026 et APPLIQUÉ le 01/06/2026** (BACK-007 partie 3, PR #14). Validé en E2E local : bundle Blazor WASM appelle `/api/*` en same-origin via nginx reverse proxy, **zéro CORS error** dans la console DevTools.
-
-
-### DEC-029 : Compose security baseline — phasage volontaire du hardening avancé
-
-- **Date** : 31 mai 2026
-- **Choix** : Le `docker-compose.prod.yml` (BACK-007 partie 3) implémente une **posture sécu baseline solide** (network isolation, `security_opt: no-new-privileges`, `mem_limit` + `cpus`, healthchecks + `depends_on: service_healthy`, secrets via `env_file`) **mais diffère volontairement** 3 mesures de hardening avancées (`read_only: true` filesystems, `cap_drop: ALL` + `cap_add` minimal, `user:` non-root explicit) tracées dans **BACK-056**.
-- **Pourquoi** :
-  - **Postgres en particulier** nécessite plusieurs Linux capabilities (`CHOWN`, `SETUID`, `SETGID`, `DAC_OVERRIDE`, `FOWNER`, `FSETID`) et l'accès en écriture à `/var/run/postgresql` + `/tmp`. Configurer `cap_drop: ALL` + `cap_add: [...]` + `read_only: true` + `tmpfs: [...]` proprement demande du **tuning fin par image** qui peut casser au moindre upgrade Postgres.
-  - **Phasage > perfection** : avoir une baseline solide validée et fonctionnelle MAINTENANT vaut mieux que chercher la perfection trop tôt et risquer de casser le service en production. **Hardening incrémental** = méthode pro standard.
-  - **Trade-off conscient** : la baseline actuelle ferme déjà 80% de la surface d'attaque (isolation réseau, anti-escalade, anti-DoS). Les 20% restants nécessitent du temps qui n'est pas critique au stade portfolio.
-- **Autres trade-offs deferred dans cette même PR** (mentionnés pour traçabilité) :
-  - **Pas de TLS intra-network** (HTTP entre `web` et `api` dans le réseau Docker `backend`) : acceptable car même host, attaquer le bus interne demanderait déjà d'avoir compromis le host. mTLS = overkill pour notre cas.
-  - **Pas de Docker secrets** natifs (`secrets:` mechanism qui monte les secrets en fichier `/run/secrets/x` au lieu d'env vars) : env vars suffisent pour un compose simple. Le mécanisme `secrets:` brille en Docker Swarm / Kubernetes où il est intégré au scheduler. Pas pertinent ici.
-  - **Pas d'images distroless** (au lieu d'Alpine) : Alpine ~50 MB déjà très léger. Distroless ~20 MB mais zéro shell = très complexe à debugger en cas de pb prod. Marginal gain vs cost.
-- **Sources** :
-  - [Docker Compose hardening guide (OWASP)](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html)
-  - [Postgres official Docker image security recommendations](https://hub.docker.com/_/postgres)
-  - [no-new-privileges security_opt (Docker docs)](https://docs.docker.com/reference/compose-file/services/#security_opt)
-- **Conséquences** :
-  - **Sécu actuelle** : ~7/10 pour un projet portfolio learning, ~6/10 pour une app SaaS B2B moyenne, ~4/10 pour fintech/santé (où il faudrait BACK-056 + BACK-057 + BACK-058 + BACK-059 + compliance).
-  - **Pitch entretien clair et défendable** : "j'ai construit le compose en couches sécu — baseline d'abord, hardening avancé tracé pour itération suivante. Phasage évite de casser le service en cherchant la perfection trop tôt."
-  - **Tickets dédiés créés** : BACK-056 (advanced hardening), BACK-057 (backup auto Postgres), BACK-058 (logs centralisés), BACK-059 (monitoring Prometheus+Grafana) — pour rendre explicite ce qui manque et le tracker comme dette technique consciente.
-- **Conditions qui invalideraient ce choix** :
-  - **Passage à un domaine régulé** (santé, finance, gov) où le hardening avancé devient obligation légale → faire BACK-056 immédiatement.
-  - **Incident de sécurité** sur un projet similaire qui aurait été évité par read_only / cap_drop → revoir la priorité.
-  - **Disponibilité d'un orchestrateur** (Docker Swarm, Kubernetes) qui intègre natement Docker secrets / Pod security policies → migrer vers ces mécanismes.
-- **État** : DÉCIDÉ et appliqué le 31/05/2026 (BACK-007 partie 3, PR #14 mergée le 01/06/2026).
-
-
-### DEC-030 : Container Support natif SDK .NET pour la generation de l'image API
-
-- **Date** : 04 juin 2026
-- **Choix** : Pour le projet `MemoRecipe.Api`, abandon du `Dockerfile` manuel au profit du **Container Support natif intégré au SDK .NET 7+** (cible MSBuild `PublishContainer`). L'image API est désormais générée via `dotnet publish --os linux --arch x64 /t:PublishContainer`, avec la configuration en properties MSBuild dans le `.csproj` (`<ContainerBaseImage>`, `<ContainerRepository>`, `<ContainerImageTag>`, `<ContainerUser>`, `<ContainerPort>`).
-- **Pourquoi** :
-  - **Suggestion du mentor (retour LinkedIn 02/06/2026, cf. fiche MENTORING-RETOURS.md)** : ".Net 10, tu peux te passer des Dockerfile, c'est directement intégré dans les csproj maintenant et dans le SDK .net."
-  - **Cohérence automatique avec le SDK** : la base image (`mcr.microsoft.com/dotnet/aspnet:10.0-alpine`) suit la version du SDK installée. Plus de risque de désynchronisation Dockerfile / SDK lors des upgrades.
-  - **Sécurité baked-in** : Container Support SDK applique les bonnes pratiques par défaut (utilisateur non-root via `<ContainerUser>`, layers optimisées, minimal attack surface).
-  - **Maintenabilité** : ~5 lignes XML dans le `.csproj` remplacent ~30 lignes de Dockerfile multi-stage. Moins de code = moins de bugs potentiels.
-  - **Layer caching automatique** : le SDK gère le découpage en layers (OS / runtime / NuGet deps / code app) sans configuration manuelle.
-  - **Validation en visio mentor 04/06/2026** : le mentor confirme que le résultat reste une image Docker standard, donc l'orchestration Compose (et le déploiement en prod) est inchangée — c'est uniquement la "recette" qui passe du Dockerfile vers le `.csproj`.
-- **Scope** :
-  - **S'applique à** : `MemoRecipe.Api` uniquement (projet .NET 10).
-  - **Ne s'applique PAS au Frontend Blazor WASM** : le Frontend utilise `nginx:alpine` comme runtime (cf. DEC-027), pas un runtime .NET. Container Support SDK ne sait pas générer une image avec nginx comme entrypoint. Le Dockerfile custom Frontend est conservé.
-- **Alternative considérée — Garder le Dockerfile multi-stage existant** :
-  - Avantage : aucune migration, code stable connu.
-  - Inconvénient : ~30 lignes à maintenir manuellement, version base image hardcodée (drift vs SDK installé), pas de bénéfice à l'effort de maintenance.
-  - **Rejetée** : la migration est mécanique et apporte une simplification durable.
-- **Sources** :
-  - [.NET SDK Container Building (docs Microsoft)](https://learn.microsoft.com/en-us/dotnet/core/docker/publish-as-container)
-  - [SDK Containers — properties MSBuild de customisation](https://learn.microsoft.com/en-us/dotnet/core/docker/publish-as-container#customizing-the-container-image)
-  - Retour mentor 02/06/2026 + visio 04/06/2026 (cf. fiches/MENTORING-RETOURS.md)
-- **Conséquences** :
-  - **`memorecipe-api.csproj`** enrichi des properties `<ContainerBaseImage>`, `<ContainerRepository>`, `<ContainerImageTag>`, `<ContainerUser>`, `<ContainerPort>`, etc. (Note : `<ContainerImageName>` est **obsolète** depuis le SDK .NET 10.0 — remplacé par `<ContainerRepository>`, warning CONTAINER003 à l'utilisation.)
-  - **`Dockerfile` de l'API supprimé** du repo.
-  - **`docker-compose.yml` (dev)** : le service `api` passe de `build: ./...` à `image: memorecipe-api:dev`. Workflow dev : `dotnet publish /t:PublishContainer` avant `docker compose up -d`.
-  - **`docker-compose.prod.yml`** : le service `api` passe de `build:` à `image: ghcr.io/<user>/memorecipe-api:<tag>` (cf. DEC-031 pour le workflow registry).
-  - **Frontend non impacté** : DEC-027 reste valide (Dockerfile nginx custom conservé).
-  - **Pré-requis pour DEC-032 (Aspire)** : Aspire utilise Container Support SDK en interne pour les projets .NET. Cette décision doit être appliquée avant l'étape Aspire.
-- **Conditions qui invalideraient ce choix** :
-  - **Customisation OS poussée** non supportable par les properties MSBuild (installation de paquets système custom, configuration noyau, dépendances natives complexes) → repasser à un Dockerfile.
-  - **Build multi-architecture complexe** non couvert par `<ContainerRuntimeIdentifiers>` → repasser à un Dockerfile + buildx.
-  - **Retrait du Container Support du SDK** (improbable, fonctionnalité officielle Microsoft) → repasser à un Dockerfile.
-- **État** : DÉCIDÉ le 04/06/2026 (visio mentor). À implémenter dans **BACK-063** (étape 1A).
-
-
-### DEC-031 : Distribution des images via GitHub Container Registry (GHCR) en prod
-
-- **Date** : 04 juin 2026 (visio mentor) + analyse comparative post-visio
-- **Choix** : Les images Docker du projet (API et Frontend) sont **buildées en local sur le poste dev**, **pushées vers GHCR (GitHub Container Registry)** taguées avec une version sémantique, puis **pullées depuis le VPS Cloud** au moment du déploiement. Le `docker-compose.prod.yml` utilise `image: ghcr.io/<user>/memorecipe-api:<tag>` au lieu de `build:`. (Option A retenue contre Option B "installer SDK .NET sur le VPS".)
-- **Pourquoi** :
-  - **VPS partagé** : le VPS Cloud héberge aussi d'autres sites en parallèle. Installer le SDK .NET dessus (alternative Option B) serait invasif (paquets système ~600 MB + maintenance des versions SDK) et augmenterait la surface d'attaque. Option A préserve la coexistence.
-  - **Build sur dev = principe pro standard** : on ne build pas sur le serveur de prod. Le serveur de prod doit juste **exécuter** des artefacts pré-construits et validés. Build CPU-intensive en dev → pas de risque de ralentir les autres services du VPS pendant un déploiement.
-  - **Rollback rapide** : `docker compose pull memorecipe-api:v1.0.4 && docker compose up -d` permet de revenir à une version précédente en ~30 secondes, atomiquement. Alternative Option B demanderait `git checkout + rebuild + restart` (~5-10 min, plus risqué).
-  - **Reproductibilité parfaite** : un tag d'image (`v1.0.5`) est **immuable**. La même image tourne en dev, en pré-prod (futur), et en prod. Plus de "ça marche chez moi" lié à la version du SDK installée localement.
-  - **Versionning natif** : les tags sémantiques (`v1.0.5`, `latest`, `staging`) offrent une gestion de versions explicite sans tooling additionnel.
-  - **CI/CD future facilitée (BACK-008)** : GitHub Actions peut push directement à GHCR via `GITHUB_TOKEN` (5 lignes de config). Alternative Option B demanderait SSH depuis CI vers le VPS = clé privée à sécuriser = friction.
-  - **Sécurité** : code source jamais déposé sur le VPS. GHCR scanne automatiquement les images pour vulnérabilités (Dependabot intégré).
-  - **Cohérence avec DEC-032** : Aspire (étape 2) réutilisera GHCR comme registry cible via `aspire publish --registry ghcr.io`. Décision compatible avec roadmap.
-- **Pourquoi GHCR plutôt que Docker Hub** :
-  - **Repos publics illimités** + **pulls illimités** (Docker Hub limite à 100 pulls/6h en anonyme, 200 en compte gratuit).
-  - **Authentification native GitHub** via `GITHUB_TOKEN` — pas de compte séparé à créer/maintenir.
-  - **Intégration GitHub** : packages visibles sur la page Packages du repo, lien direct au code source, releases.
-  - **Docker Hub free** : limité à 1 seul repo privé, friction si on veut faire évoluer le projet.
-- **Alternative considérée — Option B : installer SDK .NET sur le VPS** :
-  - Workflow : `git pull` sur VPS + `dotnet publish /t:PublishContainer` sur VPS + `docker compose up -d`.
-  - Avantage : pas besoin de registry.
-  - Inconvénients : SDK à installer/maintenir sur VPS partagé, code source exposé sur VPS, build CPU sur prod (risque de ralentir les autres services hébergés), rollback lent (rebuild), pas de versionning natif, anti-pattern (build sur prod).
-  - **Rejetée** : invasive sur le VPS partagé + plusieurs anti-patterns prod.
-- **Sources** :
-  - [GitHub Container Registry — docs officielles](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
-  - [.NET SDK Containers — push vers un registry](https://learn.microsoft.com/en-us/dotnet/core/docker/publish-as-container#publish-the-container-image-to-a-container-registry)
-  - Analyse comparative Option A vs B documentée dans fiche MENTORING-RETOURS.md (section visio 04/06/2026)
-- **Conséquences** :
-  - **Création d'un compte GHCR** (depuis le compte GitHub existant) + génération d'un PAT (Personal Access Token) avec scope `write:packages` pour push depuis le poste dev.
-  - **Authentification Docker locale** : `docker login ghcr.io -u <user> -p $GHCR_TOKEN` (token stocké dans le password manager, jamais en clair dans le repo).
-  - **Workflow déploiement** : `dotnet publish /t:PublishContainer /p:ContainerRegistry=ghcr.io /p:ContainerImageTag=<version>` génère + push en une commande.
-  - **`docker-compose.prod.yml`** : services utilisent `image: ghcr.io/<user>/memorecipe-api:<tag>` (plus de `build:`).
-  - **VPS** : doit pouvoir s'authentifier à GHCR pour pull (token read-only via `read:packages`). Pour les repos publics, pas d'auth nécessaire.
-  - **Premier push plus lent** (image complète ~150-300 MB, ~2-3 min en fibre), **pushs incrémentaux rapides** (~5-20 MB delta, ~10-30 sec) grâce au layer caching Docker.
-  - **Tag = version sémantique** (`v1.0.5`) pour rollback explicite + `latest` mis à jour à chaque release stable.
-  - **Décision finale prise en solo après la visio** (le mentoring s'étant arrêté à 1 session). Traçabilité de l'analyse comparative conservée dans MENTORING-RETOURS.md pour relecture future.
-- **Conditions qui invalideraient ce choix** :
-  - **Volonté de quitter GitHub** comme plateforme principale du projet → migrer vers Docker Hub, Azure Container Registry, ou self-hosted (Harbor).
-  - **Besoin d'un registry privé en self-hosted** (compliance, on-premise, isolation réseau) → migrer vers un registry custom.
-  - **Évolution des quotas GHCR** (improbable au volume actuel — repos publics gratuits illimités) → réévaluer.
-- **État** : APPLIQUÉ le 17/06/2026 via **BACK-064** (PR #18 mergée). Workflow opérationnel : `dotnet publish /t:PublishContainer` pour l'API (push direct via Container SDK) + `docker build && docker push` pour le Frontend. Procédure complète documentée dans [`documentation/DEPLOYMENT.md`](DEPLOYMENT.md). Test E2E local validé (pull GHCR + compose up + auth fonctionnelle). Application sur VPS Cloud prévue dans **BACK-007 partie 3**.
-
-
-### DEC-032 : .NET Aspire (Option B) pour orchestration du stack dev + prod
-
-- **Date** : 04 juin 2026 (visio mentor)
-- **Choix** : Adoption de **.NET Aspire** en **étape 2** (après que Container Support SDK DEC-030 soit en place) pour décrire et orchestrer le stack MemoRecipe (Postgres + API + Frontend + reverse proxy nginx). **Option B retenue** : décrire le **maximum** dans l'AppHost C# (services + reverse proxy nginx via `WithContainer()` + healthchecks), pour que le `docker-compose.yml` généré par `aspire publish --publisher docker-compose` soit le plus complet possible et directement réutilisable en prod.
-- **Pourquoi** :
-  - **Suggestion du mentor (retour LinkedIn 02/06/2026, cf. fiche MENTORING-RETOURS.md)** : ".net aspire pour t'éviter les docker compose et faire tourner le tout en local en un clic et sa sera d'autant plus sécurisé."
-  - **Validation Option B en visio 04/06/2026** : le mentor confirme la stratégie "tout dans l'AppHost" plutôt que "compose généré + patch manuel". Minimise la maintenance double et garantit que le compose prod est généré déterministiquement depuis le code C#.
-  - **Dev local en 1 clic** : `dotnet run` sur l'AppHost lance Postgres + API + Frontend simultanément. Plus besoin de jongler entre `docker compose up`, `dotnet run`, `dotnet watch` dans plusieurs terminaux.
-  - **Injection automatique des connection strings** via `WithReference()` : plus de manipulation manuelle de `.env` côté dev. Sécurité améliorée (= ce que le mentor appelle "d'autant plus sécurisé").
-  - **Dashboard intégré** sur `localhost:18888` (port par défaut Aspire) : logs centralisés, traces distribuées (OpenTelemetry natif), métriques. Couvre une partie du scope BACK-058 (logs centralisés) et BACK-059 (monitoring) en dev gratuitement.
-  - **Service Discovery** : l'API trouve la DB par son nom logique (`postgres`), pas par URL hardcodée. Plus robuste aux changements d'infra.
-  - **Composants intégrés prêts** (Postgres, Redis, RabbitMQ, etc.) : ajout d'un service tiers = 1 ligne dans l'AppHost.
-  - **Pitch portfolio** : .NET Aspire est trendy en 2026, signal "veille active" pour entretiens.
-- **Pourquoi Option B (tout dans l'AppHost) plutôt qu'Option A (patch manuel)** :
-  - **Option A** : Aspire génère un compose minimal, on ajoute le reverse proxy nginx + healthchecks dans un `docker-compose.prod.override.yml` séparé. → 2 fichiers à synchroniser, drift facile au fil du temps.
-  - **Option B (retenue)** : tout est décrit dans l'AppHost C# (services .NET + reverse proxy nginx via `WithContainer()` + healthchecks). Le compose généré est complet → 1 seule source de vérité.
-- **Cohérence avec DEC-030 et DEC-031** :
-  - **Aspire utilise Container Support SDK (DEC-030)** en interne pour générer les images des projets .NET. Pré-requis : DEC-030 doit être appliqué avant.
-  - **Aspire push vers GHCR (DEC-031)** via `aspire publish --publisher docker-compose --registry ghcr.io --tag <version>`. Le registry est réutilisé.
-  - Les 3 décisions sont **complémentaires** (Container Support SDK = génération, GHCR = distribution, Aspire = orchestration), pas concurrentes.
-- **Alternative considérée — Continuer avec docker-compose manuel** :
-  - Avantage : aucune migration, stack connu et fonctionnel.
-  - Inconvénients : dev local nécessite plusieurs terminaux, pas de dashboard logs intégré, gestion manuelle des secrets, pas de signal portfolio "veille".
-  - **Rejetée** : le bénéfice DX (developer experience) + observabilité + portfolio l'emporte sur le coût de migration (1 spike de 1-2 jours).
-- **Limites assumées** :
-  - **Vendor lock-in Microsoft** : Aspire est un framework propriétaire. Migration future hors écosystème .NET impliquerait de tout redécrire. Acceptable vu que le projet est 100% .NET.
-  - **Courbe d'apprentissage** : nouveau concept (AppHost, ServiceDefaults, lifecycle). Géré par le spike BACK-065.
-  - **Le VPS ne sait pas qu'Aspire existe** : il reçoit juste un `docker-compose.yml` standard généré par `aspire publish`. Aspire est un outil **dev-side**, transparent côté prod.
-- **Sources** :
-  - [.NET Aspire — docs officielles Microsoft](https://learn.microsoft.com/en-us/dotnet/aspire/)
-  - [Aspire docker-compose publisher](https://learn.microsoft.com/en-us/dotnet/aspire/deployment/manifest-format)
-  - [WithContainer() API reference](https://learn.microsoft.com/en-us/dotnet/api/aspire.hosting.containerresourcebuilderextensions.withcontainer)
-  - Retour mentor 02/06/2026 + visio 04/06/2026 (cf. fiches/MENTORING-RETOURS.md)
-- **Conséquences** :
-  - **Création d'un nouveau projet** `MemoRecipe.AppHost` (type Aspire AppHost) dans la solution `memorecipe-api.sln`.
-  - **Création d'un projet** `MemoRecipe.ServiceDefaults` (configuration commune OpenTelemetry, health checks, service discovery).
-  - **L'AppHost devient le point d'entrée dev** : `dotnet run --project MemoRecipe.AppHost`.
-  - **`docker-compose.yml` (dev)** : potentiellement supprimé ou maintenu pour fallback, à arbitrer en fin de spike BACK-065.
-  - **`docker-compose.prod.yml`** : devient un **artefact généré** par `aspire publish --publisher docker-compose --registry ghcr.io`. Ne se modifie plus à la main.
-  - **BACK-058 et BACK-059** (logs centralisés + monitoring) : partiellement couverts en dev par Aspire Dashboard. Décision sur scope prod à reposer au moment de leur implém.
-  - **Dépendances NuGet** : ajout des packages `Aspire.Hosting.AppHost`, `Aspire.Hosting.PostgreSQL`, etc.
-  - **Validation post-spike** : si le spike BACK-065 révèle des limitations bloquantes (compose généré non utilisable en prod, complexité ingérable), retour à docker-compose manuel acceptable (décision à reverser).
-- **Conditions qui invalideraient ce choix** :
-  - **Aspire ne supporte pas l'orchestration multi-conteneurs complète** (reverse proxy nginx custom + healthchecks complets) au moment du spike → fallback sur docker-compose manuel.
-  - **Vendor lock-in devient bloquant** : besoin de migrer hors .NET ou hors écosystème Microsoft → repasser à docker-compose.
-  - **Le compose généré n'est pas réutilisable tel quel en prod** (Option B échoue) → 2 stratégies à arbitrer : repasser à Option A (compose + patch) ou abandonner Aspire.
-  - **Coûts dev (apprentissage + maintenance AppHost) dépassent les bénéfices DX** sur la durée → retour à docker-compose.
-- **État** : DÉCIDÉ le 04/06/2026 (visio mentor) — Option B confirmée. À implémenter dans **BACK-065** (étape 2, après BACK-063 + BACK-064).
-
-
-### DEC-033 : Migration des tests d'integration SQLite -> TestContainers (vrai Postgres prod-like)
-
-- **Date** : 04 juin 2026 (visio mentor) — décision actée, implémentation tracée dans BACK-062 
-- **Choix** : Migration progressive de **SQLite in-memory** (utilisé actuellement dans `CustomWebApplicationFactory` via `UseSqlite(":memory:")` + `EnsureCreated()`) vers **TestContainers** (lance un container `postgres:16-alpine` réel pendant les tests d'intégration). Stratégie d'application **mix SQLite + TC** vs **all-TC** à arbitrer au moment de l'implémentation (cf. heuristique dans MENTORING-RETOURS.md section "Arbitrages restants à prendre en solo"). Migrations EF Core appliquées via `MigrateAsync()` (pas `EnsureCreated()`) pour valider le vrai chemin migration prod.
-- **Pourquoi** :
-  - **Suggestion du mentor (retour LinkedIn 02/06/2026, cf. fiche MENTORING-RETOURS.md, suggestion A)** : "Tu peux regarder du côté de TestContainer si tu veux faire tes tests sur un vrai PostgreSQL et pas du in-memory."
-  - **Audit JSONB (03/06/2026)** : 3 colonnes JSONB en schéma prod (`AllergensJson`, `JsonData`, `MetadataJson` — cf. DEC-004) sont silencieusement traduites en `TEXT` par SQLite. Aucune query JSONB-specific exécutée aujourd'hui dans les tests, mais le risque devient bloquant dès la première feature "search by allergen" (`@>`, `?`, `->>` operators).
-  - **Audit dates** : les colonnes `TIMESTAMP WITH TIME ZONE` (Postgres) sont stockées en `TEXT` par SQLite (ISO string). Précision microseconde perdue + `DateTime.Kind` perdu au round-trip (`Unspecified` en SQLite vs `Utc` en Postgres+Npgsql). Risque latent : si une logique métier finit par dépendre de `.Kind` post-DB-read, comportement différent test/prod.
-  - **Validation migrations EF Core** : `EnsureCreated()` actuel **ne joue pas** les migrations EF Core — il crée le schéma direct depuis le modèle. Donc une migration custom (raw SQL, opérations Postgres-specific) passerait les tests mais péterait en prod. `Migrate()` sur TC valide le vrai chemin.
-  - **Validation en visio mentor 04/06/2026** : le mentor confirme l'usage de TC dans ses projets (intégration + E2E), partage le concept d'extension "dépendances tierces" (cf. ci-dessous).
-- **Scope** :
-  - **S'applique à** : tests d'intégration ASP.NET dans `MemoRecipe.Api.Tests` (suites `CorsTests`, `RateLimitingTests`, `SecurityHeadersMiddlewareTests`, `UploadValidationTests`).
-  - **Ne s'applique PAS aux tests unitaires** : les services métier (`RecipeService`, `AuthService`, validators, pipeline IA) utilisent des **Fakes** (`FakeRecipeRepository`, etc.) → millisecondes, pas de DB. TestContainers ralentirait sans bénéfice. Stratégie Fakes conservée (cf. DEC-009 — Tests unitaires avec FakeRepository).
-- **Audit des tests existants (03/06/2026, ligne par ligne)** :
-  - `CorsTests` : **DB-agnostic** (endpoint protégé → 401 avant DB).
-  - `SecurityHeadersMiddlewareTests` : **DB-agnostic** (endpoint protégé → 401 avant DB).
-  - `RateLimitingTests` : **DB-dependent mais Postgres-agnostic** (INSERT + SELECT basiques sur Users — comportement identique SQLite/Postgres).
-  - `UploadValidationTests` : **DB-dependent mais Postgres-agnostic** (INSERT + SELECT pour auth setup).
-  - **0 test actuel Postgres-dependent** → SQLite couvre 100% fonctionnellement aujourd'hui. **TC est une anticipation** pour les futures features (search JSONB, recherche temporelle, validation migrations).
-- **Extension future — Dépendances tierces** (concept apporté par le mentor en visio 04/06/2026) :
-  - TestContainers ne se limite pas aux DB : on peut containeriser **n'importe quel service tiers** dont l'app dépend (programme Python, service IA, API externe mock, MinIO/S3, RabbitMQ, etc.).
-  - **Applicabilité MemoRecipe — service IA `memoRecipe-ia`** : aujourd'hui remplacé par `FakeOcrScanService` dans `CustomWebApplicationFactory`. Pour des tests E2E réels (futur), TC pourrait lancer un vrai container Azure Function en plus du container Postgres → test du contrat HTTP API <-> Service IA bout en bout. **Pas prioritaire maintenant** (le Fake actuel suffit, et le vrai service IA appelle Mistral en externe → mocking quand même nécessaire), tracé comme extension future dans BACK-062.
-- **Alternative considérée — Garder SQLite in-memory** :
-  - Avantage : tests ultra-rapides (ms), aucune dépendance Docker pour les tests.
-  - Inconvénient : divergence silencieuse schéma test vs prod (JSONB → TEXT, TIMESTAMPTZ → TEXT, migrations non jouées). Bloquant dès qu'une feature exploite du Postgres-specific.
-  - **Rejetée à terme** mais conservée comme **option mix** : peut rester pour les tests "DB-agnostic" (CORS, headers, rate limiting) qui ont juste besoin d'une DB pour booter `WebApplicationFactory` sans l'exercer.
-- **Sources** :
-  - [TestContainers for .NET — docs officielles](https://dotnet.testcontainers.org/)
-  - [Testcontainers.PostgreSql NuGet](https://www.nuget.org/packages/Testcontainers.PostgreSql/)
-  - [EF Core Database.MigrateAsync()](https://learn.microsoft.com/en-us/dotnet/api/microsoft.entityframeworkcore.relationaldatabasefacadeextensions.migrateasync)
-  - Retour mentor 02/06/2026 + visio 04/06/2026 (cf. fiches/MENTORING-RETOURS.md)
-  - DEC-004 (PostgreSQL avec colonnes JSONB) — section "Conséquence sur les tests"
-- **Conséquences** :
-  - **Dépendance NuGet** ajoutée à `MemoRecipe.Api.Tests` : `Testcontainers.PostgreSql`.
-  - **Création fixture** `PostgresContainerFixture : IAsyncLifetime` qui lance/kill un container `postgres:16-alpine`.
-  - **Refacto `CustomWebApplicationFactory`** : remplacer `UseSqlite(conn)` par `UseNpgsql(container.GetConnectionString())`. Selon stratégie mix vs all-TC, possibilité de maintenir 2 factories (`CustomWebApplicationFactorySqlite` pour DB-agnostic + `CustomWebApplicationFactoryPostgres` pour DB-dependent).
-  - **Remplacement `EnsureCreated()` -> `await db.Database.MigrateAsync()`** : applique les vraies migrations EF Core → validation du chemin prod.
-  - **Stratégie d'isolation** entre tests (à arbitrer à l'implém) : transaction rollback / TRUNCATE / container par classe. Suggéré dans MENTORING-RETOURS.md : démarrer avec **container par classe** (le plus simple), affiner si trop lent.
-  - **Performance** : premier run plus lent (~30s incluant download + start container), runs suivants ~10s (image cachée). Acceptable pour integration tests.
-  - **CI/CD** : GitHub Actions a Docker disponible sur les runners GitHub-hosted par défaut → pas de friction supplémentaire pour BACK-008.
-  - **Documentation** : note dans `MemoRecipe.Api.Tests/README.md` (ou DEC dédiée) sur la stratégie de test, vocabulaire DB-agnostic / DB-dependent / Postgres-dependent (cf. MENTORING-RETOURS.md section "Vocabulaire clé").
-- **Conditions qui invalideraient ce choix** :
-  - **Docker indisponible sur l'environnement de test** (machine dev sans Docker Desktop, CI sans Docker support) → fallback SQLite + tests Postgres-specific skip.
-  - **Coût TestContainers (~1s/test, ~5s setup) devient bloquant** sur un volume de tests gigantesque (1000+ tests d'intégration) → arbitrer container partagé vs containers per-class, ou repasser à SQLite sur les suites DB-agnostic.
-  - **Migration vers un nouveau moteur DB non-Postgres** (improbable, cf. DEC-004 stable) → réévaluer.
-- **État** : DÉCIDÉ le 04/06/2026 (visio mentor). **APPLIQUÉ le 13/06/2026** via BACK-062 (PR `feature/BACK-062-testcontainers`). 18/18 tests d'intégration passent contre vrai Postgres `postgres:16-alpine` lancé en container TestContainers. Résout aussi en cascade BACK-067 (régression `RequireConfig` fail-fast) via variables d'environnement système set dans un static constructor de `CustomWebApplicationFactory`. Stratégie d'isolation retenue : un container par classe de tests via `IClassFixture` (optimisation `ICollectionFixture` possible plus tard si volume tests augmente).
-
-
-### DEC-034 : Report du fix collation Postgres dev lors du passage Debian -> Alpine (warning accepte temporairement)
-
-- **Date** : 11 juin 2026
-- **Choix** : Pendant l'implémentation de BACK-066 (alignement Postgres dev `:16` -> `:16-alpine`), un warning `database "memorecipe_db" has no actual collation version, but a version was recorded` apparaît à chaque connexion psql. La commande standard `ALTER DATABASE memorecipe_db REFRESH COLLATION VERSION` échoue avec `ERROR: invalid collation version change` car elle gère seulement les changements de version dans le même provider, pas un changement cross-provider (glibc Debian -> musl Alpine). Le fix propre nécessite une procédure `pg_dump` + `dropdb` + `createdb` + `pg_restore`. **Décision** : **reporter ce fix** dans un ticket dédié (**BACK-068**) plutôt que de l'inclure dans BACK-066. Accepter le warning de façon temporaire.
-- **Pourquoi reporter** :
-  - **Zéro impact pratique aujourd'hui** : aucune feature actuelle ne fait de tri textuel sensible aux collations (pas de `ORDER BY title` avec accents/ligatures qui nécessiterait une cohérence parfaite). Les opérations CRUD basiques (INSERT/UPDATE/SELECT par PK ou FK) ne sont pas affectées.
-  - **Scope BACK-066 strict** : BACK-066 est un **quick win** d'alignement d'image Docker (~10 min). Embarquer une procédure `pg_dump/restore` (~30-45 min) dans le même PR ferait gonfler le scope et masquerait l'objectif initial. Cohérent avec les principes "atomic commits" + "un sujet = un ticket = une PR".
-  - **REINDEX déjà fait** : le `REINDEX DATABASE memorecipe_db` exécuté dans BACK-066 a recréé les **index** avec le nouveau provider musl. Les requêtes utilisant ces index ont des résultats cohérents. Seule la **métadonnée Postgres** garde une référence à l'ancien provider, ce qui se manifeste par le warning à la connexion (pas par un comportement erroné des requêtes).
-  - **Documentation traçable** : BACK-068 trace le fix complet avec procédure step-by-step, critères d'acceptation, et dépendance explicite envers BACK-029 (recherche et filtres avec tri textuel). Le "Toi du futur" qui voudra implémenter BACK-029 saura qu'il faut d'abord clore BACK-068.
-- **Alternative considérée — Faire le fix tout de suite dans BACK-066** :
-  - Avantage : warning éliminé immédiatement, scope "Postgres dev/prod consistent" 100% complet.
-  - Inconvénients : (1) scope creep de BACK-066 (passage de 10 min à ~1h), (2) la procédure `pg_dump/restore` est manuelle et hors du fichier Compose — elle ne se commit pas comme un changement de code, donc le commit serait un mélange de modif de fichier + procédure documentée, ce qui est moins propre, (3) prend du temps de session pour un bénéfice nul aujourd'hui.
-  - **Rejetée** : préférence pour les commits/PRs atomiques + le fix sera fait au moment où il deviendra utile (juste avant BACK-029).
-- **Sources** :
-  - [Postgres docs — ALTER DATABASE (REFRESH COLLATION VERSION)](https://www.postgresql.org/docs/current/sql-alterdatabase.html)
-  - [Postgres collation provider docs](https://www.postgresql.org/docs/current/collation.html)
-  - Error message constaté en session 11/06/2026 : `ERROR: invalid collation version change`
-- **Conséquences** :
-  - **Warning visible** à chaque connexion psql en dev. Cosmétique, signale une dette technique connue. Pas de masquage d'autres warnings importants (Postgres logs distinctement).
-  - **CRUD non impacté** : INSERT, UPDATE, DELETE, SELECT par PK/FK fonctionnent normalement. C'est uniquement le tri textuel basé sur les locales (qui n'est pas utilisé dans le code actuel) qui pourrait donner des résultats légèrement différents entre la version glibc historique et la version musl actuelle.
-  - **Dette technique tracée** : BACK-068 (P2) avec procédure complète + critères d'acceptation + dépendance sur BACK-029.
-  - **Onboarding contributeurs** : les nouveaux contributeurs qui clonent le repo n'ont pas le warning (ils créent un volume `postgres_data` neuf directement avec le provider musl). Le warning ne concerne que le volume historique de l'ancien dev existant. À mentionner dans le runbook de migration si besoin.
-- **Conditions qui invalideraient ce choix (== déclenchent l'implémentation de BACK-068)** :
-  - **Implémentation d'une feature utilisant un tri textuel** sur des champs susceptibles de contenir des accents/ligatures (typiquement BACK-029 recherche/filtres avec `ORDER BY title`). Le warning devient un risque réel : possibilité de tri non-déterministe entre dev et prod si les providers de collation finissaient par diverger encore plus.
-  - **Multiplication des warnings** : si d'autres warnings critiques apparaissent et que le warning de collation noie le signal, il faut le traiter pour récupérer un log propre.
-  - **Changement de provider Postgres** (improbable) : si on revenait à un provider glibc (passage à postgres:16 Debian classique), l'incohérence serait inversée — préférable de tout traiter d'un coup à ce moment-là.
-  - **Découverte d'un bug réel** lié à la collation (résultats de requêtes différents en dev et en prod sur des chaînes de caractères) : le warning passerait de cosmétique à symptôme d'un vrai problème.
-- **État** : DÉCIDÉ et appliqué le 11/06/2026. Fix tracé dans **BACK-068** (P2) avec étapes + critères d'acceptation. À réévaluer au moment du planning de **BACK-029** (recherche et filtres).
-
-
-### DEC-035 : Sélection du LLM provider via variable d'environnement (Factory Pattern)
-
-- **Date** : 18 juin 2026 (spike BACK-070 préparatoire à BACK-069)
-- **Choix** : Le provider LLM de l'Azure Function `memoRecipe-ia` est sélectionné dynamiquement au démarrage via la variable d'environnement **`AI_PROVIDER`** (valeurs valides : `Fake`, `Mistral`, `Gemini`). `Program.cs` lit cette valeur et instancie l'implémentation correspondante de `IChatCompletionClient` via un `switch` dans le `ConfigureServices` du `HostBuilder`. Un **garde-fou anti-Fake-en-Production** throw `InvalidOperationException` au démarrage si `AZURE_FUNCTIONS_ENVIRONMENT=Production` et `AI_PROVIDER=Fake` (fail-fast). En cas de provider inconnu, le message d'erreur du `default` du switch est **conditionnel selon l'environnement** (ne mentionne pas `Fake` comme valeur valide en Production).
-- **Pourquoi** :
-  - **Anti-pattern remplacé** : avant BACK-070, la sélection du provider se faisait en commentant/décommentant manuellement du code dans `Program.cs` (`// MistralChatCompletionClient` vs `services.AddSingleton<IChatCompletionClient, FakeChatCompletionClient>()`). Risque énorme de commit accidentel du mauvais code, impossible de switcher sans recompiler, pas auditable. **Inacceptable en pratique pro**.
-  - **12-Factor App — Factor III "Config in the environment"** : config externalisée via variable d'environnement, jamais en dur dans le code. Le même binaire tourne en dev, pré-prod, prod, sans recompilation — seules les valeurs d'env changent.
-  - **Open/Closed Principle (SOLID)** : ajouter un nouveau provider (ex: Anthropic, Groq) = nouvelle classe `XxxChatCompletionClient` + nouveau `case` dans le switch. **Zéro modification** des implémentations existantes ni du code métier (pipeline, RecipeAiService). Le code est "ouvert à l'extension, fermé à la modification".
-  - **Architecture hexagonale Port/Adapter respectée** : `IChatCompletionClient` est le Port (interface), chaque implémentation est un Adapter (Mistral, Gemini, Fake). Le code métier ne sait pas quel provider tourne — c'est la magie de la DI.
-  - **Fail-Fast Principle** : valider la config au démarrage (pas à la première requête HTTP). Un déploiement en Production avec `AI_PROVIDER=Fake` (oubli humain) **refuse de démarrer** avec un message explicite, plutôt que de retourner silencieusement la recette de cheesecake hardcodée du `FakeChatCompletionClient` à tous les utilisateurs. Le coût d'un bug détecté au boot < le coût d'un bug détecté en prod sous trafic.
-  - **Switch facile entre providers pour spike / debug / benchmark** : changer la valeur de `AI_PROVIDER` dans `local.settings.json` (dev) ou dans les Application Settings Azure (prod) + restart = swap du LLM en quelques secondes, sans toucher au code. Démontré dans BACK-070 pour comparer Mistral vs Gemini sur les mêmes recettes.
-  - **Préparation à BACK-069** : ce Factory Pattern simple (env var globale) est le **prélude** au Factory Pattern par-utilisateur que BACK-069 va implémenter (`IChatCompletionClientFactory.GetForUserAsync(userId)` qui lit la config IA du user en BDD).
-- **Pourquoi `AI_PROVIDER` plutôt qu'un fichier de config dédié** :
-  - **Cohérence avec le reste** : `MISTRAL_API_KEY`, `GEMINI_API_KEY`, `AZURE_FUNCTIONS_ENVIRONMENT` sont déjà des env vars → 1 mécanisme unique pour toute la config.
-  - **Compatible Azure Functions** : les Application Settings du portail Azure deviennent automatiquement des env vars dans le worker. Pas besoin de gérer un fichier de config à part en prod.
-  - **`Environment.GetEnvironmentVariable("X") ?? "default"`** : pattern C# idiomatique, 1 ligne, lisible.
-- **Pourquoi fail-fast plutôt que fallback silencieux sur Fake** :
-  - Un fallback silencieux (`if Production && Fake → utiliser Mistral à la place`) **masque le bug de config**. Le déploiement réussit, l'app tourne, mais quelqu'un découvre 3 semaines plus tard que l'env var n'était pas définie en prod. Entre-temps, des coûts API potentiellement non maîtrisés.
-  - Le fail-fast garantit qu'un déploiement mal configuré est détecté **dans la minute** par l'équipe ops, avec un message d'erreur explicite : "AI_PROVIDER cannot be 'Fake' in Production. Set AI_PROVIDER to 'Mistral' or 'Gemini'."
-- **Pourquoi message d'erreur du `default` conditionnel selon l'environnement** :
-  - En Production, lister `Fake` comme valeur valide dans le message d'erreur est trompeur (puisque le garde-fou la rejetterait juste après). Mieux : ne pas la mentionner du tout en Prod, pour éviter qu'un ops mal renseigné essaie de la set.
-  - En Dev, lister les 3 valeurs (`Fake`, `Mistral`, `Gemini`) est utile pour onboarder un nouveau dev.
-  - Implémentation : opérateur ternaire `environnement == "Production" ? "'Mistral', 'Gemini'" : "'Fake', 'Mistral', 'Gemini'"`.
-- **Alternative considérée — Configuration via fichier `appsettings.json`** :
-  - Avantage : standard ASP.NET, fortement typé via `IOptions<T>`, validation via Data Annotations.
-  - Inconvénients : Azure Functions Isolated utilise `local.settings.json` pour les env vars locales (pas un appsettings.json) → cohérence cassée. En prod, faut maintenir un appsettings.Production.json en plus des Application Settings Azure = duplication de config.
-  - **Rejetée** : trop lourd pour le besoin (1 seule valeur à lire).
-- **Alternative considérée — Multiple Function App déployées séparément (1 par provider)** :
-  - Avantage : isolation totale entre providers, peut router via une porte d'entrée.
-  - Inconvénients : multiplication des coûts d'infra (chaque Function App = ressource Azure facturable), maintenance triplée, configuration et déploiement multipliés.
-  - **Rejetée** : disproportionné pour un projet portfolio, et le Factory Pattern intra-process est suffisant.
-- **Sources** :
-  - [12-Factor App — Factor III : Config](https://12factor.net/config)
-  - [SOLID — Open/Closed Principle](https://en.wikipedia.org/wiki/Open%E2%80%93closed_principle)
-  - [Architecture hexagonale (Ports and Adapters) — Alistair Cockburn](https://alistair.cockburn.us/hexagonal-architecture/)
-  - [Microsoft.Extensions.DependencyInjection — Singleton lifetime](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection)
-  - [Azure Functions Isolated worker — local.settings.json vs Application Settings](https://learn.microsoft.com/en-us/azure/azure-functions/functions-develop-local#local-settings-file)
-- **Conséquences** :
-  - **3 implémentations de `IChatCompletionClient` cohabitent** dans `memoRecipe-ia/Infrastructure/AI/` : `FakeChatCompletionClient` (existant), `MistralChatCompletionClient` (existant, décommenté), `GeminiChatCompletionClient` (nouveau, BACK-070).
-  - **Nouvelle dépendance environnement** : `AI_PROVIDER` doit être défini explicitement dans `local.settings.json` en dev (default "Fake" si absent) et dans les Application Settings Azure en prod (sinon throw au démarrage).
-  - **Documentation** : la fiche `documentation/fiches/LANCEMENT-APP-DEV.md` (créée pendant BACK-070) explique comment switcher de provider en dev.
-  - **Compatibilité ascendante** : tout le code métier (`RecipePipeline`, `RecipeAiService`, `ExtractOcrFunction`) continue d'utiliser `IChatCompletionClient` sans modification. Le swap est totalement transparent pour ces couches.
-  - **Préparation BACK-069** : la factory globale env-var va être **étendue en factory par-utilisateur** au moment de BACK-069. Le `switch (aiProvider)` deviendra un `switch (userConfig.Provider)` après lecture de la config user en BDD. Architecture progressive maîtrisée.
-  - **Sécurité — risque identifié pendant BACK-070** : les requêtes HTTP sortantes vers les APIs LLM contiennent la clé en query string (cas Gemini) → loggées par défaut dans la console Function. Mitigation immédiate appliquée dans BACK-070 : `logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning)` dans `Program.cs` du worker. Mitigation complète à prévoir dans BACK-069 : scrubbing actif des patterns sensibles (`key=`, `token=`, `api_key=`, `password=`, `authorization=`) via Serilog Filter.
-- **Conditions qui invalideraient ce choix** :
-  - **Plus de 1 provider actif simultanément en prod** (ex: A/B testing entre Mistral et Gemini pour mesurer la qualité) → le switch global devient insuffisant, il faut une factory plus avancée (DEC-XXX future).
-  - **Provider par utilisateur** (= scope BACK-069) → la factory env-var est dépassée, mais elle reste valable comme **fallback serveur** (le user qui n'a pas configuré sa clé utilise le provider par défaut serveur).
-  - **Migration vers .NET Aspire (BACK-065)** → la configuration sera centralisée dans l'AppHost C#. Le pattern Factory reste, mais la source de configuration change.
-- **État** : APPLIQUÉ le 18/06/2026 via **BACK-070** (Mistral + Gemini) puis **étendu le 19/06/2026 via BACK-071** (ajout Groq Llama 3.3 70B comme 3e provider, PR #20 merge commit `707ef63`). 3 implémentations de `IChatCompletionClient` cohabitent dans `memoRecipe-ia/Infrastructure/AI/` : `MistralChatCompletionClient`, `GeminiChatCompletionClient`, `GroqChatCompletionClient` (+ `FakeChatCompletionClient` pour tests). Le switch dans `Program.cs` les sélectionne via `AI_PROVIDER` env var (`Mistral` | `Gemini` | `Groq` | `Fake`). Open/Closed Principle vérifié en pratique : ajout du 3e provider sans modification des 2 existants ni du code métier. Factory étendue par-user prévue dans **BACK-069**.
-
-
-### DEC-036 : Choix de Groq (Llama 3.3 70B) comme provider de fallback serveur pour la stratégie freemium de BACK-069
-
-- **Date** : 18 juin 2026 (spike BACK-071 préparatoire à BACK-069)
-- **Choix** : **Groq Llama 3.3 70B Versatile** est retenu comme provider de fallback serveur pour la stratégie freemium hybride de BACK-069 (essais gratuits avec clé serveur avant que l'utilisateur configure la sienne). 3 garde-fous accompagnent ce choix : (1) **maximum 2 essais gratuits par jour par utilisateur** (compteur applicatif BDD, reset à minuit UTC), (2) **compteur applicatif par minute** côté serveur pour détecter les pics et anticiper le 429 Groq (30 req/min), (3) **message d'information visible en UI** prévenant l'utilisateur que sur la version gratuite, des difficultés de scan peuvent survenir en cas de forte affluence. Groq remplace donc Gemini Flash qui avait été initialement proposé dans BACK-069 mais s'est révélé insuffisant en throughput après le spike BACK-070.
-- **Pourquoi Groq plutôt que Gemini Flash, Mistral Small, ou autres** :
-  - **Free tier journalier le plus généreux** : **14 400 scans/jour** (reset minuit UTC) vs 1 500/jour pour Gemini Flash et ~250-500/mois pour Mistral free. Permet d'absorber confortablement les volumes "portfolio" (jusqu'à ~100k users actifs/mois) à 0€ côté opérateur.
-  - **Throughput minute correct** : 30 req/min (2× supérieur à Gemini Flash 15 req/min), suffisant pour un projet portfolio. Mistral est meilleur (60 req/min) mais perd sur le quota mensuel/journalier.
-  - **Pas de carte bancaire requise** à l'inscription, ni pour activer le free tier (contrairement à OpenAI qui exige une CB dès le départ).
-  - **Qualité parsing comparable** à Mistral Small / Gemini Flash pour le cas d'usage "parser une recette OCR en JSON structuré" (validé en spike BACK-070/071 sur la recette "Quiche sans pâte aux poireaux et thon").
-  - **Vitesse d'inférence ultra-rapide** : LPU custom Groq → temps de réponse perçu ~200-500ms vs 1-2s pour les autres providers cloud. Meilleure UX de scan.
-  - **API REST compatible OpenAI** (format `messages[].role/content`) → adapter Groq quasi-identique à Mistral, **zéro nouveau pattern à apprendre** côté code (cf. `GroqChatCompletionClient.cs` créé en 5 min sur BACK-071).
-  - **Cohérence avec l'analyse coûts** (cf. tableau ci-dessous) : 0€/mois côté opérateur jusqu'à ~100k users actifs/mois, et coût raisonnable au-delà.
-- **Analyse comparative chiffrée (issue de BACK-071)** :
-  - **Coût par scan** (~2 000 tokens : 1 500 input + 500 output) :
-    - Gemini Flash : ~$0.00026/scan (le moins cher en absolu)
-    - Mistral Small : ~$0.0006/scan
-    - Groq Llama 3.3 70B : ~$0.0013/scan
-    - Claude Haiku : ~$0.004/scan (le plus cher)
-  - **Coût mensuel côté opérateur selon volume** (scénario portfolio modéré, avg 3 scans/user/mois) :
-    - 10 users : 0€ avec n'importe quel provider
-    - 1 000 users : 0€ avec Groq (3 000 scans absorbés free tier), ~1.50€ Mistral, ~0€ Gemini (sous free 45k)
-    - 10 000 users : ✅ **0€ avec Groq** (30 000 scans), ~17€ Mistral, ~3€ Gemini (au-delà free)
-    - 100 000 users : ✅ **0€ avec Groq** (300 000 scans, sous 432k free), ~170€ Mistral, ~67€ Gemini
-    - 500 000 users : ~1 387€ Groq, ~860€ Mistral, ~273€ Gemini (Gemini moins cher EN ABSOLU à très grande échelle mais throughput catastrophique pour ce volume)
-  - **Throughput** :
-    - Pic 30 users/minute : ✅ Groq OK (30/min) | ❌ Gemini bloque (15/min) | ✅ Mistral OK (60/min)
-    - Pic 100 users/heure : ✅ Groq large (14 400/jour) | ⚠️ Gemini limit 1500/jour | ✅ Mistral OK mais coût $$
-- **Garde-fous décidés (à implémenter dans BACK-069)** :
-  - **Garde-fou utilisateur** : maximum **2 essais gratuits par jour** par compte utilisateur (table `free_tier_usage` : `UserId`, `Date`, `Count`. Index unique sur (`UserId`, `Date`). Reset implicite à minuit UTC car nouvelle entrée chaque jour). Au-delà → modal "Tu as utilisé tes 2 essais gratuits aujourd'hui. Configure ta clé pour continuer OU reviens demain."
-  - **Garde-fou serveur global** : **compteur applicatif par minute** (table ou cache mémoire `IMemoryCache` avec TTL 60s). Si compteur global ≥ 28 dans la minute glissante (marge de 2 sur les 30 de Groq), refuser temporairement les nouveaux essais avec message "Service IA temporairement saturé, réessaie dans 1 min" — évite proactivement le 429 Groq.
-  - **Information utilisateur (UI)** : bannière ou tooltip visible sur la page de scan : "**Sur la version gratuite, des difficultés peuvent survenir en cas de forte affluence. Pour une expérience optimale, configure ta propre clé IA gratuite dans Settings.**" Texte clair, non culpabilisant, qui invite à la conversion vers BYO key.
-  - **Pas de cap global serveur explicite** au démarrage (= on accepte de payer si dépassement, mais avec alerting log pour anticiper). À ajouter plus tard si volumes massifs constatés.
-  - **Gestion du 429 réel** (si malgré le garde-fou minute on tape le quota Groq) : intercepter `HttpRequestException` avec status 429 → ne PAS comptabiliser dans le compteur user (pas de double-charge), retourner message frontend clair invitant à réessayer dans 1 min ou configurer sa clé.
-- **Sources** :
-  - [Groq Cloud Pricing](https://groq.com/pricing/)
-  - [Groq Rate Limits documentation](https://console.groq.com/docs/rate-limits)
-  - [Mistral AI Pricing](https://docs.mistral.ai/platform/pricing/)
-  - [Google AI Studio Free Tier](https://ai.google.dev/pricing)
-  - Spike BACK-070 (test E2E Gemini 429) + BACK-071 (test E2E Groq + analyse coûts)
-- **Alternative considérée — Mistral Small** :
-  - Avantage : throughput minute meilleur (60 req/min vs 30 Groq), code adapter déjà testé E2E dans BACK-070.
-  - Inconvénients : free tier mensuel beaucoup plus restreint (~250-500 scans/mois vs 432 000 Groq), coût plus rapide à grandir, pas de visibilité sur les quotas free exacts.
-  - **Rejetée** : Groq offre un free tier journalier 28× supérieur à Mistral mensuel, ce qui prime sur l'avantage throughput minute (rarement critique pour un portfolio).
-- **Alternative considérée — Multi-provider rotation** (Groq → Mistral → Gemini si quota saturé) :
-  - Avantage : robustesse maximale (jamais bloqué tant qu'au moins 1 provider OK).
-  - Inconvénients : complexité architecture (état partagé, logique rotation, gestion des 3 clés et leurs quotas), overkill pour un projet portfolio.
-  - **Rejetée pour MVP** : à reconsidérer si l'app atteint des volumes > 100k users actifs/mois (= "joli problème à avoir").
-- **Alternative considérée — Pas de fallback serveur du tout (strict BYO key)** :
-  - Avantage : 0€ côté opérateur, simplicité maximale.
-  - Inconvénients : friction énorme pour la démo entretien (recruteur doit créer un compte Groq pour tester), conversion utilisateurs catastrophique sur un portfolio.
-  - **Rejetée** : un projet portfolio doit pouvoir être testé en 30 secondes par un recruteur, le freemium est crucial.
-- **Conséquences** :
-  - **`GROQ_API_KEY` à provisionner** dans les Application Settings Azure en prod (stockée dans un gestionnaire de mots de passe côté opérateur).
-  - **`AI_PROVIDER=Groq`** comme défaut serveur en prod (cf. DEC-035 — factory env var).
-  - **2 nouvelles tables/structures** à ajouter dans le schéma BDD de BACK-069 :
-    - `free_tier_usage` (UserId, Date, Count) — quota journalier par user.
-    - Compteur minute en `IMemoryCache` (volatile, perdu au restart — acceptable car protection best-effort).
-  - **Component UI BACK-069** : bannière "version gratuite limitée" sur la page de scan, persistant tant que pas de config user.
-  - **Documentation BACK-069 + politique de confidentialité (BACK-006)** : mentionner Groq comme provider tiers de scan recettes en version gratuite. Conformité RGPD (donnée envoyée à Groq Inc. — DPA Groq à vérifier au moment de BACK-006).
-  - **Surveillance à mettre en place plus tard** (post-MVP) : dashboard ou alertes Application Insights sur le compteur jour/minute pour anticiper l'atteinte des seuils Groq.
-- **Conditions qui invalideraient ce choix** :
-  - **Volume serveur dépassant régulièrement 14 400 scans/jour** (= ~5 000 users actifs/jour avec 2-3 scans) → migrer vers tier payant Groq OU multi-provider rotation OU passer à un fallback Mistral Small payant à la demande.
-  - **Dégradation de qualité du parsing** observée sur Llama 3.3 70B (peu probable, mais à surveiller) → bascule vers Mistral Small en fallback.
-  - **Changement de politique Groq** (suppression du free tier 14 400/jour, ajout CB obligatoire) → bascule vers Mistral ou Together AI.
-  - **Atteinte de volumes massifs imprévus** (>500k users actifs/mois) → re-arbitrer entre Groq payant (~1 400€/mois pour 500k users à 3 scans/mois) et Gemini Flash payant (~273€/mois mais throughput catastrophique pour ce volume — improbable).
-- **État** : DÉCIDÉ le 18/06/2026 via **BACK-071** (spike technique validé E2E), **MERGÉ sur main le 19/06/2026** (PR #20, merge commit `707ef63`). À **APPLIQUER dans BACK-069** : les 3 garde-fous (compteur jour user, compteur minute serveur, bannière UI) sont à coder dans BACK-069 en même temps que la factory par-user.
-
-- **🟡 PARTIELLEMENT SUPERSEDED par [DEC-043](#dec-043) (09/08/2026)** : le rôle central de Groq positionné ici (« **provider de fallback serveur pour la stratégie freemium** de BACK-069 ») a été **réévalué** suite au pivot du provider IA par défaut vers Vision LLM (Gemini) le 09/08/2026.
-  - **Ce qui reste valide de cette DEC** : Groq (Llama 3.3 70B) reste un provider **techniquement pertinent** et **présent dans le codebase** via le Factory Pattern ([DEC-035](#dec-035)). Les rate-limits Groq analysés ici (30 RPM, 14 400 requêtes/jour free tier) restent factuels et exploitables.
-  - **Ce qui est superseded** : la position de Groq comme **provider par défaut serveur en prod** (`AI_PROVIDER=Groq` mentionné dans les conséquences) est remplacée par `AI_PROVIDER=GeminiVision` — cf. [DEC-043](#dec-043) pour la justification qualité mesurée (écart ×4 sur cas complexes) et le sizing budgétaire (~$1-5/mois beta/V1 stable, crédit gratuit cloud 90j).
-  - **Impact sur la stratégie freemium BACK-069 (V2)** : la stratégie "provider serveur par défaut + Bring-Your-Own-Key pour utilisateurs qui veulent leur propre quota" reste **pertinente sur le principe**, mais le **provider serveur par défaut change** : Gemini Vision au lieu de Groq. Groq peut rester une option "économique text-only" proposée aux utilisateurs BYO qui préfèrent ce compromis.
-  - **Décision finale sur Groq en V1** : Groq est **conservé dans le code en tant que provider de fallback secondaire** (bascule via `AI_PROVIDER=Groq`), pas retiré. Zero code mort. Utile en cas de panne Gemini ou de contrainte RGPD stricte future.
+**DEC détaillées** : [DEC-001](ADR.md#dec-001), [DEC-002](ADR.md#dec-002), [DEC-003](ADR.md#dec-003), [DEC-006](ADR.md#dec-006), [DEC-007](ADR.md#dec-007).
 
 ---
 
-## A investiguer
+## Frontend et UI
 
-### INV-001 : Appel api/auth/me retourne 401 sur les pages publiques
-- **Constat** : Le CookieAuthStateProvider appelle systematiquement api/auth/me au chargement de l'app, meme sur /login et /register. Retourne 401 si pas de cookie → visible en console (erreur rouge).
-- **Impact** : Aucun impact fonctionnel. Cosmétique (erreur visible en console DevTools).
-- **Options a evaluer** :
-  1. Ignorer — pattern standard des SPAs, pas visible par l'utilisateur
-  2. Flag localStorage non-sensible (isLoggedIn true/false) pour eviter l'appel quand pas connecte
-- **Etat** : A EVALUER
+**État actuel**
 
----
+Le Frontend est un Blazor WebAssembly qui utilise MudBlazor comme librairie de composants UI. Le layout est adaptatif, sur desktop une sidebar gauche pour la navigation avec top bar pour les actions user, sur mobile une bottom bar qui remplace la sidebar (pattern pouce facile à atteindre, standard des apps mobiles modernes). Un layout dédié `AuthLayout` sert les pages non authentifiées (`/login`, `/register`) sans NavBar.
 
-## Inconsistances identifiees (a corriger)
+Toutes les pages et composants suivent le pattern code-behind (`.razor` pour le template, `.razor.cs` en partial class pour le C#), avec injection via `[Inject]` et `= default!;` pour supprimer les warnings nullable (46 occurrences dans 17 fichiers). Le formulaire de recette utilise un `RecipeFormModel` dédié (découplé des DTOs API) et le composant `RecipeForm` est réutilisé dans 3 contextes (scan, création manuelle, édition).
 
-### INC-001 : ~~AuthService depend directement de MemoRecipeDbContext~~ [RESOLUE]
-- **Resolution** : `IUserRepository` cree dans Application, `UserRepository` implemente dans Infrastructure. `AuthService` utilise desormais `IUserRepository`. La reference circulaire Application → Infrastructure a ete supprimee. Architecture propre : Api → Application ← Infrastructure. Commit `refactor(arch): fix circular dependency between Application and Infrastructure`.
+**Historique des décisions**
 
-### INC-002 : ~~Classe LoginRequest morte dans AuthController~~ [RESOLUE]
-- **Resolution** : Classe supprimee. Commit `fix: remove dead code and unused UserController endpoint`.
+MudBlazor a été retenu en mars 2026 ([DEC-010](ADR.md#dec-010)) comme librairie UI native Blazor, préférée à Bootstrap ou Tailwind car elle propose des composants en C# pur (zéro JS à écrire) avec un thème centralisé et une gestion responsive intégrée. Le layout adaptatif sidebar desktop + bottom bar mobile a été décidé dans la foulée ([DEC-016](ADR.md#dec-016)) pour offrir une UX mobile-first sans sacrifier l'espace desktop.
 
-### INC-003 : ~~RecipeDto incomplet par rapport a l'entite~~ [RESOLUE]
-- **Resolution** : `RecipeDto` complete avec toutes les proprietes manquantes : `PrepTimeMinutes`, `CookTimeMinutes`, `Difficulty`, `IsPublic`, `CreatedAt`, `UpdatedAt`, `UserId`.
+Le découplage `RecipeFormModel` séparé des DTOs API ([DEC-018](ADR.md#dec-018)) est venu du besoin de réutiliser le même composant `RecipeForm` dans 3 pages avec des DTOs différents (`RecipeCreateDto` pour scan et création manuelle, `RecipeUpdateDto` pour l'édition). Le parent décide du verbe HTTP, pas le formulaire. En parallèle, le code-behind pattern ([DEC-019](ADR.md#dec-019)) a été appliqué à toutes les pages et composants, avec un layout dédié `AuthLayout` extrait pour les pages non authentifiées.
 
-### INC-004 : ~~RecipeCreateDto manque le champ Difficulty~~ [RESOLUE]
-- **Resolution** : `DifficultyLevel? Difficulty` ajoute dans `RecipeCreateDto` et `RecipeUpdateDto`. Nullable par choix delibere : ne pas renseigner la difficulte ne signifie pas "Facile".
+En juillet 2026 ([DEC-041](ADR.md#dec-041)), un compromis pragmatique a été acté sur `MainLayout.razor`. Le code C# a été extrait en code-behind comme le reste, mais le bloc `<style>` inline a été conservé (au lieu d'un `.razor.css` scoped). Raison, la classe CSS cible un sous-composant MudBlazor (`MudMainContent`) que le scoping Blazor ne peut pas atteindre sans `::deep`, dont le coût cognitif dépasse le bénéfice pour ce cas isolé.
 
-### INC-005 : ~~UserController sans [Authorize]~~ [RESOLUE]
-- **Resolution** : Endpoint supprime (YAGNI + surface d'attaque minimale). `GET /auth/me` couvre le besoin. Un endpoint public avec `PublicUserDto` sera cree si necessaire (ex: afficher l'auteur d'une recette). Commit `fix: remove dead code and unused UserController endpoint`.
-
-### INC-006 : ~~RecipeProfile mapping Categories potentiellement incomplet~~ [RESOLUE]
-- **Resolution** : `RecipeRepository` utilise `.Include(r => r.RecipeCategories).ThenInclude(rc => rc.Category)` sur toutes les requetes. Les categories sont toujours chargees en Eager Loading.
+**DEC détaillées** : [DEC-010](ADR.md#dec-010), [DEC-016](ADR.md#dec-016), [DEC-018](ADR.md#dec-018), [DEC-019](ADR.md#dec-019), [DEC-041](ADR.md#dec-041).
 
 ---
 
-### DEC-037 : Soft delete RGPD Art. 17 avec login-check seul pour MVP, cron auto reporté à BACK-077 (Observability-Before-Features)
+## Authentification, sécurité et RGPD
 
-- **Contexte** : BACK-005 (RGPD Suppression de compte utilisateur) implémente le pattern soft delete avec délai de grâce de 30 jours. Deux mécanismes possibles pour purger définitivement les comptes expirés : (a) un check au login (l'user qui se reconnecte après J+30 déclenche la purge à ce moment-là), (b) un cron en arrière-plan (`IHostedService`) qui tourne 1× par jour et purge tous les comptes dont `DeleteRequestedAt < NOW() - 30 days`.
+**État actuel**
 
-- **Choix** : Pour la version MVP de BACK-005, on implémente UNIQUEMENT le **login-check** (a). Le **cron auto** (b) est reporté à un nouveau ticket dédié **BACK-077**, lui-même bloqué par 3 prérequis : **BACK-078** (backup PostgreSQL automatique), **BACK-010** (logging structuré Serilog), **BACK-079** (monitoring + alertes sur opérations critiques).
+L'authentification utilise un token JWT stateless (aucune session côté serveur, cible client web Blazor et mobile MAUI) transporté dans un cookie `HttpOnly + Secure + SameSite=Strict`. Le mot de passe est hashé avec `PasswordHasher<T>` de Microsoft.AspNetCore.Identity (PBKDF2 avec 100 000 itérations et salt intégré), avec migration douce automatique depuis l'ancien hash HMAC-SHA512 au premier login des utilisateurs existants.
 
-- **Pourquoi cette décision** :
-  1. **Principe SRE "Observability before features"** : on ne déploie pas une opération AUTOMATIQUE et DESTRUCTIVE (suppression de users en cascade) sans filets de sécurité solides. Un bug logique dans le cron (mauvais `WHERE`, race condition, etc.) pourrait supprimer des données users massivement sans qu'on s'en rende compte avant des heures voire des jours.
-  2. **Backup obligatoire** : sans `pg_dump` automatique quotidien (BACK-078), toute erreur du cron = perte définitive de données users. Inacceptable pour un projet conforme RGPD.
-  3. **Logging structuré obligatoire** : sans Serilog (BACK-010), impossible de tracer correctement chaque exécution du cron (combien de users purgés, lesquels, pourquoi, erreurs partielles, etc.).
-  4. **Monitoring/alertes obligatoires** : sans alertes (BACK-079), un cron qui supprime 1000 users par erreur ne déclencherait aucune notification → on ne s'en rendrait compte que des jours plus tard via plaintes users.
-  5. **Pas de prod publique actuellement** : MemoRecipe est en dev, pas d'users réels à protéger immédiatement. Le login-check seul couvre 80% des cas (users qui reviennent) et suffit pour MVP fonctionnel. La conformité RGPD totale (couvrir les 20% restants = users fantômes qui ne reviennent jamais) sera activée AVANT la mise en prod publique via BACK-077.
-  6. **Introduction progressive** : `IHostedService` est mis en place dans BACK-077 après que les filets (BACK-078/010/079) soient en place — moins risqué qu'un déploiement combiné feature + observabilité.
+Le serveur applique 6 headers de sécurité via un `SecurityHeadersMiddleware` custom (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, CSP adapté à Blazor WASM et MudBlazor, HSTS conditionnel prod), plus une politique CORS externalisée dans `appsettings.json` avec fail-fast au démarrage si absente. Kestrel est hardened au démarrage (`MaxRequestBodySize = 15 Mo` pour plafonner les uploads au niveau transport, `AddServerHeader = false` pour l'anti-fingerprinting OWASP). Un `ForwardedHeaders` middleware en tête de pipeline propage l'IP réelle du client et le schéma HTTPS depuis le reverse proxy edge, ce qui permet au rate limiter par IP de fonctionner correctement.
 
-- **Alternatives écartées** :
-  - **Tout faire dans BACK-005** (soft delete + login-check + cron auto + backup + monitoring) → PR énorme, risque qualité élevé, mélange de plusieurs préoccupations (RGPD + Infra + Observabilité).
-  - **Login-check seul de manière permanente** → viole RGPD Art. 17 ("dans les meilleurs délais") car les users fantômes restent indéfiniment en BDD.
-  - **Cron auto sans backup ni monitoring** → joue à la roulette russe avec les données users. À proscrire absolument.
+Le rate limiting est double couche, natif ASP.NET Core par IP (100 par minute global, 10 pour auth, 5 pour scan) plus un compteur custom par email dans `AuthService` (blocage 15 minutes après 5 échecs). Pas de token anti-CSRF, protection assurée par la combinaison `SameSite=Strict` et CORS whitelist stricte.
 
-- **Conséquences** :
-  - BACK-005 mergeable rapidement avec un scope clair et testable.
-  - 3 tickets séparés (BACK-077/078/079) avec des responsabilités claires, mergeables indépendamment dans le bon ordre.
-  - **Avant la mise en prod publique** : BACK-078 → BACK-010 → BACK-079 → BACK-077 → ensuite seulement on déploie.
-  - Documentation utilisateur : la `Privacy.razor` section 5 mentionne le délai de grâce 30 jours et précise "via un processus automatisé quotidien" (blocs activés lors du merge BACK-077).
+Côté RGPD, la suppression de compte utilisateur (Art. 17) fonctionne en soft delete avec 30 jours de grâce, via une colonne nullable timestamp `User.DeleteRequestedAt`. Deux mécanismes de purge coexistent, un check au login (si l'utilisateur revient après J+30, purge immédiate) et un cron `BackgroundService` en arrière-plan qui purge toutes les 24h les comptes expirés. La purge physique déclenche une cascade delete Postgres qui supprime en une transaction toutes les entités liées (recettes, ingrédients, étapes, favoris, commentaires), garantissant une conformité Art. 17 stricte sans données orphelines.
 
-- **Date** : 2026-06-23, identifié pendant l'implémentation de BACK-005 sur la question de la sécurité d'une opération destructive automatique en l'absence de backup/monitoring.
+**Historique des décisions**
 
-- **État** : APPLIQUÉ EN 2 TEMPS.
-  - **Phase 1 — Login-check purge MVP** : implémentée le 29/06/2026 via **BACK-005** (PR #25 `feature/BACK-005-soft-delete-account`, merge commit `c2480ac`). 12 commits atomiques. Test E2E exhaustif validé (7 scénarios + purge >30j simulée via `UPDATE` SQL manuel). Stratégie login-check seule = MVP fonctionnel couvrant les users qui reviennent (80% des cas).
-  - **Phase 2 — Cron auto (couverture 100% des cas RGPD Art. 17)** : implémentée le 29/07/2026 via **BACK-077** (PR #41 `feature/BACK-077-account-purge-cron`, merge commit `7445588`). 5 commits atomiques : config `AccountPurgeOptions` + service `AccountPurgeService : BackgroundService` + registration + 4 tests unitaires TestContainers + activation blocs Privacy.razor. Prérequis satisfaits en amont : [BACK-078](../documentation/BACKLOG.md#back-078) partie 1 mergée (backup local chiffré GPG asymétrique, filet de sécurité en cas de bug catastrophique), [BACK-010](../documentation/BACKLOG.md#back-010) mergé (Serilog structuré pour tracer chaque exécution), [BACK-079](../documentation/BACKLOG.md#back-079) mergé (alerting `NotifyMassPurgeAsync` déclenché à chaque run). Test manuel E2E validé sur vrai Postgres dev.
-  - **RGPD Art. 17 100% couvert** : login-check + cron auto couvrent respectivement les users actifs (récupération / annulation demande) et les users fantômes (purge automatique à J+30). Aucun compte marqué pour suppression ne peut rester indéfiniment en BDD.
+Le principe JWT stateless a été acté dès novembre 2025 ([DEC-005](ADR.md#dec-005), aujourd'hui superseded par DEC-014 sur le transport). En mars 2026, l'accès protégé aux ressources a été renforcé, `GetByIdAsync` vérifie systématiquement `IsPublic + UserId` ([DEC-008](ADR.md#dec-008)) pour empêcher qu'un utilisateur voie la recette privée d'un autre. Puis le stockage du JWT est passé de `localStorage` (vulnérable XSS) à un cookie HttpOnly + Secure + SameSite=Strict ([DEC-014](ADR.md#dec-014)), avec côté frontend un `CookieAuthStateProvider` qui interroge `api/auth/me` pour connaître l'état d'auth ([DEC-015](ADR.md#dec-015)) puisque le token n'est plus lisible par le JavaScript.
+
+En avril 2026, le hashing des mots de passe a été migré de HMAC-SHA512 vers PBKDF2 ([DEC-020](ADR.md#dec-020)) avec migration douce automatique. Dans le même mois, trois blocs de sécurité ont été livrés ensemble, `SecurityHeadersMiddleware` custom ([DEC-021](ADR.md#dec-021)) préféré à un package tiers (contrôle total, ~20 lignes), rate limiting double couche IP et per-account ([DEC-022](ADR.md#dec-022)) pour bloquer aussi bien les floods d'IP que le credential stuffing distribué, et CORS dynamique via appsettings avec fail-fast ([DEC-023](ADR.md#dec-023)).
+
+En mai 2026, une décision consciente d'absence a été formalisée, pas de token anti-CSRF ([DEC-024](ADR.md#dec-024)), car `SameSite=Strict` sur le cookie plus CORS whitelist strict couvrent l'attaque par deux barrières indépendantes.
+
+En juin 2026, la conformité RGPD Art. 17 a été mise en place ([DEC-037](ADR.md#dec-037)) en 2 temps. Phase 1 (BACK-005) livre le soft delete avec délai de grâce 30 jours et login-check (couverture 80% des cas), reposant sur un schéma de soft-delete par colonne nullable timestamp `User.DeleteRequestedAt` couplé à une cascade delete Postgres ([DEC-058](ADR.md#dec-058)) qui garantit l'atomicité de la purge physique. Phase 2 (BACK-077, fin juillet 2026) ajoute le cron auto `AccountPurgeService` pour couvrir les 20% restants (les comptes fantômes qui ne reviennent jamais). Le cron a été déployé APRÈS avoir les 3 filets de sécurité en place (backup Postgres BACK-078, Serilog structuré BACK-010, alerting Telegram BACK-079), selon le principe SRE "Observability before features". En parallèle en juin 2026, la valeur par défaut de `Recipe.IsPublic` a été passée de `true` à `false` ([DEC-054](ADR.md#dec-054)) pour appliquer Privacy by Design (RGPD Art. 25), toute nouvelle recette est privée par défaut.
+
+Le triptyque `Upload defense-in-depth` (extension + MIME + magic bytes) au niveau contrôleur ([DEC-057](ADR.md#dec-057)) protège l'endpoint scan contre les uploads malicieux, complété par le hardening Kestrel ([DEC-056](ADR.md#dec-056)) qui plafonne les uploads au niveau transport (15 Mo) et retire le header `Server` pour anti-fingerprinting.
+
+En juillet 2026, le pipeline API a été enrichi pour supporter le déploiement production derrière un reverse proxy edge, `ForwardedHeaders` middleware en tête ([DEC-055](ADR.md#dec-055)) pour propager l'IP client réelle et le schéma HTTPS.
+
+**DEC détaillées** : [DEC-005](ADR.md#dec-005), [DEC-008](ADR.md#dec-008), [DEC-014](ADR.md#dec-014), [DEC-015](ADR.md#dec-015), [DEC-020](ADR.md#dec-020), [DEC-021](ADR.md#dec-021), [DEC-022](ADR.md#dec-022), [DEC-023](ADR.md#dec-023), [DEC-024](ADR.md#dec-024), [DEC-037](ADR.md#dec-037), [DEC-054](ADR.md#dec-054), [DEC-055](ADR.md#dec-055), [DEC-056](ADR.md#dec-056), [DEC-057](ADR.md#dec-057), [DEC-058](ADR.md#dec-058).
 
 ---
 
-### DEC-038 : Stratégie backup PostgreSQL — GPG asymétrique + règle 3-2-1 + découpage BACK-078 en 2 parties
+## Base de données et backup
 
-- **Date** : 06 juillet 2026 (identifié pendant le cadrage de BACK-078)
+**État actuel**
 
-- **Choix** : La stratégie backup de MemoRecipe repose sur 4 décisions clés :
-  1. **Format `pg_dump` custom** (`.dump` binaire compressé) plutôt que plain SQL — plus compact (~30-50%), restauration plus rapide, sélective possible.
-  2. **Chiffrement asymétrique GPG** (paire de clés publique/privée) plutôt que symétrique (mot de passe partagé) — évite le paradoxe "clé co-localisée avec le backup".
-     - **Clé publique GPG** stockée sur le VPS de production (sert uniquement à chiffrer).
-     - **Clé privée GPG** stockée mais JAMAIS sur le VPS.
-     - **Passphrase de la clé privée** dans un gestionnaire de mots de passe.
-     - Résultat : compromise du VPS = attaquant vole des `.dump.gpg` illisibles sans la clé privée.
-  3. **Règle 3-2-1** appliquée : 3 copies des données (BDD prod + backup local VPS + backup externe), 2 supports différents (disque VPS + service externe), 1 copie hors-site (service off-site S3-compatible ou SFTP à définir en partie 2).
-  4. **Découpage BACK-078 en 2 parties** :
-     - **Partie 1 (à traiter maintenant)** : script `backup.sh` sur VPS = `pg_dump` + chiffrement GPG + stockage local `/backups/` + rétention 30j + cron quotidien pendant les heures creuses. Débloque le principal filet de sécurité (permet de restaurer en cas de bug BDD ou migration foireuse). **Autonome, faisable en local sans VPS opérationnel.**
-     - **Partie 2 (avant mise en prod publique)** : script `upload.sh` = copie hors-site vers un service de stockage externe (S3-compatible ou SFTP, à sélectionner en partie 2) via `rsync`/`rclone`/`sftp` + rétention 90j côté externe + cron hebdomadaire. Complète la conformité RGPD Art. 32 (portabilité + résilience).
+La base de données de production est PostgreSQL 16 (image `postgres:16-alpine`), avec un mix de colonnes relationnelles classiques et de colonnes JSONB pour les données semi-structurées (`IngredientNutrition.AllergensJson`, `OCRExtraction.JsonData`, `RecipeSource.MetadataJson`). Un warning cosmétique de collation apparaît en dev depuis le passage à Alpine, tracé comme dette technique mais sans impact fonctionnel (aucun tri textuel sensible à la locale dans le code actuel).
 
-- **Pourquoi ces choix** :
-  - **`pg_dump` custom vs plain SQL** : compression native pgdump, restore sélectif possible (`pg_restore --table=...`), plus rapide sur grosses BDD. Pas d'inconvénient pour une BDD MemoRecipe (~quelques Go maxi).
-  - **GPG asymétrique vs symétrique** : le paradoxe classique "où stocker le mot de passe de déchiffrement" est résolu — clé privée SÉPARÉE du serveur qui produit les backups. Compromise du VPS n'expose PAS les données. Défense en profondeur (RGPD Art. 32).
-  - **Découpage 2 parties** : la partie 1 SEULE (backup + chiffrement local) apporte 90% de la valeur métier (résilience contre bug/migration/incident logiciel). La partie 2 ajoute la protection contre incident matériel/physique du VPS (crash disque, incendie datacenter, hébergeur indisponible). Séparer les 2 permet un cycle d'apprentissage progressif (backup basique → sécurisation avancée) et 2 PRs plus reviewables.
-  - **PAS de `uploads.tar.gpg`** : MemoRecipe ne persiste actuellement aucun fichier sur disque (les entités `RecipeImage` et `OCRExtraction` stockent uniquement des URLs). À rajouter QUAND un vrai stockage d'images (Cloud Storage, CDN) sera ajouté au projet (nouveau ticket futur).
-  - **PAS de `env.gpg`** : les secrets sont dans `.env` (gitignored) et déjà backupés dans un gestionnaire de mots de passe. Redondance inutile. En cas de recovery, le `.env` se recrée à partir du gestionnaire de mots de passe.
+Le schéma applique deux choix RGPD structurants côté données, la colonne `Recipe.IsPublic` avec un défaut à `false` (privacy by design RGPD Art. 25), et un pattern de suppression de compte utilisateur en 2 temps, soft-delete via colonne nullable timestamp puis purge physique cascade delete pilotée par le contrat FK Postgres. Ces choix sont détaillés dans la section Authentification, sécurité et RGPD.
 
-- **Alternatives écartées** :
-  - **Chiffrement symétrique GPG (mot de passe partagé)** : simple à mettre en place mais paradoxal — si on stocke le mot de passe sur le VPS pour l'automatisation, un attaquant qui compromet le VPS déchiffre les backups. Écartée.
-  - **`age` au lieu de GPG** : moderne (2019), syntaxe plus simple, sécurité solide (Ed25519 + ChaCha20-Poly1305). MAIS compétence moins universelle que GPG, moins portable sur les serveurs Linux "old school". GPG retenu pour valeur portfolio et universalité.
-  - **Chiffrement au niveau du volume Docker (LUKS)** : protège seulement au repos local. Ne couvre PAS les backups qui sortent du volume (copies vers external storage). Insuffisant seul.
-  - **Skip BACK-078 en s'appuyant sur les backups managés de l'hébergeur** : envisageable si un service backup managé est activé (Auto Backup VPS, snapshots). MAIS conformité RGPD Art. 32 exige que le responsable de traitement prouve son contrôle sur les backups — un backup managé hébergeur seul ne suffit pas (dépendance sous-traitant, portabilité limitée, restauration granulaire absente).
-  - **Backup vers un service off-site dès la partie 1** : possible mais complexifie la partie 1 avec setup credentials externes + rclone/sftp. Découpage 2 parties permet de valider le cœur (backup + restore local) avant d'ajouter la couche transport.
+Le backup PostgreSQL est chiffré avec GPG asymétrique (clé publique sur le VPS, clé privée hors serveur) et suit la règle 3-2-1 (3 copies, 2 supports, 1 hors-site). Un container dédié `backup` dans `docker-compose.prod.yml` exécute quotidiennement pendant les heures creuses un `pg_dump` custom qui produit un fichier `.dump.gpg` chiffré, conservé 30 jours en local avec rotation automatique. La procédure de restore complète est documentée et testée end-to-end.
 
-- **Sources** :
-  - [PostgreSQL Docs — pg_dump / pg_restore](https://www.postgresql.org/docs/16/backup-dump.html)
-  - [GPG Handbook (Free Software Foundation)](https://www.gnupg.org/documentation/manuals/gnupg/)
-  - [Règle 3-2-1 backup — US-CERT](https://www.cisa.gov/uscert/ncas/tips/ST19-006)
-  - [RGPD Art. 32 — Sécurité du traitement](https://gdpr-info.eu/art-32-gdpr/)
-  - Documentation générique services de stockage off-site : plusieurs options S3-compatibles ou SFTP disponibles sur le marché (comparatif tenu à jour dans les notes ops privées).
+**Historique des décisions**
 
-- **Conséquences** :
-  - **Setup 1× (30 min)** : générer paire de clés GPG sur la workstation maintenance, exporter la clé publique, sauvegarder la clé privée dans un gestionnaire de mots de passe et un support offline additionnel.
-  - **Nouveau dossier `infra/backup/`** dans le repo avec les scripts `backup.sh` + `restore.sh` + `Dockerfile` du container backup.
-  - **Nouveau service `backup`** dans `docker-compose.prod.yml` (alpine + pg_dump + gpg + cron).
-  - **Fiche `POSTGRES-BACKUP-CHEATSHEET.md`** ajoutée à `documentation/fiches/` pour référence rapide (chiffrer, déchiffrer, restaurer).
-  - **Section "Backup & Restore"** ajoutée à `DEPLOYMENT.md`.
-  - **BACK-077 (cron purge auto) débloqué** dès que la partie 1 est mergée + off-site en place (automatisé ou manuel), car opération destructive automatisée nécessite filet backup + monitoring.
+Le choix Postgres avec colonnes JSONB a été acté dès novembre 2025 ([DEC-004](ADR.md#dec-004)) pour éviter de créer des tables dédiées à des données très variables (nutrition, sortie OCR brute, metadata source recette). Postgres gère nativement le JSON avec indexation, ce qui simplifie le schéma sans sacrifier la performance.
 
-- **Conditions qui invalideraient ce choix** :
-  - **Ajout d'un stockage de fichiers persistants** (images uploadées, PDF, etc.) → étendre BACK-078 avec `uploads.tar.gpg`.
-  - **BDD très grosse** (>100 Go) → passer à un backup incrémental (WAL archiving) au lieu de full `pg_dump` quotidien.
-  - **Multi-tenant avec conformité stricte** → migrer vers une solution managée type Barman ou pgBackRest avec point-in-time recovery.
+En juin 2026, lors du passage de l'image dev Postgres de Debian à Alpine ([DEC-034](ADR.md#dec-034)), un warning de collation est apparu (changement de provider glibc vers musl). Le fix propre nécessite une procédure `pg_dump + dropdb + createdb + pg_restore`, disproportionnée pour un warning cosmétique. Décision de reporter le fix dans un ticket dédié (BACK-068) à traiter quand la première feature exploitant un tri textuel arrivera (BACK-029 recherche et filtres). Le même mois, deux évolutions RGPD ont impacté le schéma, le default `Recipe.IsPublic = false` ([DEC-054](ADR.md#dec-054)) via migration `SetRecipeIsPublicDefaultFalse` et le pattern soft-delete + cascade delete ([DEC-058](ADR.md#dec-058)) via migration `AddDeleteRequestedAtToUser`.
 
-- **État** : DÉCIDÉ le 06/07/2026.
-  - **PARTIE 1** : ✅ MERGÉE le 07/07/2026 (PR #26 `feature/BACK-078p1-backup-basic`). Backup local automatisé chiffré + test E2E restore validé.
-  - **PARTIE 2** : ⚠️ REPRIORISÉE le 29/07/2026 pour tenir la fenêtre V1 launch. Le découpage initial "avant la mise en prod publique" a été révisé en 2 volets : (a) pour V1, l'off-site est **opérateur-managed sur médium physique séparé** — mesure raisonnable au sens RGPD Art. 32 pour un volume V1 (quelques dizaines d'users maxi), satisfait la règle 3-2-1 (3 copies, 2 supports, 1 hors-site) mais dépend de la discipline opérateur ; (b) l'automatisation du off-site via `rclone` + object storage S3-compatible ou SFTP est tracée dans le backlog privé pour V1.1 afin de supprimer la dépendance opérateur. Procédure de la V1 (médium physique) documentée dans le runbook ops privé, mentionnée génériquement dans `DEPLOYMENT.md` public. Le split 2-parties de la décision initiale reste conceptuellement valide — seule la temporalité de la partie 2 a été révisée.
+En juillet 2026, la stratégie de backup PostgreSQL a été formalisée ([DEC-038](ADR.md#dec-038)) autour de 4 axes, format `pg_dump` custom (compression native, restore sélectif), chiffrement GPG asymétrique (évite le paradoxe "clé co-localisée avec le backup"), règle 3-2-1 pour la résilience physique, et découpage BACK-078 en 2 parties. La partie 1 (backup local chiffré + cron + rétention 30 jours) a été livrée immédiatement. La partie 2 (automatisation off-site) a été repriorisée fin juillet, pour V1 l'off-site est opérateur-managed sur médium physique séparé (satisfait la règle 3-2-1 et RGPD Art. 32 pour le volume V1), l'automatisation via object storage est tracée pour V1.1.
+
+**DEC détaillées** : [DEC-004](ADR.md#dec-004), [DEC-034](ADR.md#dec-034), [DEC-038](ADR.md#dec-038), [DEC-054](ADR.md#dec-054), [DEC-058](ADR.md#dec-058).
 
 ---
 
-### DEC-039 : Canal d'alerting — Telegram Bot API + abstraction `INotificationChannel`
+## IA, LLM et scan
 
-- **Date** : 13 juillet 2026 (identifiée pendant le cadrage de BACK-079)
+**État actuel**
 
-- **Choix** : Pour l'alerting critique du projet MemoRecipe (BACK-079), on retient **2 décisions couplées** :
-  1. **Telegram Bot API** comme canal d'alerte instantanée par défaut. Setup en 5 min via `@BotFather` sur Telegram — récupération d'un `BotToken` + création d'un canal privé "MemoRecipe Alerts" pour récupérer un `ChatId`. Envoi via simple `POST https://api.telegram.org/bot<TOKEN>/sendMessage` avec `chat_id` + `text` (support Markdown/HTML basique).
-  2. **Abstraction `INotificationChannel`** dans `MemoRecipe.Application/Notifications/` implémentée par `TelegramNotificationChannel` dans `MemoRecipe.Infrastructure/Notifications/` (pattern Ports/Adapters cohérent avec le reste de la Clean Architecture). Le service métier `AlertingService` dépend uniquement de l'interface — le canal réel est injecté via DI. Résultat : swap Telegram → Discord/Slack/Teams/email = **ajouter 1 classe adapter + changer 1 ligne DI dans `Program.cs`**, aucun changement dans le code métier.
+Le provider IA par défaut pour le scan de recettes est **Mistral Vision** (hébergement UE, RGPD-natif, Experiment tier gratuit sans carte bancaire), sélectionné via la variable d'environnement `AI_PROVIDER=MistralVision`. Le modèle multimodal analyse directement l'image envoyée par l'utilisateur, sans étape OCR intermédiaire, et retourne un JSON structuré (titre, description, portions, temps de préparation et cuisson, difficulté, ingrédients avec name+quantity+unit, étapes ordonnées).
 
-- **Pourquoi ces choix** :
-  - **Telegram Bot API** : setup ~5 min via `@BotFather` (aucun SDK, aucun OAuth, aucun renouvellement de token), simple `POST` HTTP, rate limit 30 msg/sec largement au-delà du volume prévu (~10-50 alertes/jour), notification push mobile instantanée, gratuit sans quota mensuel (contrairement à Slack free tier 10k msg/mois), canal privé possible pour isoler les alertes du projet des autres notifications.
-  - **Discord écarté** : moins courant en contexte entreprise (parfois bloqué en réseau pro, perçu comme "app gaming" par certaines DSI). Pas de gain net vs Telegram pour un projet mono-mainteneur.
-  - **Email écarté** : latency imprévisible (SMTP, greylist, spam), risque élevé de finir en spam, pas d'organisation par thread, tronqué sur mobile. Adapté aux rapports périodiques archivables, pas aux alertes temps réel.
-  - **PagerDuty / OpsGenie écartés** : coût significatif (~15-25$/user/mois), overkill pour un projet mono-mainteneur.
-  - **Abstraction `INotificationChannel` (Ports/Adapters)** : le canal réel est un détail d'infrastructure qui peut évoluer selon le contexte de déploiement. Le service métier `AlertingService` doit rester agnostique du canal pour garantir la portabilité (swap vers Slack/Teams/email en contexte entreprise) + la testabilité (via `FakeNotificationChannel` en tests unitaires). Coût du pattern = ~20 lignes de plus, bénéfice = swap trivial + isolation du métier vs infra.
+L'architecture repose sur un Factory Pattern qui permet de switcher entre 6 providers (Fake, Mistral, Gemini, Groq text-only, MistralVision, GeminiVision) en changeant une seule variable d'environnement. Deux pipelines cohabitent, `VisionRecipePipeline` pour les providers multimodaux et `RecipePipeline` classique (OCR Tesseract + text-only LLM) pour les providers text-only. Cette double architecture permet de basculer rapidement en cas de panne ou de contrainte réglementaire.
 
-- **Alternatives écartées** :
-  - **Câbler Serilog directement à un sink Discord/Telegram** (via `Serilog.Sinks.Discord` ou équivalent) : rapide mais **anti-pattern SRP** — Serilog est un logger, pas un système d'alerting. Un logger doit tout logger (Info/Warning/Error), un système d'alerting doit **filtrer** (seulement Warning+ ou selon règles métier), **débouncer** (éviter le spam si 100 erreurs 500 en 1 min), **enrichir** (contexte, seuil dépassé, historique) et **router** (canaux différents selon sévérité). Ces concerns métier n'ont rien à faire dans un sink de log. `AlertingService` reste une couche métier dédiée qui consomme les événements et décide s'il faut alerter — Serilog capture les événements, `AlertingService` décide quoi en faire.
-  - **Push notification directe (FCM/APNs)** : demande un compte développeur Google/Apple + une app cliente installée côté récepteur. Overkill pour un projet solo.
-  - **Webhook vers un service tiers de routing d'alertes (n8n, Zapier)** : introduit une dépendance externe supplémentaire + un point de latence. Utile en équipe multi-outils, pas pour un solo dev.
+L'endpoint scan est protégé par un triptyque de validation upload au niveau contrôleur (whitelist extension, MIME type, magic bytes JPEG et PNG) qui bloque les fichiers non conformes avant tout appel LLM. Le scan lui-même est ensuite protégé par 4 couches de défense en profondeur (défense OWASP LLM Top 10), un `PromptSanitizer` avec 10 patterns regex sur le texte OCR avant envoi au LLM (path text-only), un `AiRateLimiter` LLM-level à 4 tiers cumulatifs (per-user-hour et day, per-ip-hour, global-minute), un `AiAuditLogger` structuré Serilog sans PII avec input hash SHA256, et une propagation uniforme des tokens consommés cross-provider via un record `LlmCompletionResult`. Un `AiCostCounter` par provider trace les tokens consommés sur deux fenêtres (daily reset UTC minuit, weekly reset dimanche 23:59 UTC) et déclenche des alertes Telegram déboncées à l'atteinte des seuils configurés dans `appsettings.json`.
 
-- **Sources** :
-  - [Telegram Bot API](https://core.telegram.org/bots/api) — documentation officielle
-  - [Telegram Bot tutorial (@BotFather)](https://core.telegram.org/bots/tutorial) — création d'un bot en 3 clics
-  - [Ports and Adapters pattern (Alistair Cockburn)](https://alistair.cockburn.us/hexagonal-architecture/) — origine du pattern qui justifie l'abstraction `INotificationChannel`
-  - [OWASP A09:2025 Security Logging and Alerting Failures](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) — obligation d'alerter sur événements critiques
-  - [Comparaison canaux d'alerting DevOps](https://sre.google/sre-book/monitoring-distributed-systems/) — Google SRE Book chapitre monitoring (les canaux d'alerte doivent être choisis pour maximiser la réactivité, pas la commodité de l'outil)
+Un quota BDD limite les recettes à 200 par utilisateur (`RecipeLimits.MaxPerUser`). Le check quota est effectué AVANT l'appel LLM sur le path scan (fail-fast économique, réponse en environ 130 ms au lieu de 8 à 10 secondes d'attente LLM inutile pour un utilisateur déjà au quota). Le format WebP est bloqué au niveau du contrôleur API dans tous les cas, y compris sur le path Vision qui l'accepterait techniquement, un ticket post V1 est prévu pour l'assouplissement end-to-end.
 
-- **Conséquences** :
-  - **Setup 1× (~10 min)** : créer bot Telegram via `@BotFather`, récupérer `BotToken`, créer canal privé "MemoRecipe Alerts", récupérer `ChatId` (via `getUpdates` API après ajout du bot au canal).
-  - **Nouveau namespace `MemoRecipe.Application.Notifications`** (interface + enum `AlertLevel` Info/Warning/Critical).
-  - **Nouveau namespace `MemoRecipe.Infrastructure.Notifications`** (`TelegramNotificationChannel` avec `HttpClient` injecté via `AddHttpClient<>`).
-  - **Nouveau service `AlertingService`** dans `MemoRecipe.Application.Services.Monitoring` qui décide **quand** alerter (règles métier : purge > 50 users, login fail > 100/5min, erreurs 500 > 10/5min, backup > 25h).
-  - **Configuration `appsettings.json`** : sections `Alerting` (seuils par règle) + `Telegram` (`BotToken`, `ChatId` en placeholders `CHANGE_ME`).
-  - **Secrets** : vraies valeurs `BotToken` + `ChatId` dans `appsettings.Development.json` (gitignored) + variables d'environnement `Telegram__BotToken` / `Telegram__ChatId` en prod. Fail-fast au démarrage si absentes (via `RequireConfig` déjà en place — BACK-004).
-  - **Tests unitaires** : `AlertingService` testé avec un `FakeNotificationChannel` (implémentation qui capture les envois en mémoire), permet d'asserter "après 51 users purgés, un envoi de niveau Critical a été déclenché".
-  - **Pattern documenté dans `AlertingService`** pour ne pas leaker le `BotToken` : jamais logué, jamais retourné dans une réponse HTTP, jamais dans un message d'erreur. Discipline no-leak cohérente avec BACK-010.
+**Historique des décisions**
 
-- **Conditions qui invalideraient ce choix** :
-  - **Passage en équipe (multi-devs on-call)** : Telegram individuel devient insuffisant — nécessité de router les alertes vers un canal partagé Slack/Teams avec système d'astreinte/rotation. À ce moment-là, ajouter un `SlackNotificationChannel` en parallèle du `TelegramNotificationChannel` (le pattern `INotificationChannel` supporte plusieurs canaux simultanés) OU migrer vers PagerDuty/OpsGenie pour la gestion des rotations.
-  - **Volume d'alertes explose (>1000/jour)** : rate limit Telegram (30 msg/sec) deviendrait le bottleneck — nécessité de débouncer/aggréger côté `AlertingService` avant envoi, OU passer à un système dédié comme Grafana Alerting.
-  - **Compliance stricte (banque, santé)** : Telegram (serveurs hors UE) pourrait poser un problème RGPD/résidence des données si les alertes contiennent des données utilisateurs. À ce moment-là, migrer vers un canal européen (Slack EU tier, email SMTP français, ou solution self-hosted comme Mattermost).
+Dès mars 2026 ([DEC-017](ADR.md#dec-017)), il a été acté que le Frontend passe systématiquement par l'API (jamais d'appel direct au service IA), pour centraliser la sécurité, l'audit et la traçabilité RGPD. En mai 2026 ([DEC-025](ADR.md#dec-025)), le support WebP a été retiré (Tesseract Windows sans libwebp), décision qui reste active aujourd'hui pour le path OCR fallback comme pour le path Vision (blocage au contrôleur API).
 
-- **État** : DÉCIDÉ le 13/07/2026 pendant le cadrage de BACK-079. **À APPLIQUER dans `feature/BACK-079-monitoring-alerts`** (cette semaine).
+En mai puis juin 2026, le triptyque de validation upload extension + MIME + magic bytes ([DEC-057](ADR.md#dec-057)) a été mis en place au niveau contrôleur pour protéger l'endpoint scan contre les fichiers non conformes avant tout appel LLM.
+
+En juin 2026, le pattern Factory Pattern via `AI_PROVIDER` env var a été mis en place ([DEC-035](ADR.md#dec-035)), et Groq (Llama 3.3 70B) a été retenu comme provider text-only par défaut pour la stratégie freemium ([DEC-036](ADR.md#dec-036), aujourd'hui partiellement superseded).
+
+En juillet et août 2026, plusieurs pivots successifs ont fait converger l'architecture vers son état actuel :
+
+- **Fin juillet 2026** : sécurisation IA multi-couches livrée en 3 sous-livraisons US-A2-04 a/b/c ([DEC-047](ADR.md#dec-047)), avec le catalogue OWASP LLM01 PromptSanitizer, le rate limiter 4 tiers, l'audit trail structuré sans PII, et la propagation tokens cross-provider.
+- **Début août 2026** : alerting coûts LLM per-provider ([DEC-048](ADR.md#dec-048)) via `AiCostCounter` avec debounce.
+- **09 août 2026** : pivot majeur du provider par défaut ([DEC-043](ADR.md#dec-043)) vers un Vision LLM multimodal (Google Gemini initialement), suite à un test qualité qui a révélé un écart d'environ 4× entre le pipeline OCR + text-only (~25% de qualité) et un Vision LLM direct (~95%) sur les photos à mise en page complexe. Cette décision supersede DEC-040 (MVP V1 sans scan IA, décidé le 19/07) qui devient caduque.
+- **10 août 2026** : extension de `AI_PROVIDER` avec `GeminiVision` comme cinquième valeur ([DEC-044](ADR.md#dec-044)), plutôt que d'introduire une seconde variable d'environnement dédiée.
+- **10 août 2026** : re-pivot ([DEC-045](ADR.md#dec-045)) vers Mistral Vision au lieu de Gemini, suite à la découverte que Gemini AI Studio impose un prepayment incompatible avec la posture "zéro coût fournisseur cloud" du projet. Mistral Vision offre les mêmes bénéfices multimodaux avec en plus l'hébergement UE et un free tier sans carte bancaire.
+- **11 août 2026** : implémentation `MistralVisionCompletionClient` (US-A2-12) avec test qualité photo magazine ~85% validé (au-dessus du seuil 60% déclencheur du fallback GroqVision, donc US-A2-13 non-déclenchée, `GroqVisionCompletionClient` n'existe pas dans le codebase).
+- **10-11 août 2026** : formalisation de l'architecture pipeline Vision ([DEC-046](ADR.md#dec-046)) avec deux ports parallèles `IChatCompletionClient` et `IVisionCompletionClient`.
+- **16 août 2026** : structuration end-to-end des ingrédients ([DEC-050](ADR.md#dec-050)) en 3 champs `Name` + `Quantity` + `Unit` (au lieu d'une chaîne libre à parser), propagée à travers worker IA, API, frontend Blazor et BDD. Ouvre la voie à des features produit comme la conversion de portions ou la génération de listes de courses agrégées.
+- **17-20 août 2026** : quota recettes par utilisateur ([DEC-049](ADR.md#dec-049)) livré en 2 temps, quota BDD (US-A2-06) puis check pre-LLM (US-A2-15) pour éviter le gaspillage de tokens LLM sur des utilisateurs déjà au quota. Discriminant machine-readable `error: "recipe_limit_reached"` dans le body 403 pour distinguer ce cas des autres 403.
+
+**DEC détaillées** : [DEC-017](ADR.md#dec-017), [DEC-025](ADR.md#dec-025), [DEC-035](ADR.md#dec-035), [DEC-036](ADR.md#dec-036), [DEC-040](ADR.md#dec-040), [DEC-043](ADR.md#dec-043), [DEC-044](ADR.md#dec-044), [DEC-045](ADR.md#dec-045), [DEC-046](ADR.md#dec-046), [DEC-047](ADR.md#dec-047), [DEC-048](ADR.md#dec-048), [DEC-049](ADR.md#dec-049), [DEC-050](ADR.md#dec-050), [DEC-057](ADR.md#dec-057).
 
 ---
 
-### DEC-040 : MVP V1 sans scan IA — feature reportée en V2
+## Infrastructure, Docker et déploiement
 
-- **Date** : 19 juillet 2026 (identifiée pendant la revue post-BACK-033 UI)
+**État actuel**
 
-- **Choix** : Livrer la V1 de MemoRecipe en prod publique avec **uniquement la création manuelle de recettes**. La feature "scan de recette par IA" (feature initialement identifiée comme core différenciant) est **reportée en V2**, après stabilisation V1 en prod avec de vrais utilisateurs.
+Le déploiement production cible un VPS Linux dédié (offre d'entrée de gamme d'un hébergeur européen) avec Docker installé manuellement (accès root SSH standard). Le stack tourne via `docker-compose.prod.yml` qui orchestre 4 services isolés dans un réseau interne, PostgreSQL, l'API, le Frontend nginx, et un container de backup. Aucun service applicatif n'est exposé publiquement en dehors du nginx qui sert le Frontend sur le port 8080 (à mapper derrière un reverse proxy edge Apache ou nginx du host avec HTTPS).
 
-- **Pourquoi ces choix** :
-  - **Time-to-market réduit d'environ 2 semaines** : le chemin critique prod perd BACK-083 (sécurisation LLM, ~4-5h, P0 si IA activée), BACK-033 partie IA (~2h), BACK-072 (investigation qualité parsing, ~3h). Total ~10-12h de travail bloquant retirés du chemin critique V1.
-  - **Focus qualité UX manuelle** : sans le "wow factor" IA à cacher les défauts, l'UX du formulaire manuel doit être excellente. BACK-090 (refonte mobile-first) devient encore plus critique et prend toute l'attention V1.
-  - **Coûts LLM différés** : pas d'appels payants Mistral/Gemini/Groq en V1 → zéro coût variable prod, pas de surveillance de dépassement, pas de risque d'abus par utilisateur malveillant.
-  - **Sécurité LLM (BACK-083) devient non-bloquante V1** : les 4 axes (prompt injection prevention + rate limit IA + audit trail + monitoring coûts) ne sont critiques que si le scan IA est actif. En V1 avec IA désactivée, le risque OWASP LLM01-10 disparaît.
-  - **Feedback utilisateur réel avant sur-ingénierie** : lancer V1 en manuel permet de mesurer si les users veulent vraiment le scan IA (peut-être qu'ils préfèrent copier-coller depuis un blog), ou s'ils préfèrent un autre pattern (import depuis URL, import massif via export/import).
+L'image API est générée via le Container Support natif intégré au SDK .NET (properties MSBuild dans le `.csproj`, plus de Dockerfile manuel), poussée sur GitHub Container Registry (GHCR) taguée en version sémantique. L'image Frontend utilise un Dockerfile custom avec `nginx:alpine` (~40 MB au lieu de ~150 MB avec un runtime aspnet), et nginx fait office de reverse proxy vers l'API en interne au réseau Docker (Option B, zéro CORS exposé publiquement).
 
-- **Alternatives écartées** :
-  - **Lancer V1 avec IA activée mais qualité imparfaite** : risque de coûts LLM incontrôlés + expérience utilisateur dégradée (parsing incomplet → recettes fausses → utilisateurs déçus). Renoncement à une belle vitrine tant que la qualité n'est pas prouvée.
-  - **Attendre une qualité IA parfaite pour V1** : violation du principe MVP. Le "parfait" n'arrive jamais sans feedback réel. On boucle sur BACK-072 (investigation qualité) indéfiniment sans jamais publier.
-  - **V1 = uniquement scan IA sans création manuelle** : impossible fonctionnellement. La saisie manuelle est le fallback obligatoire pour tous les cas où le scan échoue.
+La sécurité compose est baseline solide (isolation réseau, `security_opt: no-new-privileges`, `mem_limit` et `cpus`, healthchecks avec `depends_on: service_healthy`), enrichie fin juillet 2026 par l'adoption du mécanisme Docker Secrets natif (`secrets:` top-level dans le compose, `AddKeyPerFile("/run/secrets")` côté API) qui remplace le pattern env vars pour les variables sensibles (POSTGRES_PASSWORD, JWT Secret, ConnectionString, OcrScan BaseUrl, Telegram BotToken et ChatId). Le composant IA (Azure Function .NET 8 avec dépendances natives Tesseract) reste un service externe hébergé sur une plateforme serverless facturée à l'usage, pas conteneurisé sur le VPS.
 
-- **Sources** :
-  - Principe MVP de Eric Ries ("The Lean Startup") — ship early, iterate with real feedback
-  - Pattern "Feature Flag" pour cacher progressivement les features (Martin Fowler)
-  - Retour d'expérience produit : les features "wow" reportées en V2 sont souvent découvertes moins critiques une fois les utilisateurs interrogés
+Le pipeline CI/CD GitHub Actions (workflow `.github/workflows/ci.yml`) exécute 7 jobs en parallèle sur push et PR (build+tests API, IA et Web, vuln-audit avec fail-fast sur High et Critical, CodeQL SAST sur C# et actions, Lighthouse a11y audit local Docker) plus un job conditionnel `build-and-push` sur tag `v*` qui pousse les images sur GHCR.
 
-- **Conséquences** :
-  - **Nouveau ticket [BACK-092](../documentation/BACKLOG.md#back-092)** : feature flag pour désactiver le scan IA en V1 (~30 min-1h, P1).
-  - **[BACK-033](../documentation/BACKLOG.md#back-033)** : marqué 🟠 EN COURS (partie UI DONE le 19/07, partie prompt IA structuré reportée V2).
-  - **[BACK-083](../documentation/BACKLOG.md#back-083)** : P0 conservé sur le principe (bloquant IA), mais **non-bloquant V1** (car IA désactivée). Nouveau libellé : "P0 pour activation V2".
-  - **[BACK-072](../documentation/BACKLOG.md#back-072)** : investigation qualité parsing IA → reportée V2.
-  - **[BACK-069](../documentation/BACKLOG.md#back-069)** : Bring-Your-Own-IA → également V2 (dépend du scan IA).
-  - **[BACK-090](../documentation/BACKLOG.md#back-090)** : reste P1 mais devient prioritaire absolu — la création manuelle sera la seule voie utilisable en V1.
-  - **Chemin critique V1 révisé** : BACK-033 UI ✅ + BACK-090 + BACK-085 + BACK-092 + BACK-007p3 → **prod V1 estimée S31 (fin juillet - début août)**.
-  - **UI du bouton "Importer une recette"** masqué en V1 via feature flag. Route `/recipes/scan` retirée du sitemap public V1.
+**Historique des décisions**
 
-- **Conditions qui invalideraient ce choix** :
-  - **Feedback beta massif "je veux le scan IA absolument"** avant même la sortie V2 : accélérer la reintégration (activer feature flag + prioriser BACK-033 partie IA + BACK-083 immédiatement).
-  - **Percée qualité LLM inattendue** (nouveau modèle open source ultra-fiable, prompt engineering breakthrough) : re-évaluer la maturité de la partie IA avant V2.
-  - **Décision produit de repositionner MemoRecipe comme "app IA-first"** au lieu de "gestion de recettes personnelle" : ce cas nécessiterait de réactiver le scan IA comme feature core V1 (mais changement de vision produit, hors scope de cette décision).
+En mai 2026, le Frontend Blazor WASM a adopté `nginx:alpine` ([DEC-027](ADR.md#dec-027)) au lieu d'un runtime aspnet (économie ~110 MB par image, plus pertinent pour du statique WASM), avec dans la foulée le choix d'un reverse proxy nginx Option B ([DEC-028](ADR.md#dec-028)) où le nginx du Frontend proxifie `/api/*` vers l'API en interne, plutôt que d'exposer l'API sur un sous-domaine avec CORS. Zéro CORS en prod, un seul certificat HTTPS à gérer, same-origin natif pour le cookie SameSite=Strict.
 
-- **État** : DÉCIDÉ le 19/07/2026 pendant la revue post-BACK-033 UI. APPLIQUÉ immédiatement : DEC-040 ajoutée, BACKLOG mis à jour pour cohérence (BACK-033 statut, BACK-083/072/069 note contexte V1/V2, nouveau BACK-092 feature flag).
+Fin mai 2026 ([DEC-029](ADR.md#dec-029)), une baseline security compose a été formalisée avec phasage volontaire du hardening avancé, la baseline (isolation réseau, no-new-privileges, mem_limit, healthchecks) était livrable immédiatement, les mesures avancées (read_only filesystems, cap_drop, user non-root explicite) tracées dans BACK-056 pour itération. Le trade-off "pas de Docker secrets natifs" acté à cette époque a été superseded fin juillet 2026 par l'adoption du mécanisme `secrets:` natif ([DEC-052](ADR.md#dec-052)) via BACK-004.
 
-- **⚠️ SUPERSEDED par [DEC-043](#dec-043) (09/08/2026)** : cette DEC-040 est **caduque**. Deux pivots stratégiques successifs ont inversé la décision :
-  - **06/08/2026** (pivot #1) : décision de réintégrer le scan IA en V1 avec approche Groq-only MVP + safeguards (au lieu du report V2 initialement acté ici). Motivations : le scan IA est une feature core différenciante du produit ; ship V1 sans scan = beta test dénaturé + feedback biaisé.
-  - **09/08/2026** (pivot #2 [DEC-043](#dec-043)) : pivot du provider IA par défaut vers Vision LLM (Gemini) suite à baseline mesurée révélant écart qualitatif ×4 par rapport au pipeline OCR + text-only initialement prévu.
-  - **Conséquences concrètes du remplacement** : le feature flag [BACK-092](../documentation/BACKLOG.md#back-092) créé par cette DEC reste utile (kill switch d'urgence, activation contrôlée par environnement), mais il est désormais activé par défaut en prod V1 (`ScanRecipeEnabled = true`). Les tickets [BACK-033](../documentation/BACKLOG.md#back-033), [BACK-072](../documentation/BACKLOG.md#back-072), [BACK-069](../documentation/BACKLOG.md#back-069), [BACK-083](../documentation/BACKLOG.md#back-083) reprennent leur criticité V1 (adaptés au nouveau provider Vision).
-  - **Pourquoi garder cette DEC dans le doc plutôt que la supprimer** : traçabilité de l'historique de décision (portfolio / futur audit) + explication du feature flag [BACK-092](../documentation/BACKLOG.md#back-092) qui reste dans le code même après réactivation du scan.
+En juin 2026, trois décisions ont modernisé le pipeline de build et distribution :
+- Container Support natif SDK .NET pour l'API ([DEC-030](ADR.md#dec-030)) au lieu d'un Dockerfile manuel, suggéré par le mentor, ~5 lignes XML dans le .csproj remplacent ~30 lignes de Dockerfile multi-stage.
+- Distribution des images via GHCR ([DEC-031](ADR.md#dec-031)), build sur le poste dev, push tagué en version sémantique, pull depuis le VPS. Rollback en 30 secondes via `docker compose pull` sur un tag précédent.
+- Adoption de .NET Aspire ([DEC-032](ADR.md#dec-032)) pour l'orchestration du stack dev + prod, décidée en visio mentor le 04/06 mais **jamais implémentée** (spike BACK-065 non déclenché sur Alpha.1 ni Alpha.2 pour cause de priorisation produit sur d'autres tickets P0). Statut aujourd'hui, envisagé V2.
+
+En août 2026, deux décisions structurantes ont finalisé l'infrastructure de déploiement, l'hébergement production sur VPS Linux dédié européen ([DEC-042](ADR.md#dec-042)) et le pipeline CI/CD GitHub Actions ([DEC-053](ADR.md#dec-053)) en 7 jobs parallèles avec CodeQL SAST et Lighthouse a11y, plus un job de release conditionnel sur tag `v*` pour publier sur GHCR.
+
+**DEC détaillées** : [DEC-027](ADR.md#dec-027), [DEC-028](ADR.md#dec-028), [DEC-029](ADR.md#dec-029), [DEC-030](ADR.md#dec-030), [DEC-031](ADR.md#dec-031), [DEC-032](ADR.md#dec-032), [DEC-042](ADR.md#dec-042), [DEC-052](ADR.md#dec-052), [DEC-053](ADR.md#dec-053).
 
 ---
 
-### DEC-041 : `MainLayout.razor` — code-behind extrait, CSS `<style>` inline conservé pragmatiquement
+## Tests
 
-- **Date** : 22 juillet 2026 (identifiée pendant BACK-096 phase 2)
+**État actuel**
 
-- **Choix** : Extraire le C# (thème MudBlazor) dans `MainLayout.razor.cs` en partial class, **mais garder le bloc `<style>` inline** dans `MainLayout.razor` au lieu de créer un `MainLayout.razor.css` scoped.
+La stratégie de test repose sur deux niveaux complémentaires. Les tests unitaires utilisent xUnit avec des `Fake*Repository` implémentés avec `List<T>` en mémoire (déterministes, rapides sous 1 seconde, sans base de données ni Docker). Les tests d'intégration passent par un `CustomWebApplicationFactory` qui lance un container `postgres:16-alpine` réel via TestContainers, avec application des migrations EF Core via `Database.MigrateAsync()` (pas `EnsureCreated()`, pour valider le vrai chemin de migration prod).
 
-- **Pourquoi ces choix** :
-  - **Code-behind gagnant** : la déclaration du `MudTheme` (~40 lignes de C#) sort du markup, cohérent avec la convention post-BACK-090 (`[Inject]`, `default!`, partial class dans `.razor.cs`). Aucun compromis.
-  - **CSS scoped problématique sur ce fichier spécifique** : la classe `main-content-with-mobile-padding` cible `<MudMainContent>` (sous-composant MudBlazor). Le scoping Blazor n'ajoute pas l'attribut `b-xxx` aux éléments internes des sous-composants → nécessite `::deep .main-content-with-mobile-padding { ... }` pour matcher.
-  - **Reproduction du choix pragmatique BACK-090** : la même problématique avait déjà été rencontrée et résolue de la même façon (CSS inline gardé pour éviter le coût cognitif de `::deep`). Renoncement conscient documenté cette fois-ci pour éviter le débat une 3ème fois.
-  - **Nouveaux styles compatibles avec le pattern inline** : le skip-link a11y (`.skip-link`, `#main-content:focus`) ajouté en BACK-096 s'insère naturellement dans le même bloc `<style>` — pas de gain à les extraire séparément.
+Le pattern d'isolation retenu est "un container par classe de tests" via `IClassFixture<CustomWebApplicationFactory<Program>>` (16 classes de tests d'intégration branchées). Des factories spécialisées héritent de la factory de base quand il faut modifier une seule dimension de config (`NoRateLimitApplicationFactory` pour désactiver le rate limiter, `LowQuotaWebApplicationFactory` pour override `MaxPerUser=2`), sans polluer la factory principale. Les fakes réutilisés entre plusieurs projets tests vivent dans un projet transverse dédié `MemoRecipe.Tests.Shared`.
 
-- **Alternatives écartées** :
-  - **Extraire tout en `.razor.css` avec `::deep`** : cohérence maximum, mais rétablit ce qui avait été abandonné consciemment en BACK-090. Coût cognitif > bénéfice pour un cas isolé.
-  - **Déplacer le CSS dans `wwwroot/css/app.css` global** : casse la co-localisation "styles proches du composant qui les utilise". Pas de scoping non plus.
-  - **Attendre que MudBlazor expose une API `id` sur `<MudMainContent>`** : dépendance externe non contrôlée, pas de garantie de calendrier.
+**Historique des décisions**
 
-- **Sources** :
-  - Journal BACK-090 (20/07/2026) : "CSS scoped abandonné pour `MainLayout`, gardé pour `RecipeStickyActionBar`" — décision initiale documentée
-  - Documentation officielle Blazor CSS isolation : le `::deep` combinator est le mécanisme officiel pour cibler les descendants de sous-composants, mais son usage est réservé aux cas où il apporte plus qu'il ne coûte
-  - Rule of Two Hats (Kent Beck) : ne pas mélanger refonte visuelle et refonte technique dans la même feature — la BACK-096 est une refonte visuelle a11y, pas une refonte technique de l'architecture CSS
+Dès mars 2026 ([DEC-009](ADR.md#dec-009)), le pattern FakeRepository a été retenu pour les tests unitaires, cohérent avec la philosophie "tests déterministes rapides sans dépendance externe" du projet. Le choix xUnit comme framework de test est implicite depuis le début du projet.
 
-- **Conséquences** :
-  - **Nouveau ticket [BACK-098](../documentation/BACKLOG.md#back-098)** : "Explorer une solution CSS scoped pour `MainLayout.razor` sans `::deep`" (P3, ~30 min, dette technique post-V1). À réévaluer quand MudBlazor évoluera ou qu'une pause qualité sera dispo.
-  - **`MainLayout.razor.cs` créé** : partial class avec le champ `readonly MudTheme _theme` uniquement, pas de base class explicite (unifiée avec le `@inherits LayoutComponentBase` du `.razor`).
-  - **Convention documentée** : pour les autres layouts / composants où le CSS ne cible que des éléments directs (pas de sous-composants), continuer à extraire en `.razor.css` scoped (pattern BACK-090 respecté).
-  - **Le fichier `MainLayout.razor`** reste hybride : markup + `<style>` inline. C'est un choix conscient, pas un oubli.
+En juin 2026, un audit a révélé deux divergences silencieuses entre les tests d'intégration SQLite in-memory et Postgres prod, JSONB traduit en TEXT (bloquant dès la première query `@>`, `?`, `->>`) et TIMESTAMPTZ perdu (précision, DateTime.Kind). La migration vers TestContainers ([DEC-033](ADR.md#dec-033)) a été actée avec le mentor et implémentée dans BACK-062 (13/06/2026). Aujourd'hui 18 tests d'intégration passent contre un vrai Postgres, aucune divergence schéma silencieuse.
 
-- **Conditions qui invalideraient ce choix** :
-  - **MudBlazor expose `Id` ou équivalent scopable sur `MudMainContent`** : permettrait de cibler directement l'élément rendu avec l'attribut `b-xxx` sans `::deep`. Trigger pour BACK-098.
-  - **Refonte plus large de l'architecture CSS** (ex : migration Tailwind, adoption CSS Modules côté Blazor) : le débat inline vs scoped devient obsolète. Trigger pour repenser globalement.
-  - **Ajout d'un 3ème cas similaire** (styles inline dans un autre layout/composant à cause de `::deep`) : signal que le pattern devient une dette systémique, il faudra une décision architecturale globale.
+Fin juillet et mi-août 2026, deux patterns tests complémentaires ont été formalisés ([DEC-059](ADR.md#dec-059)), le projet transverse `MemoRecipe.Tests.Shared` pour les fakes réutilisés entre projets (rule of three), et le pattern de factories test spécialisées par héritage (`NoRateLimitApplicationFactory` livré en BACK-080, `LowQuotaWebApplicationFactory` livré en US-A2-06) pour isoler les configurations spécifiques sans polluer la factory de base.
 
-- **État** : DÉCIDÉ le 22/07/2026 pendant BACK-096. APPLIQUÉ : `MainLayout.razor` refactoré avec code-behind + skip-link, CSS inline conservé, ticket BACK-098 créé pour re-exploration future.
+**DEC détaillées** : [DEC-009](ADR.md#dec-009), [DEC-033](ADR.md#dec-033), [DEC-059](ADR.md#dec-059).
 
 ---
 
-### DEC-042 : Hébergement production — VPS Lite dédié (Docker manuel) + IA sur plateforme serverless externe
+## Framework et patterns backend
 
-- **Date** : 04 août 2026
+**État actuel**
 
-- **Choix** :
-  1. MemoRecipe se déploie sur un **VPS Linux dédié** (offre d'entrée de gamme d'un hébergeur européen), distinct de tout autre serveur mutualisé.
-  2. **Docker n'est pas préinstallé** : il est installé manuellement via l'accès root standard (SSH + élévation de privilèges), une fois la distribution Linux choisie au provisioning.
-  3. Le composant IA (OCR + appel LLM, cf. [DEC-018](#dec-018)) reste un **service externe** appelé par l'API via une URL configurable — il n'est **pas** conteneurisé sur le VPS. Il cible une plateforme serverless de type "container à la demande" (facturation à l'usage), et non un plan toujours-actif.
-  4. Le VPS reste dimensionné pour l'usage réel actuel (site Blazor WASM + API .NET + PostgreSQL en Docker Compose), avec un chemin de montée en gamme (offre supérieure du même hébergeur) disponible sans changement d'architecture si le trafic croît.
+L'API valide les DTOs entrants avec FluentValidation (5 validators actifs, `RecipeCreateDto`, `RecipeUpdateDto`, `RegisterDto`, `LoginDto`, `DeleteAccountDto`), les règles vivent dans une classe séparée du DTO (SRP) et sont testables unitairement. La gestion d'erreur passe par un `ExceptionMiddleware` global qui garantit qu'aucune stack trace ne fuite en production, avec des catches spécifiques pour les exceptions métier typées (`AccountMarkedForDeletionException` renvoie 403, `AiRateLimitExceededException` renvoie 429 avec header `Retry-After`, `RecipeLimitReachedException` renvoie 403 avec discriminant JSON `error: "recipe_limit_reached"`). Le pattern d'exceptions métier typées est appliqué systématiquement pour toute nouvelle erreur métier, avec des classes symétriques côté frontend Blazor pour un catch discriminant côté client.
 
-- **Pourquoi ces choix** :
-  - **Serveur dédié plutôt que mutualisation avec d'autres projets** : un service en production ne doit pas dépendre de la charge d'autres usages sur la même machine. L'isolation complète élimine tout risque de contention de ressources ou d'incident croisé entre projets indépendants.
-  - **VPS d'entrée de gamme plutôt qu'une offre supérieure** : l'empreinte mémoire des 4 services du `docker-compose.prod.yml` (web, api, postgres, backup) est modeste et documentée (plafonds `mem_limit` par service). Payer pour une capacité inutilisée n'apporte aucune valeur tant que le trafic réel ne le justifie pas ; la migration vers une offre supérieure du même hébergeur est un simple changement de palier, pas une migration technique.
-  - **Docker manuel plutôt qu'un PaaS packagé** : cohérent avec le pipeline Docker Compose déjà construit et durci (BACK-007, [DEC-027](#dec-027), [DEC-031](#dec-031)) — l'accès root sur une distribution Linux standard suffit à installer Docker sans dépendre d'une offre PaaS propriétaire de l'hébergeur.
-  - **IA sur plateforme serverless externe plutôt que conteneurisée sur le VPS** : le projet IA dépend de librairies natives de reconnaissance optique de caractères, et son usage est ponctuel et irrégulier (un appel par scan utilisateur), avec des pics CPU sur des opérations courtes. Un modèle serverless facturé à l'usage absorbe cette charge sans dimensionner le VPS en permanence pour des pics rares, et sans faire concurrence aux services toujours actifs (site, API, BDD) sur la même machine. Le rate-limiting déjà prévu ([BACK-083](../documentation/BACKLOG.md#back-083)) plafonne par ailleurs le risque de dérive de coût liée à l'usage.
+Le mapping DTO ↔ entités utilise Mapperly (source generator, OSS MIT), avec 5 mappers statiques (`UserMapper`, `RecipeMapper`, `IngredientMapper`, `StepMapper`, `CategoryMapper`) définis en `static partial class` avec attribut `[Mapper]`. Zéro reflection runtime, erreurs de typo détectées à la compilation, perf 30 à 50 fois supérieure à AutoMapper.
 
-- **Alternatives écartées** :
-  - **Cohabitation avec d'autres sites déjà hébergés sur un serveur mutualisé existant** : écartée pour isolation complète et suppression de tout risque de contention de ressources entre projets indépendants.
-  - **Tout héberger sur une plateforme cloud managée (site + API + BDD)** : écartée — une charge "toujours active" (site/API/BDD tournant en continu) est structurellement plus coûteuse sur des services managés facturés en continu que sur un serveur dédié à coût fixe, et cela abandonnerait le pipeline Docker Compose déjà construit et testé sans bénéfice fonctionnel.
-  - **Conteneuriser le projet IA sur le même VPS que le reste** : écartée — ferait concurrencer un workload CPU-intensif ponctuel avec les services always-on, et imposerait un palier VPS supérieur en permanence pour un besoin qui n'est qu'occasionnel.
-  - **PaaS Docker managé propriétaire de l'hébergeur** : écartée — moins de contrôle et moins de valeur d'apprentissage que la gestion directe d'un VPS + Docker Compose déjà maîtrisée.
+Le logging est structuré via Serilog (sinks Console et File avec rotation quotidienne et rétention 30 jours), avec masquage systématique des données personnelles dans les logs (`EmailMasker`, `ValidationErrorSanitizer`) pour respecter RGPD Art. 5.1.c. L'alerting critique (opérations destructives massives, erreurs 500, dépassements de seuils coûts LLM, échecs backup) passe par une abstraction `INotificationChannel` implémentée par un `TelegramNotificationChannel`. Le service métier `AlertingService` reste agnostique du canal réel, ce qui permet de swapper Telegram vers Slack, Discord ou email en changeant une seule ligne dans `Program.cs`.
 
-- **Sources** :
-  - Documentation officielle de l'hébergeur sur l'accès root SSH des offres VPS concernées.
-  - Documentation officielle Docker — installation standard sur une distribution Linux avec accès root (indépendante de tout hébergeur spécifique).
-  - Documentation officielle de la plateforme serverless ciblée pour l'IA — modèle de facturation à l'usage avec quota gratuit mensuel.
+Un `FakeAuthService` reste présent dans le codebase Frontend comme option dev offline, permettant de développer et tester l'UX sans dépendre du backend (swap d'une ligne dans `Program.cs`). Le wire par défaut reste le vrai `AuthService` HTTP.
 
-- **Conséquences** :
-  - [BACK-009](../documentation/BACKLOG.md#back-009) (HTTPS forcé) doit désormais prévoir une installation complète du reverse proxy + certificat sur un serveur vierge, et non l'ajout d'un site virtuel supplémentaire sur un reverse proxy déjà en place — le runbook sera mis à jour en conséquence.
-  - Le déploiement futur du scan IA (V2, [BACK-033](../documentation/BACKLOG.md#back-033) / [BACK-083](../documentation/BACKLOG.md#back-083)) ciblera la plateforme serverless externe, pas le VPS — à documenter dans le runbook dédié le moment venu.
+**Historique des décisions**
 
-- **Conditions qui invalideraient ce choix** :
-  - **Croissance de trafic dépassant la capacité du palier choisi** → montée de gamme chez le même hébergeur, sans changement d'architecture Docker Compose.
-  - **Volume d'usage IA dépassant durablement le quota gratuit de la plateforme serverless** → réévaluer le modèle de facturation ou l'hébergement de ce composant.
+Trois décisions cadres ont été prises en mars 2026, FluentValidation ([DEC-011](ADR.md#dec-011)) préféré à Data Annotations (règles dans classes séparées, testables via `TestValidate`), un `ExceptionMiddleware` global custom ([DEC-012](ADR.md#dec-012)) préféré au handler par défaut d'ASP.NET (contrôle total sur la réponse d'erreur), et un `FakeAuthService` pour développer le Frontend sans API ([DEC-013](ADR.md#dec-013)). Ce fake est toujours maintenu au contrat `IAuthService` (dernière méthode ajoutée `RequestAccountDeletionAsync` post BACK-005 juin 2026).
 
-- **État** : DÉCIDÉ le 04/08/2026. À appliquer au prochain runbook de déploiement ([BACK-009](../documentation/BACKLOG.md#back-009)).
+En mai 2026, AutoMapper a été remplacé par Mapperly ([DEC-026](ADR.md#dec-026)) suite au passage d'AutoMapper sous licence commerciale Lucky Penny. Migration mécanique (5 profiles convertis, 2 services simplifiés), gains significatifs (warning licence supprimé, perf 30 à 50 fois supérieure, erreurs typo détectées au build au lieu du runtime, découverte des source generators .NET).
 
----
+En juillet 2026, l'alerting critique a été formalisé ([DEC-039](ADR.md#dec-039)) autour de Telegram Bot API comme canal instantané par défaut (setup ~5 min via `@BotFather`, aucun SDK, gratuit sans quota mensuel, notification push mobile) et d'une abstraction `INotificationChannel` (pattern Ports/Adapters) pour permettre de swap vers un autre canal sans toucher au code métier. Dans le même mois, le logging structuré Serilog a été mis en place ([DEC-051](ADR.md#dec-051)) avec sinks Console et File, masquage PII systématique via `EmailMasker` et `ValidationErrorSanitizer`, enrichers `FromLogContext` et `WithMachineName`.
 
-### DEC-043 : Pivot du provider IA par défaut — Vision LLM (Google Gemini) plutôt qu'OCR + text-only LLM (Groq)
+Depuis l'été 2026, l'`ExceptionMiddleware` a été enrichi de 3 catches spécifiques (au fil de l'ajout des exceptions métier typées) et branché à `IAlertingService.NotifyServerErrorAsync()` pour alerter Telegram sur les 500 non captés (skip `/health`). Le pattern d'exceptions métier typées a été formalisé rétrospectivement ([DEC-060](ADR.md#dec-060)) comme extension de DEC-012, chaque erreur métier a sa propre classe d'exception avec les données contextuelles nécessaires, et un catch spécifique dans le middleware garantit une réponse HTTP cohérente au client.
 
-- **Date** : 09 août 2026
-
-- **Choix** :
-  1. **Google Gemini Vision (modèle Flash-Lite)** devient le provider par défaut pour la fonctionnalité de scan de recettes en V1, à la place du pipeline précédemment retenu qui consistait à extraire le texte de l'image via OCR local (Tesseract) puis à structurer ce texte via un LLM text-only (Groq / Llama 3.3 70B, cf. [DEC-036](#dec-036)).
-  2. Le pipeline OCR local + provider text-only reste **présent dans le code** en tant que **provider de fallback secondaire**, sélectionnable via la variable d'environnement `AI_PROVIDER` (cf. [DEC-035](#dec-035)). Aucun retrait de code — le Factory Pattern existant permet la coexistence sans surcoût de maintenance.
-  3. L'authentification à l'API Vision utilise une **clé API bind à un compte de service** (pattern IAM standard du fournisseur cloud), stockée en **Docker Secret** en production (pattern [BACK-004](../documentation/BACKLOG.md#back-004)) et via `appsettings.Development.json` gitignored en développement.
-  4. Un **plafond budgétaire mensuel** est configuré au niveau du compte cloud du projet, avec **coupure automatique du service** en cas de dépassement (protection "hard cap" absolue).
-
-- **Pourquoi ces choix** :
-  - **Écart qualitatif mesuré massif sur cas complexes** : sur un scan comparatif d'une photo de recette à mise en page artistique (page magazine / réseau social), le pipeline OCR local + LLM text-only atteint un score d'extraction d'environ 25% (titre tronqué, plusieurs champs métier absents du schéma, hallucinations sur les ingrédients, quantités et fractions massacrées par l'étape OCR intermédiaire), alors que le Vision LLM sur la même image atteint environ 95% (extraction complète, aucune hallucination, structuration correcte des étapes). Ratio approximatif de 4× en qualité perçue sur ce type de source.
-  - **Cause racine du différentiel** : l'étape OCR intermédiaire dégrade massivement le signal (chiffres/fractions perdus, éléments non-textuels ignorés, layout créatif non compris). Un modèle multimodal lit directement l'image et exploite le contexte visuel (positionnement, encadrés, hiérarchie typographique) — signal qui est structurellement inaccessible à un pipeline OCR → text.
-  - **Budget compatible avec l'usage cible** : le modèle Flash-Lite est facturé à un ordre de grandeur d'environ $0.0004 par scan (mesuré ~2000 tokens par scan moyen, incluant l'encodage image en tuiles + prompt + output JSON). Pour un usage cible beta (~100 scans/jour), coût mensuel estimé ~$1. Pour un scale V1 stable (~500 scans/jour), ~$5/mois. Le crédit d'essai gratuit du fournisseur cloud (~$300 sur 90 jours pour un nouveau compte) couvre plusieurs années de beta à ce rythme.
-  - **Résilience via Factory Pattern déjà en place** : le pattern retenu en [DEC-035](#dec-035) permet de switcher entre providers via une simple variable d'environnement, sans redéploiement de code. Si le fournisseur Vision change sa politique commerciale ou technique de manière défavorable, un basculement vers le provider de fallback (OCR + text-only) est immédiat.
-  - **Support natif multi-formats** : le provider Vision accepte nativement JPEG, PNG, WebP, HEIC et PDF. Cela rend obsolète le ticket initialement prévu pour ajouter le support WebP côté backend ([BACK-039](../documentation/BACKLOG.md#back-039) partie WebP) — la fonctionnalité est acquise sans code additionnel.
-
-- **Alternatives écartées** :
-  - **Rester sur le pipeline OCR + text-only et améliorer le prompt** : écarté — l'analyse du prompt existant révèle des champs métier absents du schéma JSON demandé (ex : temps de préparation, temps de cuisson, difficulté), ce qui explique une partie des extractions manquantes. Corriger ce point améliorerait le score mais ne résoudrait pas la cause racine (OCR dégradé sur cas complexes). Le plafond de qualité atteignable resterait insuffisant pour l'expérience utilisateur cible.
-  - **Rester sur le pipeline OCR et investir dans un OCR de meilleure qualité** (préprocessing image + moteur OCR différent) : écarté pour V1 — chantier de plusieurs jours pour un gain incrémental, alors qu'un modèle multimodal résout le problème structurellement et immédiatement. Reporté en optimisation V1.1 du chemin de fallback ([US-A2-08](../documentation/Backlog_V1-Alpha2.md) renommée).
-  - **Auto-hébergement d'un modèle Vision open-source** (par exemple modèle multimodal libre exécuté sur GPU) : écarté pour V1 — nécessite un investissement matériel significatif (GPU dédié) et une expertise d'exploitation qui ne se justifie ni à l'échelle actuelle ni au coût unitaire mesuré du provider cloud. Reste envisageable en V3 si un enjeu de souveraineté des données ou de scale change la donne.
-  - **Fournisseur Vision commercial d'un tiers différent** (ex : autre grand acteur cloud, ou API tierce spécialisée) : écarté pour V1 — le fournisseur retenu offre le meilleur ratio qualité/prix mesuré + un free tier généreux + un modèle de facturation à l'usage prévisible. Le pattern Factory permet de rebasculer sans coût architectural si un autre acteur devient plus intéressant plus tard.
-
-- **Sources** :
-  - Test qualitatif comparatif réalisé sur une photo de recette réelle représentative des cas d'usage difficiles ciblés (mise en page artistique multi-zones), avec le même prompt d'extraction JSON structuré pour les deux providers testés.
-  - Documentation officielle de tarification du fournisseur cloud Vision (grille de prix par million de tokens input/output du modèle Flash-Lite).
-  - Documentation officielle des quotas et rate-limits du free tier de ce fournisseur.
-  - Fiche interne `parsing-quality-baseline` documentant les résultats bruts du test comparatif (photo source, sortie JSON de chaque provider, scoring par champ).
-
-- **Conséquences** :
-  - Nouvelle User Story [US-A2-10](../documentation/Backlog_V1-Alpha2.md) ajoutée à l'Alpha.2 : implémentation du provider Vision dans le Factory existant + adaptation du pipeline scan pour passer l'image directement au provider Vision (au lieu de la faire transiter par l'OCR local).
-  - [US-A2-03](../documentation/Backlog_V1-Alpha2.md) (baseline complète 5-10 scans du pipeline précédent) devient obsolète et est marquée SUSPENDUE — un scan comparatif unique a suffi à trancher, une baseline formelle du chemin abandonné n'a plus de valeur produit.
-  - [US-A2-04](../documentation/Backlog_V1-Alpha2.md) (sécurisation LLM — [BACK-083](../documentation/BACKLOG.md#back-083)) doit être adaptée : les patterns de prompt-injection et de rate-limiting restent identiques, mais l'audit trail et le comptage de tokens ciblent le format de réponse du provider Vision.
-  - [US-A2-05](../documentation/Backlog_V1-Alpha2.md) (alertes coûts — [BACK-083](../documentation/BACKLOG.md#back-083) §3) : seuils d'alerte à recalibrer selon la grille tarifaire du provider Vision (ordre de grandeur ~$0.0004 par scan Flash-Lite).
-  - [US-A2-07](../documentation/Backlog_V1-Alpha2.md) (optimisation prompt) : le prompt de référence devient la version enrichie testée sur AI Studio (schéma JSON complet 8 champs, règles anti-hallucination, instruction de titre complet, préservation de l'ordre des étapes).
-  - [US-A2-08](../documentation/Backlog_V1-Alpha2.md) (initialement "Support WebP" — [BACK-039](../documentation/BACKLOG.md#back-039)) : renommée en "Améliorations OCR fallback" — le support WebP est acquis nativement par le provider Vision, l'US se recentre sur l'amélioration du chemin fallback (préprocessing image + cleaner post-OCR).
-  - Note de confidentialité utilisateur : le contenu OCR (privacy Section 9) reste factuellement exact mais la description du fournisseur IA doit être mise à jour lors du déploiement (transfert désormais chez le nouveau fournisseur au lieu du précédent, conditions contractuelles à re-vérifier avant activation prod).
-  - Décision produit associée : les recettes créées via le scan sont forcées en visibilité privée par défaut (droits d'auteur potentiels sur les recettes reproduites depuis livres/magazines/blogs) — à implémenter dans [US-A2-06](../documentation/Backlog_V1-Alpha2.md) et à documenter dans la clause de responsabilité utilisateur des mentions légales.
-
-- **Conditions qui invalideraient ce choix** :
-  - **Changement défavorable de la politique commerciale du fournisseur** (retrait du free tier, hausse tarifaire massive, restriction géographique) → bascule vers le provider fallback via le Factory Pattern, sans changement architectural. Coût de bascule = quelques minutes de configuration.
-  - **Dégradation mesurée de la qualité du modèle Flash-Lite** (hallucinations accrues, régression sur cas simples) → basculer vers le modèle Flash standard (5× plus cher mais dans les limites du budget cap) ou vers le provider fallback.
-  - **Enjeu réglementaire spécifique** (souveraineté des données imposée, exigence RGPD stricte incompatible avec un transfert hors UE) → réévaluer avec un provider Vision UE ou un modèle auto-hébergé.
-
-- **État** : DÉCIDÉ le 09/08/2026. Setup du compte cloud, activation de l'API, budget cap et clé API validés le même jour. Implémentation code (US-A2-10) à réaliser à la prochaine session.
-
----
-
-### DEC-044 : Extension de `AI_PROVIDER` avec la valeur `"GeminiVision"` (plutôt qu'une seconde variable d'environnement dédiée au mode de scan)
-
-- **Date** : 10 août 2026
-
-- **Choix** :
-  1. L'implémentation Vision ([US-A2-10](../documentation/Backlog_V1-Alpha2.md)) est sélectionnée via l'ajout d'une **cinquième valeur `"GeminiVision"`** à la variable d'environnement existante `AI_PROVIDER` (à côté de `Fake`, `Mistral`, `Gemini`, `Groq`).
-  2. Cette valeur déclenche simultanément l'enregistrement du client `IVisionCompletionClient` (branche Gemini Vision multimodal) et la substitution du pipeline `RecipePipeline` (chemin OCR + text LLM) par `VisionRecipePipeline` (chemin direct image → LLM multimodal).
-  3. Aucune nouvelle variable d'environnement n'est introduite.
-
-- **Pourquoi ces choix** :
-  - **YAGNI** : un seul provider Vision est retenu pour V1 (cf. [DEC-043](#dec-043)). Découpler la sélection du "provider" et du "mode de scan" via deux variables orthogonales n'apporte aucune valeur tant qu'il n'existe qu'un seul provider Vision.
-  - **Cohérence avec le pattern existant** : la sélection par `AI_PROVIDER` + `switch` sur la valeur est déjà en place pour les quatre providers text-only (cf. [DEC-035](#dec-035)). Ajouter un cinquième case préserve l'homogénéité opérationnelle et documentaire.
-  - **Simplicité opérationnelle** : une seule variable à documenter dans les runbooks de déploiement, une seule valeur à modifier lors d'un basculement de fournisseur.
-
-- **Alternatives écartées** :
-  - **Deux variables orthogonales** (`AI_PROVIDER` + `SCAN_MODE=OcrText|Vision`) : écartée pour V1 — introduit une combinatoire de configurations (N providers × 2 modes, dont plusieurs combinaisons invalides à documenter et à valider) sans bénéfice fonctionnel tant qu'il n'existe qu'un seul provider Vision. La lisibilité opérationnelle (une variable = un mode complet) prime.
-
-- **Réversibilité** : refactor trivial vers deux variables orthogonales si un second provider Vision est introduit (par exemple, un autre acteur multimodal cloud). Le `switch case` s'éclate alors en deux résolutions successives, sans changement du contrat externe côté consommateurs de la fonction serverless.
-
-- **Impact** : `AI_PROVIDER` accepte désormais **cinq valeurs** : `Fake` (dev uniquement), `Mistral`, `Gemini`, `Groq`, `GeminiVision`. Message d'erreur du `default` case mis à jour en conséquence. Documentation opérationnelle (`.env.example`, `DEPLOYMENT.md`) à mettre à jour lors du prochain déploiement.
-
-- **État** : DÉCIDÉ le 10/08/2026, implémenté dans le cadre de [US-A2-10](../documentation/Backlog_V1-Alpha2.md).
-
----
-
-### DEC-045 : Plan test Mistral Vision (priorité) + Groq Vision (fallback conditionnel) — activation runtime Vision sans coût
-
-- **Date** : 10 août 2026
-
-- **Choix** :
-  1. Le provider Vision par défaut visé pour l'Alpha.2 devient **Mistral Vision** (modèles Small / Medium / Large avec vision native intégrée, Experiment tier gratuit sans carte bancaire, hébergement UE, RGPD-natif, EU AI Act compliant).
-  2. Le provider **Groq Vision** (`qwen/qwen3.6-27b`, free tier 30 RPM / 1000 RPD, sans carte bancaire) est retenu comme **fallback conditionnel** — implémenté et adopté uniquement si Mistral Vision se révèle insuffisant sur la qualité empirique mesurée OU sur la contrainte de débit (Mistral Experiment tier = 2 RPM, potentiellement limitant en beta multi-utilisateurs concurrents).
-  3. Le provider **Gemini Vision** (implémentation code réalisée en [US-A2-10](../documentation/Backlog_V1-Alpha2.md)) est **conservé dans le codebase** en tant que provider optionnel via le pattern Factory existant, mais **retiré du chemin runtime par défaut** — l'authentification actuelle passe par le système AI Studio prepayment qui requiert un mode payant avec crédits prépayés, incompatible avec la contrainte opérationnelle "zéro coût fournisseur cloud" du projet en phase Alpha/Beta.
-
-- **Pourquoi ces choix** :
-  - **Souveraineté européenne** : Mistral AI (siège Paris, hébergement UE, RGPD-natif) est le seul acteur Vision multimodal européen offrant un free tier accessible sans carte bancaire en 2026. Réduit la surface RGPD (pas de transfert hors UE) et constitue un argument différenciateur produit (SaaS respectueux des données européennes).
-  - **Contrainte zéro coût opérationnel** : le provider Gemini nécessite un compte AI Studio en mode payant avec crédits prépayés — incompatible avec la posture "aucun paiement fournisseur cloud avant beta publique validée" du projet. Ce point a été découvert lors du test runtime post-implémentation code (erreur `429 RESOURCE_EXHAUSTED / prepayment credits depleted` retournée par l'API Vision quel que soit le volume de requêtes).
-  - **Cohérence architecture** : le pattern `IVisionCompletionClient` (Strategy) déjà en place permet l'ajout de Mistral Vision et Groq Vision côte à côte avec zéro modification structurelle — juste un nouveau case dans le switch factory (cf. [DEC-044](#dec-044) pour la logique d'extension d'`AI_PROVIDER`).
-  - **Prudence sur qualité empirique** : la qualité du modèle Mistral Vision sur des photos représentatives (mise en page magazine, recette manuscrite, capture de blog) n'est pas encore mesurée. Le fallback Groq Vision est prévu et budgeté si Mistral n'atteint pas le seuil de qualité utilisable.
-
-- **Alternatives écartées** :
-  - **Activer le prépaiement Gemini AI Studio (~$5 initial)** : écarté pour Alpha.2 — contrevient à la posture "zéro coût" active. Reste envisageable en V1 stable si les alternatives européenne et Groq échouent conjointement sur la qualité.
-  - **Rester exclusivement sur le chemin OCR + LLM text-only** : écarté — la baseline comparative du 09/08 (cf. [DEC-043](#dec-043)) démontre un écart qualitatif de ~4× (Vision ~95% vs OCR+text ~25%) sur les photos à mise en page complexe qui constituent une part significative des cas d'usage cibles.
-  - **Auto-hébergement d'un modèle Vision open-weight local** (LLaVA / Qwen VL / Pixtral open) : écarté pour V1 — nécessite GPU dédié + expertise d'exploitation disproportionnée à l'échelle actuelle.
-  - **Autre provider Vision commercial** (Anthropic Claude Vision, OpenAI GPT-4 Vision, etc.) : écartés — tous demandent un compte payant avec carte bancaire, aucun ne propose de free tier Vision comparable à Mistral ou Groq.
-
-- **Réversibilité** : refactor trivial. Le pattern `IVisionCompletionClient` permet d'ajouter/retirer/changer le provider par défaut via une simple modification du `switch case` dans `Program.cs` et de la variable d'environnement `AI_PROVIDER`, sans changement de contrat externe ni de logique métier.
-
-- **Impact** :
-  - Nouvelle **US-A2-12** ajoutée à l'Alpha.2 : implémentation `MistralVisionCompletionClient` + wire DI + test qualité + décision provider par défaut.
-  - Nouvelle **US-A2-13** (conditionnelle) ajoutée à l'Alpha.2 : implémentation `GroqVisionCompletionClient` en fallback si Mistral qualité insuffisante.
-  - [DEC-043](#dec-043) conserve sa validité conceptuelle (pivot Vision LLM vs OCR + text-LLM démontré empiriquement) mais son choix de provider spécifique (Gemini Flash-Lite) sera **révisé** après le test qualité empirique en US-A2-12.
-  - [DEC-044](#dec-044) (extension `AI_PROVIDER` avec `"GeminiVision"`) reste valide — les valeurs `"MistralVision"` et éventuellement `"GroqVision"` seront ajoutées dans la même logique de switch.
-
-- **Conditions qui invalideraient ce choix** :
-  - **Mistral Vision qualité < 60%** sur les photos test représentatives → bascule sur Groq Vision (US-A2-13 déclenchée).
-  - **Rate limit Mistral Experiment tier trop restrictif** sur la charge beta réelle (utilisateurs concurrents) → bascule sur Groq Vision (30 RPM vs 2 RPM).
-  - **Groq Vision qualité également insuffisante** → réévaluation de la posture "zéro coût" (activation du prépaiement Gemini OU décalage de l'activation Vision en V1.1 avec chemin fallback OCR+text-LLM en couverture).
-
-- **État** : DÉCIDÉ le 10/08/2026. Implémentation Mistral Vision (US-A2-12) prévue pour la session du 11/08/2026.
-
----
-
-## Dette technique
-
-### DEBT-001 : Structure de dossiers redondante (voir DEC-006)
-- **Impact** : Faible (cosmetique)
-- **Priorite** : Basse
-
-### DEBT-002 : ~~AuthService utilise localStorage pour les tokens JWT~~ [RESOLUE]
-- **Resolution** : Migration vers cookies HttpOnly (DEC-014). `LocalStorageService` supprime. `AuthService` utilise desormais `IHttpClientFactory` + `CookieHandler`. Le token n'est plus jamais accessible en JavaScript.
-
-### DEBT-003 : ~~Register controller retourne Ok(user) au lieu de Ok(new { token })~~ [RESOLUE]
-- **Resolution** : `Register` pose un cookie `authCookie` et retourne `Ok()`. Plus de token expose dans la reponse. Corrige en meme temps que DEBT-002.
-
-### DEBT-002 : ~~Pas de validation d'entree sur les endpoints~~ [RESOLUE]
-- **Resolution** : FluentValidation integre pour RecipeCreateDto, RecipeUpdateDto, RegisterDto, LoginDto. 4 validators, 71 tests unitaires. Validation dans les controllers avant appel aux services.
-
-### DEBT-003 : ~~Pas de gestion d'erreur globale~~ [RESOLUE]
-- **Resolution** : `ExceptionMiddleware` ajouté. Client recoit un message generique, logs serveur recoivent la stack trace complete.
-
-### DEBT-004 : ~~Secrets en clair dans appsettings.json~~ [RESOLUE PARTIELLEMENT]
-- **Resolution** : `appsettings.Development.json` cree pour les secrets locaux, ajoute au `.gitignore`. `appsettings.json` ne contient plus que des placeholders explicites (`CHANGE_ME_USE_APPSETTINGS_DEVELOPMENT_JSON`).
-- **Restant** : En production, utiliser Azure Key Vault ou variables d'environnement. A traiter en feature 2.4 (Secrets Management).
-
-### DEBT-005 : ~~Pas de tests cote API~~ [RESOLUE PARTIELLEMENT]
-- **Resolution** : Projet `MemoRecipe.Application.Tests` cree avec 13 tests unitaires couvrant `RecipeService` (GetById, GetAll, Create, Update, Delete). Pattern FakeRepository utilise pour des tests deterministes sans base de donnees.
-- **Restant** : Tests d'integration (avec vraie DB) et tests des autres services (Auth) a ajouter.
-
-### DEBT-006 : ~~Pattern d'acces aux donnees non uniforme~~ [RESOLUE]
-- **Resolution** : Repository Pattern adopte uniformement. `IRecipeRepository` + `IUserRepository` dans Application, implementations dans Infrastructure. Plus aucun service n'accede directement a `MemoRecipeDbContext`.
+**DEC détaillées** : [DEC-011](ADR.md#dec-011), [DEC-012](ADR.md#dec-012), [DEC-013](ADR.md#dec-013), [DEC-026](ADR.md#dec-026), [DEC-039](ADR.md#dec-039), [DEC-051](ADR.md#dec-051), [DEC-060](ADR.md#dec-060).
