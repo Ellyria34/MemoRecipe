@@ -56,7 +56,16 @@ public partial class ScanRecipe
         {
             _errorMessage = FormatRateLimitMessage(ex.RetryAfterSeconds);
         }
+        catch (RecipeLimitException ex)
+        {
+            _errorMessage = $"Vous avez atteint la limite de {ex.Limit} recettes. Supprimez-en pour en créer de nouvelles.";
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Un problème est survenu lors du scan de la recette";
+        }
         finally
+
         {
             _isLoading = false;
         }

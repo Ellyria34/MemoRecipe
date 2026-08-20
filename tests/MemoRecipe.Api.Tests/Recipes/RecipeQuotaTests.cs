@@ -73,6 +73,29 @@ public class RecipeQuotaTests : IClassFixture<LowQuotaWebApplicationFactory<Prog
         await db.SaveChangesAsync();
     }
 
+    [Fact]
+    public async Task ScanRecipe_WhenQuotaReached_Returns403()
+    {
+        // Arrange : auth + seed 2 recipes (= quota max in test config)
+        var userId = await TestUserHelper.CreateAndLoginAsync(_factory, _client, "quotaScanUser@test.com");
+        await SeedRecipesAsync(userId, count: 2);
+
+        // Act : try to scan when quota reached
+        using var multipart = new MultipartFormDataContent();
+        var imageBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x00, 0x00, 0x00 }; // JPEG magic bytes (8 bytes min for ReadExactlyAsync)
+        var imageContent = new ByteArrayContent(imageBytes);
+        imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+        multipart.Add(imageContent, "imageFile", "test.jpg");
+
+        var response = await _client.PostAsync("/api/recipe/scan", multipart);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        var json = JsonDocument.Parse(body).RootElement;
+        Assert.Equal("recipe_limit_reached", json.GetProperty("error").GetString());
+    }
+
     private static object NewRecipeDto(string title) => new
     {
         title,
