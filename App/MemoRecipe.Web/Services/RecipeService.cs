@@ -63,9 +63,6 @@ public class RecipeService : IRecipeService
         var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
 
         var response = await _httpClient.PostAsync("api/recipe", content);
-        response.EnsureSuccessStatusCode();
-
-        var json = await response.Content.ReadAsStringAsync();
 
         if (response.StatusCode == HttpStatusCode.Forbidden)
         {
@@ -78,6 +75,9 @@ public class RecipeService : IRecipeService
                 throw new RecipeLimitException(limit);
             }
         }
+
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
         return Deserialize<RecipeDto>(json);
     }
 
