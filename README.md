@@ -1,5 +1,6 @@
 # MemoRecipe
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+[![Latest tag](https://img.shields.io/github/v/tag/Ellyria34/MemoRecipe?label=latest%20tag)](https://github.com/Ellyria34/MemoRecipe/tags)
 [![CI](https://github.com/Ellyria34/MemoRecipe/actions/workflows/ci.yml/badge.svg)](https://github.com/Ellyria34/MemoRecipe/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Ellyria34/MemoRecipe/actions/workflows/codeql.yml/badge.svg)](https://github.com/Ellyria34/MemoRecipe/actions/workflows/codeql.yml)
 
@@ -76,6 +77,8 @@ For production deployment (build, push, rollback procedures) see [`documentation
 
 ## Current Status
 
+> **Latest release** : `v1.0.0-alpha.2` (August 21, 2026) — first tagged release, container images published to GHCR, pre-beta feature-complete.
+
 | Area | Status |
 |---|---|
 | **AI pipeline** | Two interchangeable paths behind a Strategy-pattern factory: direct multimodal Vision LLM (Mistral Vision — EU-hosted, GDPR-native — by default) or OCR Tesseract + text-only LLM (Groq / Mistral / Gemini) as fallback; swappable via a single env var; deterministic post-processing on top; structured ingredient extraction (name + quantity + unit propagated end-to-end); per-call token usage tracked cross-project for cost observability |
@@ -85,7 +88,7 @@ For production deployment (build, push, rollback procedures) see [`documentation
 | **RGPD / EU AI Act** | Privacy policy + legal mentions pages, consent on registration, AI transparency notice on scan page, hosting in Switzerland (adequacy decision), Right to erasure (Art. 17) with 30-day grace period + cascade purge |
 | **Tests** | Unit tests on validators / services / AI pipeline (deterministic fakes); integration tests via `WebApplicationFactory<Program>` with TestContainers (real PostgreSQL) |
 | **CI/CD** | GitHub Actions: build + tests on push and PR (API + IA + Web), vulnerable-package scan (fail-fast on High/Critical), CodeQL SAST (C# + workflows), Lighthouse a11y/perf audit; container images pushed to GHCR on version tags |
-| **Observability** | Structured logging via Serilog (no PII); structured LLM audit trail (userId + provider + tokens usage + duration + input hash — GDPR Art. 5.1.c compliant); Telegram alerting channel on critical operations (backup failures, unhandled exceptions, cost thresholds) |
+| **Observability** | Structured logging via Serilog (no PII); structured LLM audit trail (userId + provider + tokens usage + duration + input hash — GDPR Art. 5.1.c compliant); Telegram alerting channel on critical operations (backup failures, unhandled exceptions, cost thresholds, login fail storm detection) |
 | **Containerization** | API image built via .NET SDK Container Support (no Dockerfile, ~194 MB Alpine); Frontend image with custom nginx Dockerfile (~40 MB); orchestration via `docker-compose.prod.yml`; images published on GitHub Container Registry — see [`DEPLOYMENT.md`](documentation/DEPLOYMENT.md) |
 | **Backup & DR** | Daily encrypted PostgreSQL backup (`pg_dump` + GPG asymmetric encryption; public key in the container, private key kept off-server); local retention 30 days; full restore procedure documented and end-to-end tested. Off-site copy (S3-compatible or SFTP storage service, per 3-2-1 rule) is planned in part 2 before public production launch. See [DEC-038](documentation/ADR.md#dec-038) and [`DEPLOYMENT.md`](documentation/DEPLOYMENT.md) |
 
