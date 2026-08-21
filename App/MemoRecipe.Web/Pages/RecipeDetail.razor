@@ -77,18 +77,7 @@
                 {
                     <MudCard Class="pa-3 mb-2">
                         <MudText Typo="Typo.body1">
-                            @ingredient.Name
-                            @if (ingredient.Quantity > 0 || !string.IsNullOrWhiteSpace(ingredient.Unit))
-                            {
-                                <span class="ml-2" style="color: #6C757D;">
-                                    @if (ingredient.Quantity.HasValue)
-                                    {
-                                        @ingredient.Quantity.Value.ToString("0.##")
-                                        <text> </text>
-                                    }
-                                    @ingredient.Unit
-                                </span>
-                            }
+                            @FormatIngredient(ingredient)
                         </MudText>
                     </MudCard>
                 }
