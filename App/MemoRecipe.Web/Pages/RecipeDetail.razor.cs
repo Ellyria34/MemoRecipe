@@ -77,4 +77,33 @@ public partial class RecipeDetail
         _ => ""
     };
 
+    private static string FormatIngredient(IngredientDto ing)
+    {
+        if (!string.IsNullOrWhiteSpace(ing.Unit) && ing.Quantity.HasValue)
+        {
+            var connector = StartsWithVowel(ing.Name) ? "d'" : "de ";
+            return $"{ing.Quantity.Value.ToString("0.##")} {ing.Unit} {connector}{ing.Name}";
+        }
+
+        if (ing.Quantity.HasValue && ing.Quantity.Value > 0)
+        {
+            var name = ing.Quantity.Value > 1 ? Pluralize(ing.Name) : ing.Name;
+            return $"{ing.Quantity.Value.ToString("0.##")} {name}";
+        }
+
+        return ing.Name;
+    }
+
+    private static bool StartsWithVowel(string s) =>
+        !string.IsNullOrEmpty(s) && "aàâeéèêëiïîoôuùûhAÀÂEÉÈÊËIÏÎOÔUÙÛH".Contains(s[0]);
+
+    private static string Pluralize(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return name;
+        var last = char.ToLowerInvariant(name[^1]);
+        if (last == 's' || last == 'x' || last == 'z') return name;
+        return name + "s";
+    }
+
+
 }
