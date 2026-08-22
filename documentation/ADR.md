@@ -1770,6 +1770,45 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 
 ---
 
+### DEC-061 : Environnement dev containerisé via DevContainer + service IA dans Compose dev (dev/prod parity)
+
+- **Statut** : ✅ ACTIVE
+- **Date** : 21/08/2026 (décision produit prise en fin de session Alpha.2), formalisation ADR le 22/08/2026 suite intégration audit externe pré-beta.1
+
+- **Choix** :
+  Trois volets combinés. Un DevContainer VSCode avec image Docker Linux (`mcr.microsoft.com/devcontainers/dotnet:10.0`) plus install natif Tesseract, libwebp et libheif via `apt-get`. VSCode se connecte via extension Remote Containers, le développeur code DANS le container avec hot reload natif via `dotnet watch`. Le worker IA (Azure Function .NET 8 avec Tesseract) tourne en container Linux dans le compose dev enrichi, comme en production, au lieu de tourner sur `func start` sur la machine hôte. Une fiche pédagogique `documentation/fiches/DEVCONTAINER-CHEATSHEET.md` couvre l'onboarding rapide (setup, workflow quotidien, rebuild, troubleshooting, migration future vers cluster K8s ou cloud managé).
+
+- **Pourquoi ces choix** :
+  - **12-Factor App Factor X (Dev/Prod parity)** : principe standard industrie qui exige de garder dev, staging et prod aussi similaires que possible pour éliminer les surprises "ça marche chez moi mais pète en prod".
+  - **Divergence silencieuse observée en Alpha.2** : Tesseract sans libwebp en local Windows contre Tesseract avec libwebp en prod Linux Alpine, faisant crasher le path OCR fallback sur les images WebP en dev mais fonctionnant en prod. Ce type de gap va s'amplifier avec chaque nouvelle dépendance native ajoutée (libheif pour HEIC, ImageMagick pour conversion).
+  - **DevContainer VSCode est un standard 2026** : spécification Microsoft, adoption massive dans l'industrie, signal recruteur reconnu (maturité DevOps).
+  - **Worker IA en Compose dev plutôt qu'en local `func start`** : c'est le composant qui a le plus de dépendances natives (Tesseract, libwebp, libheif), donc celui qui bénéficie le plus de la containerisation côté dev.
+
+- **Alternatives écartées** :
+  - **Compose dev sans DevContainer** : l'IDE reste sur l'OS local du contributeur, gap partiellement résolu (les libs natives restent OS-spécifiques à installer manuellement). Signal recruteur moindre.
+  - **DevContainer sans service IA dans Compose dev** : le worker IA continue à tourner sur `func start` local. L'API et le frontend sont en parity mais l'IA (composant qui a le plus de dépendances natives) reste divergent, ce qui manque le principal risque à couvrir.
+  - **Statu quo (tout local)** : chaque contributeur doit installer Tesseract, libwebp, libheif et Azure Functions Core Tools manuellement. Onboarding lent, gap dev/prod persistant, risque d'accumulation de divergences.
+
+- **Sources** :
+  - 12-Factor App methodology, Factor X (Dev/Prod parity) : https://12factor.net/dev-prod-parity
+  - VSCode DevContainer specification : https://containers.dev/
+
+- **Conséquences** :
+  - Dev/prod parity garantie sur toute la stack (API, frontend, worker IA, dépendances natives)
+  - Onboarding contributeur en environ 10 minutes via "Reopen in Container" au lieu de plusieurs heures d'install manuelle
+  - Débloque le test manuel WebP en local sur le path OCR fallback (prérequis BACK-105 Support formats étendus)
+  - Débloque les tests E2E Playwright cross-OS via un environnement Linux uniforme (cf. US-B1-21)
+  - Coût : premier build container environ 5 à 10 minutes, rebuild uniquement à chaque modification du Dockerfile, du SDK ou de l'OS de base
+  - Prérequis : Docker Desktop installé sur la machine du contributeur
+
+- **Conditions qui invalideraient ce choix** :
+  - Migration de tout le stack (API, frontend, IA) vers un environnement managé cloud (par exemple GitHub Codespaces natif ou Gitpod) qui rendrait le DevContainer local redondant.
+  - Décision de retirer toutes les dépendances natives (Tesseract, libheif, libwebp) en migrant vers 100 pourcents Vision LLM (path OCR fallback supprimé), qui réduirait le gap dev/prod natif à un niveau où le DevContainer ne serait plus justifié.
+
+- **État** : 🔵 PLANIFIÉE. À appliquer en US-B1-20 (première US du sprint Alpha.3, prévue démarrage 22-24/08/2026).
+
+---
+
 ## Investigations en cours
 
 Cette section liste les points identifiés qui méritent une évaluation mais qui ne sont pas critiques et n'ont pas encore été tranchés en décision formelle.

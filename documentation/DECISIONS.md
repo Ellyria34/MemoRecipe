@@ -180,7 +180,9 @@ En juin 2026, trois décisions ont modernisé le pipeline de build et distributi
 
 En août 2026, deux décisions structurantes ont finalisé l'infrastructure de déploiement, l'hébergement production sur VPS Linux dédié européen ([DEC-042](ADR.md#dec-042)) et le pipeline CI/CD GitHub Actions ([DEC-053](ADR.md#dec-053)) en 7 jobs parallèles avec CodeQL SAST et Lighthouse a11y, plus un job de release conditionnel sur tag `v*` pour publier sur GHCR.
 
-**DEC détaillées** : [DEC-027](ADR.md#dec-027), [DEC-028](ADR.md#dec-028), [DEC-029](ADR.md#dec-029), [DEC-030](ADR.md#dec-030), [DEC-031](ADR.md#dec-031), [DEC-032](ADR.md#dec-032), [DEC-042](ADR.md#dec-042), [DEC-052](ADR.md#dec-052), [DEC-053](ADR.md#dec-053).
+Fin août 2026, la décision d'un environnement dev containerisé via DevContainer VSCode plus service IA dans le compose dev ([DEC-061](ADR.md#dec-061)) a été formalisée pour éliminer les divergences dev/prod silencieuses observées en Alpha.2 (typiquement Tesseract avec libwebp en prod contre sans libwebp en local Windows, faisant crasher le path OCR fallback sur les images WebP). Application prévue en US-B1-20, première tâche du sprint Alpha.3.
+
+**DEC détaillées** : [DEC-027](ADR.md#dec-027), [DEC-028](ADR.md#dec-028), [DEC-029](ADR.md#dec-029), [DEC-030](ADR.md#dec-030), [DEC-031](ADR.md#dec-031), [DEC-032](ADR.md#dec-032), [DEC-042](ADR.md#dec-042), [DEC-052](ADR.md#dec-052), [DEC-053](ADR.md#dec-053), [DEC-061](ADR.md#dec-061).
 
 ---
 
