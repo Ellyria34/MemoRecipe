@@ -1,0 +1,156 @@
+name: User Story
+description: Créer une nouvelle User Story pour le sprint courant
+title: "US-XX-YY: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de renseigner tous les champs. Convention complète : [documentation/CONVENTIONS/backlog-us.md](https://github.com/Ellyria34/MemoRecipe/blob/main/documentation/CONVENTIONS/backlog-us.md)
+
+        Après création de l'Issue, pense à l'ajouter au project **MemoRecipe Roadmap** et à remplir les champs Sprint / Priority / Nature / Estimation (h) côté project.
+
+  - type: dropdown
+    id: nature
+    attributes:
+      label: Nature
+      description: Nature de la US (à reporter dans le champ Nature du Project)
+      options:
+        - Feature
+        - Bug fix
+        - Refacto
+        - Chore
+        - Doc
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Priorité (à reporter dans le champ Priority du Project)
+      options:
+        - P0
+        - P1
+        - P2
+        - P3
+    validations:
+      required: true
+
+  - type: input
+    id: estimation
+    attributes:
+      label: Estimation (h)
+      description: Temps estimé en heures, workflow TDD strict inclus. À reporter dans le champ Estimation (h) du Project.
+      placeholder: "3"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexte
+      description: POURQUOI cette US en 3-5 phrases. Situation actuelle, problème observé, valeur métier ou risque évité. Pas de solution technique ici.
+      placeholder: Situation actuelle, problème observé, valeur métier ou risque évité en 3-5 phrases.
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: QUOI en 3-6 phrases. Approche technique haut niveau, composants touchés, alternatives écartées. Renvoi ADR/DECISIONS si structurante.
+      placeholder: Approche technique, composants touchés, alternatives écartées.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Tests de reproduction (uniquement si Nature = Bug fix, sinon laisser vide)
+      description: Étapes fonctionnelles pour observer le bug + résultat attendu vs comportement observé + source du signalement.
+      placeholder: |
+        1. [Étape fonctionnelle]
+        2. [Résultat attendu]
+        3. [Comportement observé]
+        4. [Source signalement : audit, feedback beta, incident]
+    validations:
+      required: false
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Tâches
+      description: Liste des tâches, une par ligne, format `- [ ] Verbe + composant + contexte court`.
+      value: |
+        - [ ]
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-functional
+    attributes:
+      label: Critères de validation — Fonctionnels
+      description: Comportements observables user/API/données. Cocher au fur et à mesure.
+      value: |
+        - [ ] [Comportement observable côté user]
+        - [ ] [Comportement API observable via curl/Postman]
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-tests
+    attributes:
+      label: Critères de validation — Tests automatisés
+      description: Viser tous niveaux applicables. Cocher au fur et à mesure.
+      value: |
+        - [ ] Unit : nominal + invalide + limite (3 cas min)
+        - [ ] Intégration TestContainers : end-to-end BDD réelle + assertions état persisté
+        - [ ] E2E Playwright : parcours UI complet + 1 cas d'erreur user-visible
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-security
+    attributes:
+      label: Critères de validation — Sécurité
+      description: Obligatoire sur toute US.
+      value: |
+        - [ ] Aucun secret ni PII exposé dans logs, réponses API, messages d'erreur
+        - [ ] Aucune régression protections existantes (rate limit, ownership, CSRF, XSS)
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-doc
+    attributes:
+      label: Critères de validation — Documentation
+      description: Docs à mettre à jour si applicable.
+      value: |
+        - [ ] Doc mise à jour si applicable : ADR / DECISIONS / README / DEPLOYMENT / cheatsheet
+    validations:
+      required: false
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dépendances
+      description: US bloquantes ou ressources externes.
+      placeholder: |
+        - #NN [titre US bloquante] DONE
+        - Ressource externe : [nom, statut]
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes (optionnel)
+      description: Points d'attention, alternatives écartées, extension V2 potentielle.
+      placeholder: |
+        - [Point d'attention]
+        - [Alternative écartée + raison]
+    validations:
+      required: false
