@@ -8,43 +8,7 @@ body:
       value: |
         Merci de renseigner tous les champs. Convention complète : [documentation/CONVENTIONS/backlog-us.md](https://github.com/Ellyria34/MemoRecipe/blob/main/documentation/CONVENTIONS/backlog-us.md)
 
-        Après création de l'Issue, pense à l'ajouter au project **MemoRecipe Roadmap** et à remplir les champs Sprint / Priority / Nature / Estimation (h) côté project.
-
-  - type: dropdown
-    id: nature
-    attributes:
-      label: Nature
-      description: Nature de la US (à reporter dans le champ Nature du Project)
-      options:
-        - Feature
-        - Bug fix
-        - Refacto
-        - Chore
-        - Doc
-    validations:
-      required: true
-
-  - type: dropdown
-    id: priority
-    attributes:
-      label: Priority
-      description: Priorité (à reporter dans le champ Priority du Project)
-      options:
-        - P0
-        - P1
-        - P2
-        - P3
-    validations:
-      required: true
-
-  - type: input
-    id: estimation
-    attributes:
-      label: Estimation (h)
-      description: Temps estimé en heures, workflow TDD strict inclus. À reporter dans le champ Estimation (h) du Project.
-      placeholder: "3"
-    validations:
-      required: true
+        **Après création de l'Issue** : l'ajouter au project **MemoRecipe Roadmap**, poser le label epic approprié, assigner le milestone `v1.0.0-<sprint>`, puis renseigner les 5 custom fields côté project (Sprint, Priority, Nature, Estimation (h), Real (h)). Ces métadonnées ne vivent QUE dans les custom fields du project (single source of truth), pas dans le body de l'Issue.
 
   - type: textarea
     id: context

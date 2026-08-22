@@ -22,18 +22,20 @@ Custom fields du Project à renseigner sur chaque Issue ajoutée :
 - **Real (h)** : temps réel passé, rempli au merge PR
 - **Milestone** (built-in) : `v1.0.0-<sprint>` (permet tracking auto X/Y closed)
 
-## Template US
+## Séparation métadonnées vs contenu (single source of truth)
+
+**Métadonnées** (Sprint, Priority, Nature, Estimation (h), Real (h), Status, Milestone) → **uniquement dans les Custom Fields du Project MemoRecipe Roadmap**. Jamais dupliqué dans le body de l'Issue (risque de désync).
+
+**Contenu spécifique de la spec** (Contexte, Description, Tests reproduction, Tâches, Critères validation, Dépendances, Notes) → **uniquement dans le body de l'Issue** via le formulaire du template YAML.
+
+**Statut** de l'US → géré côté project via la colonne (Backlog / To Do / In Progress / Review / Done). Le body de l'Issue ne mentionne PAS de statut.
+
+## Template US (contenu de l'Issue uniquement)
 
 Le formulaire GitHub (`.github/ISSUE_TEMPLATE/user-story.yml`) applique automatiquement cette structure. Le template ci-dessous est la référence rédactionnelle équivalente pour un rendu markdown (index optionnel `Backlog_V1-<Sprint>.md`).
 
 ```markdown
 ### US-XX-YY : [Verbe d'action + objet]
-
-- **Statut** : 🔴 À FAIRE / 🟠 EN COURS / 🟢 DONE / ⏸️ SUSPENDUE
-- **Nature** : Feature / Bug fix / Refacto / Chore / Doc
-- **Priority** : P0 / P1 / P2 / P3
-- **Estimation (h)** : ~Xh (TDD strict inclus)
-- **Real (h)** : rempli au merge PR
 
 **Contexte** :
 [POURQUOI — 3-5 phrases. Problème, valeur métier, risque évité. Pas de solution ici.]
