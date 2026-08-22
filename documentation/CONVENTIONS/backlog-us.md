@@ -1,0 +1,114 @@
+# Convention User Story Backlog
+
+## Objectif
+Specs techniques exécutables. Un dev doit savoir en 5 min : contexte, quoi faire, comment valider, dépendances.
+Chronologie et commits → journal-sprint. Backlog = spécification, pas historique.
+
+## Sources de vérité (à partir d'Alpha.3)
+
+| Élément | Emplacement | Rôle |
+|---|---|---|
+| Contenu des US | **Issues GitHub** du repo `Ellyria34/MemoRecipe` | Spec technique de chaque US (source unique) |
+| Dashboard sprint | **Project GitHub `MemoRecipe Roadmap`** (onglet Projects du repo) | Board Kanban, custom fields, filtres, milestones |
+| Template d'Issue | `.github/ISSUE_TEMPLATE/user-story.yml` | Formulaire auto proposé au clic "New issue" |
+| Convention structurelle | Ce document | Règles rédactionnelles + critères tests + workflow |
+| Fichier `documentation/Backlog_V1-<Sprint>.md` | Optionnel | Index compact référençant les issues du sprint (avec liens vers `#NN`) |
+
+Custom fields du Project à renseigner sur chaque Issue ajoutée :
+- **Sprint** : Alpha.3 / Alpha.4 / Beta.1 / Beta.2 / V1-Stable / V1.1
+- **Priority** : P0 / P1 / P2 / P3
+- **Nature** : Feature / Bug fix / Refacto / Chore / Doc
+- **Estimation (h)** : temps prévu, TDD strict inclus
+- **Real (h)** : temps réel passé, rempli au merge PR
+- **Milestone** (built-in) : `v1.0.0-<sprint>` (permet tracking auto X/Y closed)
+
+## Template US
+
+Le formulaire GitHub (`.github/ISSUE_TEMPLATE/user-story.yml`) applique automatiquement cette structure. Le template ci-dessous est la référence rédactionnelle équivalente pour un rendu markdown (index optionnel `Backlog_V1-<Sprint>.md`).
+
+```markdown
+### US-XX-YY : [Verbe d'action + objet]
+
+- **Statut** : 🔴 À FAIRE / 🟠 EN COURS / 🟢 DONE / ⏸️ SUSPENDUE
+- **Nature** : Feature / Bug fix / Refacto / Chore / Doc
+- **Priority** : P0 / P1 / P2 / P3
+- **Estimation (h)** : ~Xh (TDD strict inclus)
+- **Real (h)** : rempli au merge PR
+
+**Contexte** :
+[POURQUOI — 3-5 phrases. Problème, valeur métier, risque évité. Pas de solution ici.]
+
+**Description** :
+[QUOI — 3-6 phrases. Approche, composants touchés, alternatives écartées. Renvoi ADR si structurante.]
+
+**Tests de reproduction** (Bug fix uniquement, sinon omis) :
+1. [Étape fonctionnelle pour observer le bug]
+2. [Résultat attendu vs comportement observé]
+3. [Source signalement : audit, feedback beta, incident]
+
+**Tâches** :
+- [ ] [Verbe + composant + contexte court si non-évident]
+
+**Critères de validation** :
+
+*Fonctionnels* :
+- [ ] [Comportement observable côté user]
+- [ ] [Comportement API observable via curl/Postman]
+
+*Tests automatisés* (viser tous niveaux applicables) :
+- [ ] Unit : nominal + invalide + limite (3 cas min)
+- [ ] Intégration TestContainers : end-to-end BDD réelle + assertions état persisté
+- [ ] E2E Playwright : parcours UI complet + 1 cas d'erreur user-visible
+
+*Sécurité* :
+- [ ] Aucun secret ni PII exposé dans logs/API responses/messages d'erreur
+- [ ] Aucune régression protections existantes (rate limit, ownership, CSRF, XSS)
+
+*Documentation* :
+- [ ] Doc mise à jour si applicable : ADR / DECISIONS / README / DEPLOYMENT / cheatsheet
+
+**Dépendances** :
+- [US-XX-YY DONE] ou [ressource externe : infra, feature flag, secret]
+```
+
+## Règles
+
+- Estimation > 4h + sous-problèmes indépendants → décomposer en sous-items P0-1, P0-2, etc.
+- 1 branche + 1 test qui reproduit + 1 fix + 1 test qui passe + 1 commit atomique + 1 PR par item (workflow TDD strict)
+- TDD strict OBLIGATOIRE pour Bug fix, RECOMMANDÉ pour Feature
+- Case cochée = tâche/critère effectivement satisfait (pas "en cours")
+- Statut 🟢 DONE uniquement quand toutes cases cochées + US mergée sur `main`
+- Estimation qui dérape > 30% → ajouter ligne `**Estimation réelle** : Xh (+Yh vs prévu) — [cause 1 phrase]`
+- Update à chaque fin de session : cases + statut + estimation réelle si dérape
+- Zéro chronologie ni ref commit dans le backlog (ces infos vivent dans le journal-sprint)
+
+## Critères de déclenchement des tests
+
+| Niveau | Déclenchement |
+|---|---|
+| Unit | Logique métier, algo, transformation, validation, mapping |
+| Intégration TestContainers | Repository, Service qui persiste/récupère, endpoint impactant BDD |
+| E2E Playwright | Parcours UI (formulaire, navigation, dialogue, upload) |
+| Sécurité | Toute US (vérif logs sans PII + no secret leak + no regression) |
+
+## Sécurité (repo potentiellement public)
+
+| Interdit | OK |
+|---|---|
+| Mot de passe, token, clé API, IP interne, port service | Nom d'endpoint public (`/api/health`) |
+| Nom user réel, email, contact recruteur, identité testeur | Alias, rôle projet |
+| Chemin absolu de secret | Chemin repo (`src/...`) |
+| Payload d'attaque copy-paste dans tests de reproduction | Description fonctionnelle du bug |
+| Chiffre financier perso | Ordre de grandeur |
+| Fournisseur tiers non publié dans README/ADR | Fournisseur déjà cité |
+
+## Anti-patterns
+
+- US titre + statut sans contexte ni critères (non exécutable)
+- US géante > 8h non décomposée avec sous-problèmes indépendants
+- Critères vagues ("ça marche", "OK visuellement")
+- Bug fix sans test de reproduction
+- Feature sans aucun test automatisé listé
+- Statut 🟢 DONE avec cases décochées (désync)
+- Chronologie / ref commit dans le backlog (violation séparation avec journal-sprint)
+- Duplication entre plusieurs US (extraire dans US commune ou ADR)
