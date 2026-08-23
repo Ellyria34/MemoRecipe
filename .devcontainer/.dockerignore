@@ -1,0 +1,44 @@
+# Build outputs
+**/bin/
+**/obj/
+**/publish/
+**/out/
+
+# Node modules
+**/node_modules/
+
+# Git internals
+.git/
+.gitattributes
+
+# IDE / OS junk
+.vscode/
+.idea/
+.vs/
+*.suo
+*.user
+Thumbs.db
+.DS_Store
+
+# Docker files (self-reference not needed in build context)
+.dockerignore
+Dockerfile
+
+# Logs
+**/*.log
+logs/
+
+# Local secrets (defense in depth, never in a container)
+**/appsettings.Development.json
+**/local.settings.json
+.env
+.env.*
+!.env.example
+
+# Personal docs and journal (not useful for a dev container)
+documentation/
+journal/
+fiches/
+
+# Tests outputs
+TestResults/
