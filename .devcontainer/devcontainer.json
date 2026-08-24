@@ -8,24 +8,6 @@
     "context": "."
   },
 
-  // Additional tools installed AFTER the image build, via official Microsoft features
-  // (safer than manual Dockerfile install: signed, versioned, maintained by Microsoft)
-  "features": {
-    // Add .NET 8 SDK alongside the .NET 10 SDK already in the base image
-    // Required to build and run the memoRecipe-ia Azure Functions project
-    "ghcr.io/devcontainers/features/dotnet:2": {
-      "version": "none",
-      "additionalVersions": "8.0"
-    },
-    // Node.js 20 LTS (required by Azure Functions Core Tools)
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "20"
-    },
-    // Azure Functions Core Tools v4 CLI (the "func" command)
-    // Used to run the Function locally with "func start" if debugging outside the compose service
-    "ghcr.io/devcontainers/features/azure-functions-core-tools:1": {}
-  },
-
   // Ports forwarded from container to host machine
   // Allows the host browser to reach services running inside the container
   "forwardPorts": [
