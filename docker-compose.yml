@@ -43,3 +43,4 @@ services:
 
 volumes:
   postgres_data:
+    name: memorecipe-api_postgres_data
