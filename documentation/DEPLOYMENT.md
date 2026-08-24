@@ -399,7 +399,8 @@ Another compose project is using the same `container_name`
 project first:
 
 ```bash
-docker compose -f memoRecipeAppProject/memorecipe-api/docker-compose.yml down
+# From the repository root:
+docker compose down
 ```
 
 ### `docker pull` fails: denied or not found

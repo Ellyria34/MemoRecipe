@@ -11,7 +11,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    security_opt: 
+    security_opt:
       - no-new-privileges:true
 
   pgadmin:
@@ -25,8 +25,22 @@ services:
       - "5050:80"
     depends_on:
       - postgres
-    security_opt: 
+    security_opt:
+      - no-new-privileges:true
+
+  ia:
+    build:
+      context: .
+      dockerfile: infra/ia-dev/Dockerfile
+    container_name: memorecipe_ia_dev
+    restart: unless-stopped
+    ports:
+      - "7071:7071"
+    volumes:
+      - ./memoRecipe-ia:/workspace
+    security_opt:
       - no-new-privileges:true
 
 volumes:
   postgres_data:
+    name: memorecipe-api_postgres_data
