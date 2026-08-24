@@ -48,8 +48,7 @@ ASP.NET Core .NET 10 · PostgreSQL 16 · EF Core 10 · JWT Bearer in HttpOnly co
 
 ```bash
 # 1. Database (Docker)
-cd memoRecipeAppProject/memorecipe-api
-cp .env.example .env   # then replace CHANGE_ME placeholders
+cp .env.example .env   # then replace CHANGE_ME placeholders (from repo root)
 docker compose up -d
 
 # 2. Azure Functions (AI pipeline)
