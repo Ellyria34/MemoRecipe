@@ -83,6 +83,18 @@ untouched. Rollback = put the previous tag in `.env`, then re-run
 
 ---
 
+## Network architecture
+
+The production stack uses a "reverse proxy + localhost bind" pattern for defense in depth :
+
+- The `web` service (nginx serving Blazor WASM) binds its port to `127.0.0.1:8080` inside the VPS. This makes the container reachable ONLY from the VPS itself (loopback interface), never directly from the public Internet.
+- An HTTP reverse proxy (Apache or nginx installed on the VPS host, out of scope of this compose stack) listens on port 443 with a Let's Encrypt TLS certificate (see US-08). It terminates HTTPS and forwards each request to `http://127.0.0.1:8080` internally.
+- Result : the only public entry point is HTTPS on port 443. Any attempt to reach `http://<vps-public-ip>:8080` directly returns "connection refused" — HTTP clear text exposure is impossible.
+
+This pattern also allows hosting multiple apps on the same VPS behind the same reverse proxy (each with its own subdomain / path routing), and centralizes TLS certificate management (renewal, cipher config, HSTS headers).
+
+---
+
 ## Prerequisites
 
 ### Dev machine (build + push)
