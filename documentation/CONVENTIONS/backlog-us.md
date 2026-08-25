@@ -15,12 +15,31 @@ Chronologie et commits → journal-sprint. Backlog = spécification, pas histori
 | Fichier `documentation/Backlog_V1-<Sprint>.md` | Optionnel | Index compact référençant les issues du sprint (avec liens vers `#NN`) |
 
 Custom fields du Project à renseigner sur chaque Issue ajoutée :
-- **Sprint** : Alpha.3 / Alpha.4 / Beta.1 / Beta.2 / V1-Stable / V1.1
+- **Sprint** : Backlog / Alpha.3 / Alpha.4 / Beta.1 / Beta.2 / V1-Stable / V1.1
 - **Priority** : P0 / P1 / P2 / P3
 - **Nature** : Feature / Bug fix / Refacto / Chore / Doc
 - **Estimation (h)** : temps prévu, TDD strict inclus
 - **Real (h)** : temps réel passé, rempli au merge PR
 - **Milestone** (built-in) : `v1.0.0-<sprint>` (permet tracking auto X/Y closed)
+
+## Nomenclature US (à partir du 25/08/2026)
+
+**Format** : `US-<N>: [Verbe d'action + objet]` où `<N>` est un compteur séquentiel MemoRecipe, sans préfixe sprint.
+
+**Numérotation** :
+- Compteur unique séquentiel `US-01`, `US-02`, ... incrémenté à la création
+- Aucun préfixe sprint (`A1`, `A2`, `B1`, `V1`) dans le nom
+- Le sprint est tracké UNIQUEMENT via le custom field `Sprint` du Project + le Milestone GitHub
+- Le numéro `US-<N>` peut être différent du numéro GitHub Issue (`#<M>`) : deux identifiants différents pour deux rôles différents
+
+**Historique** :
+- US antérieures au 25/08/2026 avec préfixe `US-A1-XX`, `US-A2-XX`, `US-B1-XX` : conservées telles quelles (déjà closed / mergées avant le changement de convention)
+- Exception : US-B1-20 (Issue #71) reste `US-B1-20` (closed le 24/08/2026 juste avant le changement de convention)
+- US ouvertes à la date du changement : renommées vers le nouveau format (drop du préfixe sprint)
+
+**Cross-références** :
+- Dans les Issues, PRs et commits : préférer le numéro GitHub `#<M>` (auto-linking cliquable, évite le désync)
+- Dans la documentation technique (ADR, README, fiches) : utiliser le nom US complet `US-<N>` pour la lisibilité
 
 ## Séparation métadonnées vs contenu (single source of truth)
 
@@ -35,7 +54,7 @@ Custom fields du Project à renseigner sur chaque Issue ajoutée :
 Le formulaire GitHub (`.github/ISSUE_TEMPLATE/user-story.yml`) applique automatiquement cette structure. Le template ci-dessous est la référence rédactionnelle équivalente pour un rendu markdown (index optionnel `Backlog_V1-<Sprint>.md`).
 
 ```markdown
-### US-XX-YY : [Verbe d'action + objet]
+### US-XX : [Verbe d'action + objet]
 
 **Contexte** :
 [POURQUOI — 3-5 phrases. Problème, valeur métier, risque évité. Pas de solution ici.]
@@ -70,7 +89,7 @@ Le formulaire GitHub (`.github/ISSUE_TEMPLATE/user-story.yml`) applique automati
 - [ ] Doc mise à jour si applicable : ADR / DECISIONS / README / DEPLOYMENT / cheatsheet
 
 **Dépendances** :
-- [US-XX-YY DONE] ou [ressource externe : infra, feature flag, secret]
+- [US-XX DONE] ou [#<GitHub#> DONE] ou [ressource externe : infra, feature flag, secret]
 ```
 
 ## Règles

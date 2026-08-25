@@ -1,6 +1,6 @@
 name: User Story
 description: Créer une nouvelle User Story pour le sprint courant
-title: "US-XX-YY: "
+title: "US-XX: "
 labels: []
 body:
   - type: markdown

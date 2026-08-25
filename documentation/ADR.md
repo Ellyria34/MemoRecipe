@@ -1797,7 +1797,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
   - Dev/prod parity garantie sur toute la stack (API, frontend, worker IA, dépendances natives)
   - Onboarding contributeur en environ 10 minutes via "Reopen in Container" au lieu de plusieurs heures d'install manuelle
   - Débloque le test manuel WebP en local sur le path OCR fallback (prérequis BACK-105 Support formats étendus)
-  - Débloque les tests E2E Playwright cross-OS via un environnement Linux uniforme (cf. US-B1-21)
+  - Débloque les tests E2E Playwright cross-OS via un environnement Linux uniforme (cf. US-21)
   - Coût : premier build container environ 5 à 10 minutes, rebuild uniquement à chaque modification du Dockerfile, du SDK ou de l'OS de base
   - Prérequis : Docker Desktop installé sur la machine du contributeur
 
