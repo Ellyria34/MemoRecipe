@@ -36,4 +36,4 @@ WORKDIR /workspace
 EXPOSE 7071
 
 # Start the Function host in dev mode with hot reload on source changes
-CMD ["func", "start", "--csharp"]
+CMD ["func", "start"]
