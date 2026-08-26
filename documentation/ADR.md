@@ -1809,6 +1809,50 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 
 ---
 
+### DEC-062 : Branch Protection Rule stricte sur `main` (Classic, 8 required checks, no bypass)
+
+- **Statut** : ✅ ACTIVE
+- **Date** : 26/08/2026 (setup découvert manquant au moment de merger US-22 P0-2 sur `main`)
+
+- **Choix** :
+  Activation d'une Branch Protection Rule Classic sur la branche `main` du repo GitHub, avec 8 status checks required (`test-api`, `test-ia`, `build-web`, `vuln-audit`, `lighthouse-a11y` issus du workflow `.github/workflows/ci.yml` + `Code scanning results / CodeQL` agrégat GitHub Advanced Security + `CodeQL Advanced / Analyze (actions)` + `CodeQL Advanced / Analyze (csharp)` issus du workflow `.github/workflows/codeql.yml`). Toutes les PRs doivent être à jour avec `main` avant merge (`Require branches to be up to date`). Case `Do not allow bypassing the above settings` cochée : même l'owner du repo ne peut pas bypasser. Force push et deletion de `main` bloqués (`Allow force pushes` et `Allow deletions` décochés). `Require approvals` volontairement DÉCOCHÉE (contrainte solo dev, GitHub interdit self-approval sur ses propres PRs). Job conditionnel `build-and-push` (tag `v*`) volontairement exclu des required checks (skipped sur PRs normales, le mettre en required bloquerait toutes les PRs).
+
+- **Pourquoi ces choix** :
+  - **Trou de sécurité gouvernance identifié tardivement** : depuis la création du repo aucune Branch Protection Rule active → merge autorisé sans CI verte, sans review, force push possible. Découverte au moment de merger P0-2 le 26/08 (GitHub proposait le bouton merge alors que la CI n'avait pas encore tourné à cause de l'incident Actions concomitant). Correction immédiate.
+  - **Belt-and-suspenders sur CodeQL (3 checks au lieu d'1)** : le check aggregé `Code scanning results / CodeQL` (badge GitHub Advanced Security) bloque si le SCAN trouve une alerte critique, mais si le WORKFLOW YAML lui-même plante (erreur infra, quota, syntax) le scan ne s'exécute pas et l'aggregé ne bloque pas. Les 2 jobs Actions `Analyze (actions)` + `Analyze (csharp)` couvrent ce cas défensivement.
+  - **Do not allow bypassing** : sans cette case, l'owner du repo voit systématiquement un bouton "Merge without waiting for requirements" → la protection ne sert à rien en pratique. Case cochée = seule vraie sécurité, aucune exception urgence.
+  - **Require approvals décoché** : contrainte technique GitHub (self-approval interdit sur ses propres PRs). Sur un projet solo dev en Alpha, activer cette option = plus aucune PR jamais mergeable. À réactiver en V2 quand review par IA (ex : CodeRabbit) ou team review disponible.
+  - **Require branches to be up to date activé** : force `rebase`/`merge main` avant merge → la CI re-tourne sur l'état RÉEL de `main`. Sans ça, scenario cassé : PR verte mergée alors que `main` a évolué entretemps → régression silencieuse possible.
+  - **Classic plutôt que Rulesets** : Rulesets = système moderne GitHub 2024+ plus flexible mais plus complexe à setup et à comprendre. Choix pragmatique pour aller vite sur ce trou de sécurité identifié. Migration Rulesets envisageable en V2 si besoin de règles multi-branches ou d'exceptions bypass sur liste d'users.
+
+- **Alternatives écartées** :
+  - **Pas de Branch Protection** (statu quo) : maintien du trou de sécurité, aucune garantie sur ce qui merge sur `main`. Refusé.
+  - **Rulesets moderne** : plus flexible mais setup plus long, pas de bénéfice concret pour un repo solo dev V1. Reporté à V2 si migration nécessaire.
+  - **Require approvals + bypass exception sur owner** : Rulesets uniquement (pas dispo en Classic). Contournerait la limite self-approval mais nécessiterait migration Rulesets + coût cognitif pour maintenir la liste bypass à jour.
+  - **Require signed commits (GPG)** : DÉCOCHÉ. Nécessite setup GPG local complexe pour un bénéfice sécu marginal en solo dev. Envisageable en V2 si contribution externe ou audit sécu formel.
+  - **Require linear history (interdit merge commits)** : DÉCOCHÉ. Contrainte non-nécessaire, le squash-merge (comportement par défaut choisi sur les PRs) donne déjà un historique propre linéaire sur `main`.
+
+- **Sources** :
+  - GitHub Docs — About protected branches : https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches
+  - GitHub Docs — About rulesets : https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets
+  - OWASP DevSecOps guidelines — Branch protection
+
+- **Conséquences** :
+  - Zéro merge sur `main` sans les 8 checks CI verts (fonctionnels + sécurité + a11y + SAST)
+  - Zéro force push, zéro deletion accidentelle de `main`
+  - Owner du repo inclus dans la protection = pas d'exception urgence "je merge quand même"
+  - En cas d'incident CI GitHub (comme celui du 26/08), attente obligatoire de la reprise CI avant merge (workaround = push commit vide pour retrigger workflow)
+  - Chaque nouveau check CI ajouté au projet doit être manuellement ajouté à la liste required checks de la protection rule (sinon il tourne mais ne bloque pas)
+
+- **Conditions qui invalideraient ce choix** :
+  - Passage à une team ≥ 2 devs : réactiver `Require approvals: 1` (self-approval GitHub débloquée quand un autre dev peut review)
+  - Migration vers Rulesets pour setup multi-repo ou règles conditionnelles (ex : différentes protections selon environnement/branche)
+  - Ajout d'une review IA automatisée (ex : CodeRabbit) qui pourrait remplir le rôle d'approbation reviewer
+
+- **État** : ✅ ACTIVE. Setup GitHub Settings → Branches → Classic branch protection rule sur pattern `main`, 26/08/2026.
+
+---
+
 ## Investigations en cours
 
 Cette section liste les points identifiés qui méritent une évaluation mais qui ne sont pas critiques et n'ont pas encore été tranchés en décision formelle.
