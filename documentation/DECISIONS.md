@@ -167,6 +167,8 @@ La sécurité compose est baseline solide (isolation réseau, `security_opt: no-
 
 Le pipeline CI/CD GitHub Actions (workflow `.github/workflows/ci.yml`) exécute 7 jobs en parallèle sur push et PR (build+tests API, IA et Web, vuln-audit avec fail-fast sur High et Critical, CodeQL SAST sur C# et actions, Lighthouse a11y audit local Docker) plus un job conditionnel `build-and-push` sur tag `v*` qui pousse les images sur GHCR.
 
+La branche `main` est protégée par une Branch Protection Rule Classic stricte (activée le 26/08/2026) : 8 status checks required (`test-api`, `test-ia`, `build-web`, `vuln-audit`, `lighthouse-a11y`, `Code scanning results / CodeQL`, `Analyze (actions)`, `Analyze (csharp)`) + `Require branches to be up to date` (force rebase avant merge) + `Do not allow bypassing` activé (même l'owner du repo ne peut pas bypasser) + force push et deletion bloqués. `Require approvals` volontairement décoché (solo dev = GitHub interdit self-approval, à réactiver en team ou avec review IA).
+
 **Historique des décisions**
 
 En mai 2026, le Frontend Blazor WASM a adopté `nginx:alpine` ([DEC-027](ADR.md#dec-027)) au lieu d'un runtime aspnet (économie ~110 MB par image, plus pertinent pour du statique WASM), avec dans la foulée le choix d'un reverse proxy nginx Option B ([DEC-028](ADR.md#dec-028)) où le nginx du Frontend proxifie `/api/*` vers l'API en interne, plutôt que d'exposer l'API sur un sous-domaine avec CORS. Zéro CORS en prod, un seul certificat HTTPS à gérer, same-origin natif pour le cookie SameSite=Strict.
@@ -182,7 +184,9 @@ En août 2026, deux décisions structurantes ont finalisé l'infrastructure de d
 
 Fin août 2026, la décision d'un environnement dev containerisé via DevContainer VSCode plus service IA dans le compose dev ([DEC-061](ADR.md#dec-061)) a été formalisée pour éliminer les divergences dev/prod silencieuses observées en Alpha.2 (typiquement Tesseract avec libwebp en prod contre sans libwebp en local Windows, faisant crasher le path OCR fallback sur les images WebP). Application prévue en US-B1-20, première tâche du sprint Alpha.3.
 
-**DEC détaillées** : [DEC-027](ADR.md#dec-027), [DEC-028](ADR.md#dec-028), [DEC-029](ADR.md#dec-029), [DEC-030](ADR.md#dec-030), [DEC-031](ADR.md#dec-031), [DEC-032](ADR.md#dec-032), [DEC-042](ADR.md#dec-042), [DEC-052](ADR.md#dec-052), [DEC-053](ADR.md#dec-053), [DEC-061](ADR.md#dec-061).
+Le 26/08/2026 ([DEC-062](ADR.md#dec-062)), suite à la découverte d'un trou de sécurité gouvernance (aucune Branch Protection Rule active sur `main` depuis la création du repo → merge sans CI verte possible), activation d'une Branch Protection Rule Classic stricte : 8 status checks required incluant les 5 jobs `ci.yml` + les 3 jobs CodeQL (belt-and-suspenders : check aggregé Advanced Security + les 2 workflow jobs `Analyze` pour couvrir le cas où le workflow YAML lui-même plante), `Do not allow bypassing` activé sur l'owner, `Require approvals` décoché par contrainte solo dev (GitHub interdit self-approval sur ses propres PRs). Classic préféré à Rulesets pour la simplicité d'un setup V1, migration Rulesets envisageable en V2.
+
+**DEC détaillées** : [DEC-027](ADR.md#dec-027), [DEC-028](ADR.md#dec-028), [DEC-029](ADR.md#dec-029), [DEC-030](ADR.md#dec-030), [DEC-031](ADR.md#dec-031), [DEC-032](ADR.md#dec-032), [DEC-042](ADR.md#dec-042), [DEC-052](ADR.md#dec-052), [DEC-053](ADR.md#dec-053), [DEC-061](ADR.md#dec-061), [DEC-062](ADR.md#dec-062).
 
 ---
 
