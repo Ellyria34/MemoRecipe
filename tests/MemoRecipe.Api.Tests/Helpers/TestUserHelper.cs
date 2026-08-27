@@ -16,6 +16,8 @@ public static class TestUserHelper
         string? username = null
     )
     {
+        email = email.Trim().ToLowerInvariant();
+        
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<PasswordHasher>();

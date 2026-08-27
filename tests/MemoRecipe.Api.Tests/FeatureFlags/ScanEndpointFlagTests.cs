@@ -92,7 +92,7 @@ public class ScanEndpointFlagTests : IClassFixture<CustomWebApplicationFactory<P
         var db = scope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<PasswordHasher>();
 
-        const string email = "featureFlagsTestUser@test.com";
+        const string email = "featureflagstestuser@test.com";
         const string password = "CorrectPassword1!";
 
         if (!db.Users.Any(u => u.Email == email))
