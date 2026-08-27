@@ -109,17 +109,20 @@ public class UploadValidationTests : IClassFixture<CustomWebApplicationFactory<P
 
     private async Task EnsureTestUserAndLoginAsync()
     {
+        const string email = "uploadTestUser@test.com"; 
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<PasswordHasher>();
 
-        if (!db.Users.Any(u => u.Email == "uploadTestUser@test.com"))
+       if (!db.Users.Any(u => u.Email == normalizedEmail))
         {
 
             var user = new User
             {
                 Id = Guid.NewGuid(),
-                Email = "uploadTestUser@test.com",
+                Email = normalizedEmail,
                 Username = "uploadTestUser",
                 PasswordHash = "",       // temporaire, on le remplit juste après
                 PasswordSalt = "",
@@ -131,6 +134,6 @@ public class UploadValidationTests : IClassFixture<CustomWebApplicationFactory<P
             db.SaveChanges();
         }
 
-        await _client.PostAsJsonAsync("api/auth/login", new { email = "uploadTestUser@test.com", password = "CorrectPassword1!" });
+        await _client.PostAsJsonAsync("api/auth/login", new { email = normalizedEmail, password = "CorrectPassword1!" });
     }
 }

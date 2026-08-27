@@ -45,7 +45,10 @@ public class MemoRecipeDbContext : DbContext{
             .WithOne(r => r.User)
             .HasForeignKey(r => r.UserId)
             .OnDelete(DeleteBehavior.Cascade);
-
+        
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Email)
+            .IsUnique();
 
         //   Table: Recipes
         modelBuilder.Entity<Recipe>()

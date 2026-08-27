@@ -154,4 +154,30 @@ public class AuthControllerLoginTests : IClassFixture<NoRateLimitApplicationFact
 
         Assert.Equal(System.Net.HttpStatusCode.TooManyRequests, response.StatusCode);
     }
+
+    [Fact]
+    public async Task Login_WithDifferentCaseThanRegistered_Returns200()
+    {
+        // Arrange 
+        const string email = "Login.CaseTest@test.com";
+        const string password = "CorrectPassword1!";
+
+        var setupClient = _factory.CreateClient();
+        var registerResponse = await setupClient.PostAsJsonAsync("api/auth/register", new
+        {
+            email,
+            username = "caseTestUser",
+            password
+        });
+        Assert.Equal(System.Net.HttpStatusCode.OK, registerResponse.StatusCode);
+
+        //Act
+        var client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("api/auth/login", new { email = "login.casetest@test.com", password = password });
+
+        //Assert
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.Headers.Contains("Set-Cookie"));
+    }
+
 }
