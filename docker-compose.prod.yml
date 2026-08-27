@@ -37,6 +37,7 @@ services:
       - JwtSettings__Secret
       - ConnectionStrings__DefaultConnection
       - OcrScan__BaseUrl
+      - OcrScan__FunctionKey
       - Telegram__BotToken
       - Telegram__ChatId
     expose:
@@ -127,6 +128,8 @@ secrets:
     file: ${SECRETS_PATH}/ConnectionStrings__DefaultConnection
   OcrScan__BaseUrl:
     file: ${SECRETS_PATH}/OcrScan__BaseUrl
+  OcrScan__FunctionKey:
+    file: ${SECRETS_PATH}/OcrScan__FunctionKey
   Telegram__BotToken:
     file: ${SECRETS_PATH}/Telegram__BotToken
   Telegram__ChatId:

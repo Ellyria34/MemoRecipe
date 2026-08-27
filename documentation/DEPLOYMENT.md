@@ -139,6 +139,7 @@ One file per secret, no extension. The filename becomes the config key
 | `JwtSettings__Secret`                    | `JwtSettings:Secret`                  |
 | `ConnectionStrings__DefaultConnection`   | `ConnectionStrings:DefaultConnection` |
 | `OcrScan__BaseUrl`                       | `OcrScan:BaseUrl`                     |
+| `OcrScan__FunctionKey`                   | `OcrScan:FunctionKey`                 |
 | `Telegram__BotToken`                     | `Telegram:BotToken`                   |
 | `Telegram__ChatId`                       | `Telegram:ChatId`                     |
 | `postgres_password`                      | (used by Postgres container)          |
@@ -161,6 +162,8 @@ printf 'Host=postgres;Port=5432;Database=<db>;Username=<user>;Password=<pass>' \
     > <secrets-path>/ConnectionStrings__DefaultConnection
 printf 'https://<function-name>.azurewebsites.net' \
     > <secrets-path>/OcrScan__BaseUrl
+# Function key: Azure Portal > Function App > Function Keys > default (host key preferred)
+printf '<azure-function-key>'   > <secrets-path>/OcrScan__FunctionKey
 printf '<telegram-bot-token>' > <secrets-path>/Telegram__BotToken
 printf '<telegram-chat-id>'   > <secrets-path>/Telegram__ChatId
 printf '<postgres-password>'  > <secrets-path>/postgres_password
@@ -187,6 +190,7 @@ services:
       - JwtSettings__Secret
       - ConnectionStrings__DefaultConnection
       - OcrScan__BaseUrl
+      - OcrScan__FunctionKey
       - Telegram__BotToken
       - Telegram__ChatId
 
@@ -213,6 +217,8 @@ secrets:
     file: ${SECRETS_PATH}/ConnectionStrings__DefaultConnection
   OcrScan__BaseUrl:
     file: ${SECRETS_PATH}/OcrScan__BaseUrl
+  OcrScan__FunctionKey:
+    file: ${SECRETS_PATH}/OcrScan__FunctionKey
   Telegram__BotToken:
     file: ${SECRETS_PATH}/Telegram__BotToken
   Telegram__ChatId:
