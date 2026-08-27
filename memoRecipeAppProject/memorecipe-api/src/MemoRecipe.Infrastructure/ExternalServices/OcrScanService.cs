@@ -15,7 +15,13 @@ public class OcrScanService : IOcrScanService
     {
         _baseUrl = configuration["OcrScan:BaseUrl"]
             ?? throw new InvalidOperationException("OcrScan:BaseUrl is missing in configuration");
+
+        var functionKey = configuration["OcrScan:FunctionKey"]
+            ?? throw new InvalidOperationException("OcrScan:FunctionKey is missing in configuration");
+    
         _httpClient = httpClient;
+        _httpClient.DefaultRequestHeaders.Add("x-functions-key", functionKey);
+
     }
     
 
