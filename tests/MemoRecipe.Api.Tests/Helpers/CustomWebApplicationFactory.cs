@@ -19,6 +19,7 @@ static CustomWebApplicationFactory()
     Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", 
     "Host=fake;Database=fake;Username=fake;Password=fake");
     Environment.SetEnvironmentVariable("OcrScan__BaseUrl", "http://fake-ocr/");
+    Environment.SetEnvironmentVariable("OcrScan__FunctionKey", "FAKE_TEST_FUNCTION_KEY_NOT_USED");
     Environment.SetEnvironmentVariable("Telegram__BotToken", "FAKE_TEST_TOKEN_NOT_USED");
     Environment.SetEnvironmentVariable("Telegram__ChatId", "0");
     Environment.SetEnvironmentVariable("Cors__AllowedOrigins__0", "http://localhost:5110");

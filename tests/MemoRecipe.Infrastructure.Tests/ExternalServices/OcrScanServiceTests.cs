@@ -8,9 +8,10 @@ namespace MemoRecipe.Infrastructure.Tests.ExternalServices;
 
 public class OcrScanServiceTests
 {
-    // Test 1 — Vérifie que le header 'x-functions-key' est bien ajoute sur la requete sortante
-    // vers la Function Azure (protection AuthorizationLevel.Function cote Function).
-    // C'est LE critere central de P0-3 : sans ce header, la Function retournait 401 en prod.
+    // Test 1 — Verifies that the 'x-functions-key' header is set on the outgoing request
+    // to the Azure Function (required by AuthorizationLevel.Function on the Function side).
+    // This is THE central criterion of P0-3: without this header, the Function returned
+    // 401 Unauthorized in production, silently leaking LLM tokens on API retries.
     [Fact]
     public async Task ProcessImageAsync_AddsXFunctionsKeyHeader()
     {
@@ -21,7 +22,7 @@ public class OcrScanServiceTests
             capturedRequest = request;
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
-                // Empty JSON = ExtractedRecipeDto default instance, no deserialize exception
+                // Empty JSON = default ExtractedRecipeDto instance, no deserialize exception
                 Content = new StringContent("{}", Encoding.UTF8, "application/json")
             });
         });
@@ -39,10 +40,11 @@ public class OcrScanServiceTests
             capturedRequest.Headers.GetValues("x-functions-key").First());
     }
 
-    // Test 2 — Verifie le fail-fast si la config OcrScan:FunctionKey est absente
-    // Coherent avec le pattern DEC-023 (fail loud early, no silent fallback).
-    // Ne remplace pas le RequireConfig cote Program.cs, c'est une double protection
-    // defensive au niveau constructeur (defense in depth).
+    // Test 2 — Verifies fail-fast when OcrScan:FunctionKey config is missing.
+    // Consistent with the DEC-023 pattern (fail loud early, no silent fallback).
+    // This does not replace the RequireConfig check in Program.cs, it is a defense-in-depth
+    // double-check at the constructor level: if config is corrupted or if a future refactor
+    // ever bypasses the Program.cs check, the service still refuses to start silently.
     [Fact]
     public void Constructor_ThrowsWhenFunctionKeyMissing()
     {
