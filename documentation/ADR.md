@@ -1853,6 +1853,56 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 
 ---
 
+### DEC-063 : Amendement DEC-021 — `'unsafe-inline'` dans `script-src` CSP pour compatibilité Blazor WASM importmap
+
+- **Statut** : ✅ ACTIVE (amende [DEC-021](#dec-021))
+- **Date** : 27/08/2026 (découvert lors du test browser P0-5)
+
+- **Choix** :
+  Amendement de la Content-Security-Policy définie dans DEC-021 : ajout du token `'unsafe-inline'` dans la directive `script-src`. Valeur finale de la CSP :
+  ```
+  default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  ```
+  Appliquée UNIFORMÉMENT côté API middleware (`SecurityHeadersMiddleware.cs`) ET côté nginx front (`App/MemoRecipe.Web/nginx.conf` bloc `server`), pour cohérence front/API et éviter les gaps sécu subtils.
+
+- **Pourquoi ces choix** :
+  - **Blazor WASM impose un inline script dans `index.html`** : la balise `<script type="importmap"></script>` (ligne 27 du template Blazor WebAssembly) est le mécanisme standard Blazor .NET 8+ pour le fingerprinting des modules `dotnet.js` / `dotnet.wasm` à runtime. Elle est OBLIGATOIREMENT inline (spec importmap HTML). Impossible de la déplacer dans un fichier `.js` externe.
+  - **Le test browser P0-5 a révélé la limitation** : la CSP de DEC-021 n'avait jamais été fonctionnellement testée contre une page HTML Blazor (elle était appliquée uniquement aux réponses JSON `/api/*` côté API middleware, où aucun script inline n'existe). L'application de la même CSP côté nginx (P0-5) sur les réponses HTML statiques a causé un blocage immédiat de Blazor par la console DevTools : `Executing inline script violates the following Content Security Policy directive`. Blazor ne bootait pas, page blanche.
+  - **Cohérence front/API obligatoire** : ajouter `'unsafe-inline'` uniquement côté nginx et pas côté API middleware créerait une désynchronisation subtile. Un attaquant exploitant une XSS via une réponse API (même si ces réponses sont normalement JSON, un cas d'erreur mal traité pourrait renvoyer du HTML) pourrait profiter du CSP moins strict côté nginx en injectant un script inline. Sync obligatoire pour éviter les surfaces d'attaque asymétriques.
+  - **Compromis sécu accepté et documenté** : `'unsafe-inline'` sur `script-src` réduit la protection contre les XSS injectés (un attaquant peut exécuter `<script>` inline). Mais MemoRecipe dispose de plusieurs autres couches de défense qui rendent ce compromis acceptable : validation FluentValidation sur tous les inputs utilisateur, PasswordHasher PBKDF2 (DEC-020), Serilog structured logging avec `EmailMasker` + `ValidationErrorSanitizer` (DEC-051), cookies `HttpOnly + Secure + SameSite=Strict` (DEC-014), rate limiting double couche IP + email (DEC-022), upload defense-in-depth extension + MIME + magic bytes (DEC-057), CSP `frame-ancestors 'none'` + `X-Frame-Options DENY` anti-clickjacking, CSP `object-src 'none'` anti-plugins legacy, CSP `base-uri 'self'` anti-injection `<base>`, CSP `form-action 'self'` anti-vol formulaire.
+  - **Alignement avec `'unsafe-inline'` déjà présent côté `style-src`** : la CSP DEC-021 originale acceptait déjà `'unsafe-inline'` pour les styles (imposé par MudBlazor qui injecte des styles inline à runtime). Ajouter `'unsafe-inline'` pour scripts complète la cohérence de traitement des ressources inline. Les 2 tokens sont dictés par les frameworks utilisés.
+  - **Documentation Microsoft** : Blazor WASM + CSP est une limitation documentée sur Microsoft Learn. `'unsafe-inline'` est la solution recommandée V1 avant l'adoption de patterns plus sophistiqués (nonce, strict-dynamic).
+
+- **Alternatives écartées** :
+  - **Hash SHA256 de l'importmap** (`'sha256-...'`) : plus strict, autorise UNIQUEMENT le contenu exact de l'importmap actuel. Rejeté car FRAGILE : Blazor génère un nouveau fingerprint à chaque `dotnet publish`, donc le hash change à chaque build → CSP fail → app cassée en prod. Non déterministe cross-build.
+  - **CSP nonce** : générer un nonce cryptographique unique par requête, injecter dans le HTML (`<script nonce="...">`) et dans le CSP header (`script-src 'nonce-...'`). Approche la plus sécurisée mais complexité setup lourde (middleware ASP.NET custom, template Razor modifié à runtime, désynchronisation possible avec le contenu nginx statique). Reporté V2.
+  - **`'strict-dynamic'`** : autorise les scripts chargés dynamiquement par un script trusté (via nonce ou hash). Puissant mais nécessite quand même un mécanisme de trust initial (nonce ou hash). Écarté pour complexité + fragilité identique au hash.
+  - **Rester sur DEC-021 stricte** : refusé car Blazor WASM inchargeable → app cassée en prod.
+  - **CSP différenciée par path** (`/api/*` strict, `/` avec `unsafe-inline`) : casserait le principe d'uniformité front/API et créerait une surface d'attaque asymétrique.
+
+- **Sources** :
+  - Microsoft Docs — ASP.NET Core Blazor WebAssembly with content security policy : https://learn.microsoft.com/en-us/aspnet/core/blazor/security/content-security-policy
+  - MDN — Content Security Policy directives `script-src` : https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/script-src
+  - OWASP CSP Cheat Sheet : https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html
+  - Spec importmap HTML : https://html.spec.whatwg.org/multipage/webappapis.html#import-maps
+
+- **Conséquences** :
+  - Blazor WASM se charge correctement en production (Frontend fonctionnel)
+  - Uniformité CSP nginx front + API middleware garantie (audit-trail cohérent)
+  - Slight regression sécu : un XSS injecté pourrait exécuter des scripts inline (mais couvert par les autres couches défense listées ci-dessus)
+  - Le fichier de test `SecurityHeadersMiddlewareTests.cs` reflète la nouvelle valeur (mis à jour dans P0-5, InlineData ligne 23)
+  - Documentation `HTTP-SECURITY-HEADERS.md` et `SECURITY-BASELINE-API-NGINX.md` à jour (déjà fait)
+  - Le workaround est visible dans le body PR P0-5 pour audit-trail rapide
+
+- **Conditions qui invalideraient ce choix** :
+  - Migration Blazor vers un rendering server-side (Blazor Server / Blazor SSR) qui n'utilise plus l'importmap client-side → possible retour à CSP strict sans `'unsafe-inline'`
+  - Adoption CSP nonce-based via middleware ASP.NET custom (envisagé V2) → retour au CSP strict pour scripts, avec injection nonce dans HTML servi par nginx
+  - Retrait complet de MudBlazor + Blazor WASM (peu probable V1) → retour possible à CSP strict
+
+- **État** : ✅ ACTIVE. Appliqué en P0-5 (27/08/2026) simultanément côté nginx (`App/MemoRecipe.Web/nginx.conf`) et côté API middleware (`SecurityHeadersMiddleware.cs`) via commits atomiques séparés sur la branche `fix/US-22-P0-5-nginx-security-headers`.
+
+---
+
 ## Investigations en cours
 
 Cette section liste les points identifiés qui méritent une évaluation mais qui ne sont pas critiques et n'ont pas encore été tranchés en décision formelle.

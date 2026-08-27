@@ -20,7 +20,7 @@ public class SecurityHeadersMiddlewareTests : IClassFixture<WebApplicationFactor
     [InlineData("X-Content-Type-Options", "nosniff")]
     [InlineData("Referrer-Policy", "strict-origin-when-cross-origin")]
     [InlineData("Permissions-Policy", "camera=(), microphone=(), geolocation=()")]
-    [InlineData("Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")]
+    [InlineData("Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")]
     public async Task Get_AnyEndpoint_ReturnsSecurityHeader(string headerName, string expectedValue)
     {
         // Arrange + Act
