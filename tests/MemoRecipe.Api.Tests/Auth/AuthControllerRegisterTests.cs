@@ -111,4 +111,41 @@ public class AuthControllerRegisterTests : IClassFixture<CustomWebApplicationFac
         Assert.Contains("\"propertyName\":\"Email\"", body);
     }
 
+    [Fact]
+    public async Task Register_WithSameEmailDifferentCase_Returns400_AndStoresLowercase()
+    {
+        // Arrange — register with mixed case
+        var firstPayload = new
+        {
+            email = "P08.CaseTest@test.com",
+            username = "caseTest1",
+            password = "CorrectPassword1!"
+        };
+
+        var firstResponse = await _client.PostAsJsonAsync("api/auth/register", firstPayload);
+        Assert.Equal(System.Net.HttpStatusCode.OK, firstResponse.StatusCode);
+
+        // Assert DB — email stored in lowercase
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
+            var storedUser = db.Users.FirstOrDefault(u => u.Email == "p08.casetest@test.com");
+            Assert.NotNull(storedUser);
+        }
+
+        // Act — try to register again with UPPERCASE version of the same email
+        var secondPayload = new
+        {
+            email = "P08.CASETEST@test.com",
+            username = "caseTest2",
+            password = "CorrectPassword1!"
+        };
+        var secondResponse = await _client.PostAsJsonAsync("api/auth/register", secondPayload);
+
+        // Assert — case-insensitive conflict detected
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, secondResponse.StatusCode);
+        var body = await secondResponse.Content.ReadAsStringAsync();
+        Assert.Contains("Email already exists.", body);
+    }
+
 }

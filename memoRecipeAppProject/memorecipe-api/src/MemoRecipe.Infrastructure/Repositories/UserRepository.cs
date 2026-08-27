@@ -21,12 +21,14 @@ public class UserRepository : IUserRepository
 
     public async Task<User?> GetByEmailAsync(string email)
     {
-        return await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        return await _db.Users.FirstOrDefaultAsync(u => u.Email == normalizedEmail);
     }
 
     public async Task<bool> EmailExistsAsync(string email)
     {
-        return await _db.Users.AnyAsync(u => u.Email == email);
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        return await _db.Users.AnyAsync(u => u.Email == normalizedEmail);
     }
 
     public void Update(User user)

@@ -30,10 +30,11 @@ public class AuthService : IAuthService
 
     public async Task<string?> RegisterAsync(RegisterDto dto, string ipAddress)
     {
+        var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = dto.Email,
+            Email = normalizedEmail,
             Username = dto.Username,
             PasswordHash = "",
             PasswordSalt = "",
@@ -41,10 +42,10 @@ public class AuthService : IAuthService
             UpdatedAt = DateTime.UtcNow
         };
         // Check if the email address is already in use?
-        if (await _userRepository.EmailExistsAsync(dto.Email))
+        if (await _userRepository.EmailExistsAsync(normalizedEmail))
         {
             _logger.LogWarning("{EventType} — masked email {MaskedEmail} from {IpAddress}",
-                "RegisterFailedEmailTaken", EmailMasker.Mask(dto.Email), ipAddress);
+                "RegisterFailedEmailTaken", EmailMasker.Mask(normalizedEmail), ipAddress);
             return null;
         }
 
@@ -55,28 +56,29 @@ public class AuthService : IAuthService
         await _userRepository.SaveChangesAsync();
 
         _logger.LogInformation("{EventType} — user {UserId} masked email {MaskedEmail} from {IpAddress}",
-            "RegisterSuccess", user.Id, EmailMasker.Mask(dto.Email), ipAddress);
+            "RegisterSuccess", user.Id, EmailMasker.Mask(normalizedEmail), ipAddress);
 
         return _jwtService.GenerateToken(user);
     }
 
     public async Task<LoginResult> LoginAsync(string email, string password, string ipAddress)
     {
-        if (_cache.TryGetValue($"login-fail:{email}", out int failCount) && failCount >= 5)
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        if (_cache.TryGetValue($"login-fail:{normalizedEmail}", out int failCount) && failCount >= 5)
         {
             _logger.LogWarning("{EventType} — masked email {MaskedEmail} from {IpAddress}",
-                "AccountLocked", EmailMasker.Mask(email), ipAddress);
+                "AccountLocked", EmailMasker.Mask(normalizedEmail), ipAddress);
             return new LoginResult { IsLockedOut = true };
         }
 
-        var user = await _userRepository.GetByEmailAsync(email);
+        var user = await _userRepository.GetByEmailAsync(normalizedEmail);
         if (user == null)
         {
             var newCount = failCount + 1;
-            _cache.Set($"login-fail:{email}", newCount, TimeSpan.FromMinutes(15));
+            _cache.Set($"login-fail:{normalizedEmail}", newCount, TimeSpan.FromMinutes(15));
 
             _logger.LogWarning("{EventType} — masked email {MaskedEmail} from {IpAddress}",
-                "LoginFailedUserNotFound", EmailMasker.Mask(email), ipAddress);
+                "LoginFailedUserNotFound", EmailMasker.Mask(normalizedEmail), ipAddress);
             await _alertingService.NotifyLoginFailAsync();
             return new LoginResult { Token = null };
         }
@@ -84,10 +86,10 @@ public class AuthService : IAuthService
         if (!_passwordHasher.Verify(user, user.PasswordHash, password, user.PasswordSalt))
         {
             var newCount = failCount + 1;
-            _cache.Set($"login-fail:{email}", newCount, TimeSpan.FromMinutes(15));
+            _cache.Set($"login-fail:{normalizedEmail}", newCount, TimeSpan.FromMinutes(15));
 
             _logger.LogWarning("{EventType} — user {UserId} masked email {MaskedEmail} from {IpAddress}",
-                "LoginFailedWrongPassword", user.Id, EmailMasker.Mask(email), ipAddress);
+                "LoginFailedWrongPassword", user.Id, EmailMasker.Mask(normalizedEmail), ipAddress);
             await _alertingService.NotifyLoginFailAsync();
             return new LoginResult { Token = null };
         }
@@ -100,7 +102,7 @@ public class AuthService : IAuthService
             await _userRepository.SaveChangesAsync();
         }
 
-        _cache.Remove($"login-fail:{email}");
+        _cache.Remove($"login-fail:{normalizedEmail}");
 
         // Check account deletion state
         var wasDeletionCancelled = false;
