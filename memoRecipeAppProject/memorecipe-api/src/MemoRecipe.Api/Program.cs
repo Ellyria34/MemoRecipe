@@ -26,6 +26,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using MemoRecipe.Infrastructure.BackgroundServices;
 using MemoRecipe.Application.Services.AISecurity;
 using MemoRecipe.Application.Services.Monitoring;
+using MemoRecipe.Api.AdminCli;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddKeyPerFile(
@@ -204,6 +205,7 @@ builder.Services.AddScoped<IAlertingService, AlertingService>();
 builder.Services.Configure<AccountPurgeOptions>(
     builder.Configuration.GetSection(AccountPurgeOptions.SectionName));
 builder.Services.AddScoped<PasswordHasher>();
+builder.Services.AddScoped<IAdminPasswordResetService, AdminPasswordResetService>();
 builder.Services.AddHealthChecks()
     .AddNpgSql(connectionString);
 // AI Security — Rate Limiter (US-A2-04)
@@ -241,6 +243,15 @@ if (Environment.GetEnvironmentVariable("DOTNET_TEST_MODE") != "true")
         db.Database.Migrate();
     }
 }
+
+// Admin CLI mode: --reset-password --email <address> --password-file <path>
+// Exits without starting Kestrel (P0-7 runbook).
+if (args.Contains("--reset-password"))
+{
+    await AdminPasswordResetCommand.RunAsync(app.Services, args);
+    return;
+}
+
 
 // Configure
 if (app.Environment.IsDevelopment())
