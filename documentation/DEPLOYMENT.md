@@ -376,6 +376,10 @@ docker compose -f docker-compose.prod.yml up -d
 # 6. Check health
 docker compose -f docker-compose.prod.yml ps
 docker compose -f docker-compose.prod.yml logs -f --tail=50
+# Functional health check via HTTP endpoint (BACK-011)
+curl -f http://localhost:8080/health
+# Expected response: "Healthy" (200) or "Unhealthy" (503)
+
 ```
 
 Healthchecks (postgres / api / web) ensure dependent containers wait
@@ -591,8 +595,7 @@ Alerts on backup failure / staleness will be implemented in **BACK-079** (monito
 
 ## Future improvements
 
-- **CI/CD** (currently manual): GitHub Actions to build + push on tag,
-  ssh to the VPS to pull + restart.
+- **Automated VPS deploy on tag** : the build+push image step is already automated via GitHub Actions on tag `v*` (see [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)). Missing : SSH-based auto-pull + restart on the VPS after image push (currently manual, tracked for V1.1).
 - **Automated rollback** on failed healthcheck (compose watch or
   external supervisor).
 - **Image signing** (cosign) for supply chain integrity.
