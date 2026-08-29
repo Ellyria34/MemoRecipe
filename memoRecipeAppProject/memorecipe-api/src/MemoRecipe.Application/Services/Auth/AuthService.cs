@@ -30,7 +30,7 @@ public class AuthService : IAuthService
 
     public async Task<string?> RegisterAsync(RegisterDto dto, string ipAddress)
     {
-        var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+        var normalizedEmail = EmailNormalizer.Normalize(dto.Email);
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -63,7 +63,7 @@ public class AuthService : IAuthService
 
     public async Task<LoginResult> LoginAsync(string email, string password, string ipAddress)
     {
-        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var normalizedEmail = EmailNormalizer.Normalize(email);        
         if (_cache.TryGetValue($"login-fail:{normalizedEmail}", out int failCount) && failCount >= 5)
         {
             _logger.LogWarning("{EventType} — masked email {MaskedEmail} from {IpAddress}",
