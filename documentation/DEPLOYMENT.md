@@ -376,6 +376,10 @@ docker compose -f docker-compose.prod.yml up -d
 # 6. Check health
 docker compose -f docker-compose.prod.yml ps
 docker compose -f docker-compose.prod.yml logs -f --tail=50
+# Functional health check via HTTP endpoint (BACK-011)
+curl -f http://localhost:8080/health
+# Expected response: "Healthy" (200) or "Unhealthy" (503)
+
 ```
 
 Healthchecks (postgres / api / web) ensure dependent containers wait
@@ -441,6 +445,30 @@ Expected. Docker named volumes are scoped per compose project. The
 dev compose volume and the prod compose volume are separate. To
 migrate data between them, use `pg_dump` / `pg_restore` (see BACK-068
 for the documented procedure).
+
+---
+
+## Runbook incidents
+
+Emergency operational procedures — not routine deployment, not bug troubleshooting.
+
+### User password reset (P0-7)
+
+**When to use** : a user has lost their password. No `forgot password` self-service exists in Alpha.3 (registration is admin-only, password reset planned post-V1). Manual admin intervention required.
+
+**Prerequisites** :
+- SSH access to the VPS.
+- Docker permissions to `docker exec` on the `memorecipe_api` container.
+- The user's registered email address of record.
+- **Identity verified via a known channel** (email of record or phone of record) BEFORE resetting. A password reset requested via an unverified channel could be an impersonator.
+
+**Procedure (~5 min end-to-end)** :
+
+1. SSH into the VPS.
+2. Navigate to the repo root : `cd <vps-path>`.
+3. Run the bash wrapper (prompts for password interactively, never in shell history) :
+   ```bash
+   ./infra/admin/reset-password.sh memorecipe_api <user-email>
 
 ---
 
@@ -591,8 +619,7 @@ Alerts on backup failure / staleness will be implemented in **BACK-079** (monito
 
 ## Future improvements
 
-- **CI/CD** (currently manual): GitHub Actions to build + push on tag,
-  ssh to the VPS to pull + restart.
+- **Automated VPS deploy on tag** : the build+push image step is already automated via GitHub Actions on tag `v*` (see [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)). Missing : SSH-based auto-pull + restart on the VPS after image push (currently manual, tracked for V1.1).
 - **Automated rollback** on failed healthcheck (compose watch or
   external supervisor).
 - **Image signing** (cosign) for supply chain integrity.

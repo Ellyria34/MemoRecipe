@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using MemoRecipe.Application.Helpers;
 using MemoRecipe.Application.Services.Auth;
 using MemoRecipe.Domain.Entities.Users;
 using MemoRecipe.Infrastructure.Database;
@@ -16,7 +17,7 @@ public static class TestUserHelper
         string? username = null
     )
     {
-        email = email.Trim().ToLowerInvariant();
+        email = EmailNormalizer.Normalize(email);
         
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();

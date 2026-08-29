@@ -8,6 +8,7 @@ using System.Net.Http.Json;
 using System.Net.Mime;
 using System.Net.Http.Headers;
 using System.Text;
+using MemoRecipe.Application.Helpers;
 
 namespace MemoRecipe.Api.Tests.UploadValidation;
 
@@ -110,8 +111,8 @@ public class UploadValidationTests : IClassFixture<CustomWebApplicationFactory<P
     private async Task EnsureTestUserAndLoginAsync()
     {
         const string email = "uploadTestUser@test.com"; 
-        var normalizedEmail = email.Trim().ToLowerInvariant();
-        
+        var normalizedEmail = EmailNormalizer.Normalize(email);
+
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<PasswordHasher>();
@@ -124,7 +125,7 @@ public class UploadValidationTests : IClassFixture<CustomWebApplicationFactory<P
                 Id = Guid.NewGuid(),
                 Email = normalizedEmail,
                 Username = "uploadTestUser",
-                PasswordHash = "",       // temporaire, on le remplit juste après
+                PasswordHash = "",
                 PasswordSalt = "",
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow

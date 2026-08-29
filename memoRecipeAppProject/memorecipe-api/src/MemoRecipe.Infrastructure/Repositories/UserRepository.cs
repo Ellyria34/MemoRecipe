@@ -1,3 +1,4 @@
+using MemoRecipe.Application.Helpers;
 using MemoRecipe.Application.Repositories;
 using MemoRecipe.Domain.Entities.Users;
 using MemoRecipe.Infrastructure.Database;
@@ -21,13 +22,13 @@ public class UserRepository : IUserRepository
 
     public async Task<User?> GetByEmailAsync(string email)
     {
-        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var normalizedEmail = EmailNormalizer.Normalize(email);
         return await _db.Users.FirstOrDefaultAsync(u => u.Email == normalizedEmail);
     }
 
     public async Task<bool> EmailExistsAsync(string email)
     {
-        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var normalizedEmail = EmailNormalizer.Normalize(email);
         return await _db.Users.AnyAsync(u => u.Email == normalizedEmail);
     }
 
