@@ -448,6 +448,30 @@ for the documented procedure).
 
 ---
 
+## Runbook incidents
+
+Emergency operational procedures — not routine deployment, not bug troubleshooting.
+
+### User password reset (P0-7)
+
+**When to use** : a user has lost their password. No `forgot password` self-service exists in Alpha.3 (registration is admin-only, password reset planned post-V1). Manual admin intervention required.
+
+**Prerequisites** :
+- SSH access to the VPS.
+- Docker permissions to `docker exec` on the `memorecipe_api` container.
+- The user's registered email address of record.
+- **Identity verified via a known channel** (email of record or phone of record) BEFORE resetting. A password reset requested via an unverified channel could be an impersonator.
+
+**Procedure (~5 min end-to-end)** :
+
+1. SSH into the VPS.
+2. Navigate to the repo root : `cd <vps-path>`.
+3. Run the bash wrapper (prompts for password interactively, never in shell history) :
+   ```bash
+   ./infra/admin/reset-password.sh memorecipe_api <user-email>
+
+---
+
 ## Backup & Restore (PostgreSQL)
 
 > **Backup strategy**: local automated encrypted backup (this section) combined with an off-site copy on a separate medium (operator-managed for the initial release, automation tracked as a follow-up in the private ops backlog). The 3-2-1 rule is satisfied through this dual approach. See **DEC-038** for the architectural rationale (GPG asymmetric encryption, phased delivery).
