@@ -82,7 +82,7 @@ public class UploadValidationTests : IClassFixture<CustomWebApplicationFactory<P
         //Assert
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
         var bodyContent = await response.Content.ReadAsStringAsync();
-        Assert.Contains("magic bytes mismatch", bodyContent);
+        Assert.Contains("Invalid or corrupted image file", bodyContent);
     }
 
     [Fact]
@@ -110,14 +110,14 @@ public class UploadValidationTests : IClassFixture<CustomWebApplicationFactory<P
 
     private async Task EnsureTestUserAndLoginAsync()
     {
-        const string email = "uploadTestUser@test.com"; 
+        const string email = "uploadTestUser@test.com";
         var normalizedEmail = EmailNormalizer.Normalize(email);
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<MemoRecipeDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<PasswordHasher>();
 
-       if (!db.Users.Any(u => u.Email == normalizedEmail))
+        if (!db.Users.Any(u => u.Email == normalizedEmail))
         {
 
             var user = new User
