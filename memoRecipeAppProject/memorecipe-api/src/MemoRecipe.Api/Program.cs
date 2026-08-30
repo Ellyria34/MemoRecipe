@@ -27,6 +27,7 @@ using MemoRecipe.Infrastructure.BackgroundServices;
 using MemoRecipe.Application.Services.AISecurity;
 using MemoRecipe.Application.Services.Monitoring;
 using MemoRecipe.Api.AdminCli;
+using MemoRecipe.Application.Services.Upload;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddKeyPerFile(
@@ -206,6 +207,7 @@ builder.Services.Configure<AccountPurgeOptions>(
     builder.Configuration.GetSection(AccountPurgeOptions.SectionName));
 builder.Services.AddScoped<PasswordHasher>();
 builder.Services.AddScoped<IAdminPasswordResetService, AdminPasswordResetService>();
+builder.Services.AddScoped<IFileUploadValidator, FileUploadValidator>();
 builder.Services.AddHealthChecks()
     .AddNpgSql(connectionString);
 // AI Security — Rate Limiter (US-A2-04)
