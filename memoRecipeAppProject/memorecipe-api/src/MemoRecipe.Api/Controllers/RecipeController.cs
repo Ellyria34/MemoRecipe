@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using MemoRecipe.Application.Configuration;
 using System.Diagnostics;
+using MemoRecipe.Application.Services.Upload;
 
 namespace MemoRecipe.Api.Controllers;
 
@@ -20,6 +21,7 @@ public class RecipeController : ControllerBase
     private readonly IRecipeService _recipeService;
     private readonly IValidator<RecipeCreateDto> _createDtoValidator;
     private readonly IValidator<RecipeUpdateDto> _updateDtoValidator;
+    private readonly IFileUploadValidator _fileUploadValidator;
     private readonly IOcrScanService _ocrScanService;
     private readonly FeatureFlagsOptions _flags;
     private readonly IAiRateLimiter _aiRateLimiter;
@@ -30,6 +32,7 @@ public class RecipeController : ControllerBase
         IRecipeService recipeService,
         IValidator<RecipeCreateDto> createDtoValidator,
         IValidator<RecipeUpdateDto> updateDtoValidator,
+        IFileUploadValidator fileUploadValidator,
         IOcrScanService ocrScanService,
         IOptions<FeatureFlagsOptions> flags,
         IAiRateLimiter aiRateLimiter,
@@ -39,6 +42,7 @@ public class RecipeController : ControllerBase
         _recipeService = recipeService;
         _createDtoValidator = createDtoValidator;
         _updateDtoValidator = updateDtoValidator;
+        _fileUploadValidator = fileUploadValidator;
         _ocrScanService = ocrScanService;
         _flags = flags.Value;
         _aiRateLimiter = aiRateLimiter;
@@ -135,34 +139,27 @@ public class RecipeController : ControllerBase
             return BadRequest("File size exceeds 10 MB limit.");
         }
 
-        // Extension verification
-        var allowedExtensions = new[] { ".jpeg", ".jpg", ".png" };
-        var extension = Path.GetExtension(imageFile.FileName).ToLowerInvariant();
-        if (!allowedExtensions.Contains(extension))
-        {
-            return BadRequest($"Extension {extension} is not allowed. Allowed: .jpg, .jpeg, .png");
-        }
-
-        // MIME type verification
-        var allowedMimeTypes = new[] { "image/jpeg", "image/png" };
-        var mime = imageFile.ContentType;
-        if (!allowedMimeTypes.Contains(mime))
-        {
-            return BadRequest("MIME type not allowed. Allowed: image/jpeg, image/png");
-        }
-
-
-        //Magic bytes vérification
+        // Upload validation (extension + MIME + magic bytes)
         using var stream = imageFile.OpenReadStream();
-        var magicBytes = new byte[8];
-        await stream.ReadExactlyAsync(magicBytes, 0, 8);
+        var validation = await _fileUploadValidator.ValidateAsync(
+            stream,
+            imageFile.FileName,
+            imageFile.ContentType);
 
-        if (!IsValidImageMagicBytes(magicBytes))
+        switch (validation)
         {
-            return BadRequest("Invalid image file (magic bytes mismatch).");
+            case FileUploadValidationResult.Valid:
+                break;
+            case FileUploadValidationResult.ExtensionNotAllowed:
+                return BadRequest("Extension not allowed. Allowed: .jpg, .jpeg, .png");
+            case FileUploadValidationResult.MimeTypeNotAllowed:
+                return BadRequest("MIME type not allowed. Allowed: image/jpeg, image/png");
+            case FileUploadValidationResult.FileTooSmall:
+            case FileUploadValidationResult.InvalidMagicBytes:
+                // Same generic message for both — don't reveal the 8-byte threshold to attackers (US-03 security)
+                return BadRequest("Invalid or corrupted image file.");
         }
 
-        stream.Position = 0; // reset the cursor to the beginning for OCR 
 
         // Recipe quota check — prevent LLM waste if user already at limit
         await _recipeService.EnsureQuotaAvailableAsync(userId);
@@ -213,25 +210,5 @@ public class RecipeController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
         var count = await _recipeService.CountByUserAsync(userId);
         return Ok(count);
-    }
-
-    private static bool IsValidImageMagicBytes(byte[] magicBytes)
-    {
-        if (magicBytes == null || magicBytes.Length < 8)
-        {
-            return false;
-        }
-        byte[] jpegSignature = { 0xFF, 0xD8, 0xFF };
-        byte[] pngSignature = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
-
-        if (magicBytes.Take(3).SequenceEqual(jpegSignature))
-        {
-            return true;
-        }
-        if (magicBytes.Take(8).SequenceEqual(pngSignature))
-        {
-            return true;
-        }
-        return false;
     }
 }
