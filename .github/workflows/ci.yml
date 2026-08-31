@@ -134,7 +134,7 @@ jobs:
         run: docker build -t memorecipe-web:lighthouse-test App/MemoRecipe.Web
 
       - name: Run Web container (with --add-host to bypass nginx reverse proxy DNS)
-        run: docker run --rm -d -p 8080:80 --add-host=api:127.0.0.1 --name memorecipe-web-lighthouse memorecipe-web:lighthouse-test
+        run: docker run --rm -d -p 8080:8080 --add-host=api:127.0.0.1 --name memorecipe-web-lighthouse memorecipe-web:lighthouse-test
 
       - name: Wait for Web container ready
         run: |

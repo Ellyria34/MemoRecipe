@@ -26,4 +26,4 @@ COPY --from=build /app/publish/wwwroot /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Stage 2 (suite): app startup configuration
-EXPOSE 80
+EXPOSE 8080
