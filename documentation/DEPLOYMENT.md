@@ -261,6 +261,94 @@ docker compose -f docker-compose.prod.yml up -d --force-recreate api
 
 ---
 
+## Container hardening (OWASP baseline)
+
+`docker-compose.prod.yml` applies 3 OWASP baseline directives on all 4 services (postgres, api, web, backup) for defense in depth (US-06):
+
+- **`read_only: true`**: immutable rootfs. A compromised container cannot persist via rootfs writes (no persistent webshell / backdoor possible).
+- **`cap_drop: [ALL]`**: strips all default Docker Linux capabilities. `cap_add:` explicitly re-grants only strictly required caps per service.
+- **`tmpfs:`**: mounts runtime write paths as in-memory volumes (volatile, wiped on each restart) instead of the host disk.
+
+### Minimum capabilities per service
+
+| Service | `cap_add` | Justification |
+|---|---|---|
+| `postgres` | `CHOWN`, `DAC_OVERRIDE`, `FOWNER`, `SETGID`, `SETUID` | Data dir init + WAL rotation |
+| `api` | *(none)* | HTTP server on unprivileged port 8080, no cap required |
+| `web` (nginx) | `CHOWN`, `SETGID`, `SETUID` | chown cache dirs at startup + master root → worker nginx user switch |
+| `backup` | `CHOWN`, `DAC_OVERRIDE`, `FOWNER`, `SETGID`, `SETUID` | `pg_dump` + cron busybox-suid + GPG encryption |
+
+### tmpfs mounts per service
+
+| Service | tmpfs paths | Runtime usage |
+|---|---|---|
+| `postgres` | `/tmp`, `/var/run/postgresql` | Temp files + Unix socket + PID |
+| `api` | `/tmp` | Kestrel temporary files (upload buffering, etc.) |
+| `web` | `/var/cache/nginx`, `/var/run`, `/tmp` | nginx cache + PID + temp |
+| `backup` | `/tmp`, `/var/log`, `/var/run` | Fresh `GNUPGHOME` per run + cron logs + cron PID |
+
+### Persistent volume for API DataProtection Keys
+
+ASP.NET Core `DataProtection` generates and rotates symmetric keys in `~/.aspnet/DataProtection-Keys` (= `/home/app/.aspnet/DataProtection-Keys` for user `app`). With `read_only: true`, these keys must be stored in a dedicated persistent volume:
+
+```yaml
+services:
+  api:
+    volumes:
+      - dataprotection_keys:/home/app/.aspnet/DataProtection-Keys
+
+volumes:
+  dataprotection_keys:
+    driver: local
+```
+
+**Bonus benefit**: keys survive redeploys → no JWT / HttpOnly cookie invalidation on each `docker compose up -d`.
+
+### Non-root users (image defaults preserved)
+
+No explicit `user:` in the compose file. Images already use non-root users by default:
+
+| Service | Image default user | Source |
+|---|---|---|
+| `postgres` | `postgres` UID 999 | Official `postgres:16-alpine` image |
+| `api` | `app` UID 1654 | `<ContainerUser>app</ContainerUser>` csproj (.NET Container Support) |
+| `web` (nginx) | `nginx` UID 101 | Official `nginx:alpine` image switches master root → worker after boot |
+| `backup` | `root` (for cron) | Cron busybox `/etc/crontabs/root` must run as root to execute crontab tasks |
+
+Do NOT force `user: "1000:1000"`: would break permissions on files copied into images at build time (UID chown mismatch).
+
+### nginx port 8080 (unprivileged) choice
+
+The `web` service listens on port `8080` (unprivileged, ≥ 1024) instead of the traditional nginx port `80`. Benefit: allows strict `cap_drop: [ALL]` without compromising with `NET_BIND_SERVICE` (required to bind ports < 1024). Configured in:
+- `App/MemoRecipe.Web/nginx.conf`: `listen 8080;`
+- `App/MemoRecipe.Web/Dockerfile`: `EXPOSE 8080`
+- `docker-compose.prod.yml`: `target: 8080` (container port) → mapped to host `127.0.0.1:8080` (host port unchanged)
+
+### Healthchecks: explicit IPv4 `127.0.0.1`
+
+Internal healthchecks use `http://127.0.0.1:8080/...` instead of `http://localhost:8080/...`. Reason: the nginx alpine image's `10-listen-on-ipv6-by-default.sh` script tries to modify `default.conf` at boot to enable IPv6 → blocked by `read_only: true`. Result: nginx listens on IPv4 only. `localhost` inside the container may resolve to `::1` (IPv6) depending on config, which fails. `127.0.0.1` forces IPv4 explicitly = deterministic healthcheck.
+
+### Post-deploy verification
+
+Confirm that the 3 directives are applied on all 4 services:
+
+```bash
+docker inspect memorecipe_postgres memorecipe_api memorecipe_web memorecipe_backup \
+    --format "{{.Name}} | ReadOnly={{.HostConfig.ReadonlyRootfs}} | CapDrop={{.HostConfig.CapDrop}} | CapAdd={{.HostConfig.CapAdd}} | User={{.Config.User}}"
+```
+
+**Expected output**:
+- `ReadOnly=true` on all 4 services
+- `CapDrop=[ALL]` on all 4 services
+- `CapAdd` per the capabilities table above
+- `User` = image default (non-root)
+
+### Historical context
+
+Baseline `security_opt: no-new-privileges` set in **BACK-007p3** (30/07/2026). Advanced hardening (`read_only` + `cap_drop` + `tmpfs` + `dataprotection_keys` volume) added in **US-06** (31/08/2026, Sprint Alpha.3) to strengthen defense in depth before public exposure.
+
+---
+
 ## One-time setup
 
 ### 1. Create the GitHub PAT (dev machine)

@@ -23,6 +23,18 @@ services:
     cpus: '1.0'
     security_opt:
       - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
 
   api:
     image: ghcr.io/ellyria34/memorecipe-api:${API_IMAGE_TAG:-latest}
@@ -42,13 +54,15 @@ services:
       - Telegram__ChatId
     expose:
       - "8080"
+    volumes:
+      - dataprotection_keys:/home/app/.aspnet/DataProtection-Keys
     networks:
       - backend
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -57,13 +71,18 @@ services:
     cpus: '1.0'
     security_opt:
       - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
 
   web:
     image: ghcr.io/ellyria34/memorecipe-web:${WEB_IMAGE_TAG:-latest}
     container_name: memorecipe_web
     restart: unless-stopped
     ports:
-      - target: 80
+      - target: 8080
         published: 8080
         host_ip: 127.0.0.1
     networks:
@@ -72,7 +91,7 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/ || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/ || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -81,6 +100,17 @@ services:
     cpus: '0.5'
     security_opt:
       - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
 
   backup:
     build:
@@ -108,6 +138,20 @@ services:
     cpus: '0.5'
     security_opt:
       - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/log
+      - /var/run
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+
 
 networks:
   backend:
@@ -117,6 +161,8 @@ volumes:
   postgres_data:
     driver: local
   backup_data:
+    driver: local
+  dataprotection_keys:
     driver: local
 
 secrets:
