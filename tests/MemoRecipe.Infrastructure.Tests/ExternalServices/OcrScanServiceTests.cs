@@ -1,8 +1,10 @@
 using System.Net;
 using System.Text;
+using MemoRecipe.Application.Exceptions;
 using MemoRecipe.Infrastructure.ExternalServices;
 using MemoRecipe.Infrastructure.Tests.Notifications;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MemoRecipe.Infrastructure.Tests.ExternalServices;
 
@@ -41,7 +43,6 @@ public class OcrScanServiceTests
     }
 
     // Test 2 — Verifies fail-fast when OcrScan:FunctionKey config is missing.
-    // Consistent with the DEC-023 pattern (fail loud early, no silent fallback).
     // This does not replace the RequireConfig check in Program.cs, it is a defense-in-depth
     // double-check at the constructor level: if config is corrupted or if a future refactor
     // ever bypasses the Program.cs check, the service still refuses to start silently.
@@ -61,9 +62,33 @@ public class OcrScanServiceTests
 
         // Act + Assert
         var exception = Assert.Throws<InvalidOperationException>(() =>
-            new OcrScanService(configWithoutFunctionKey, httpClient));
+            new OcrScanService(configWithoutFunctionKey, httpClient, NullLogger<OcrScanService>.Instance));
+
 
         Assert.Contains("OcrScan:FunctionKey", exception.Message);
+    }
+
+    // Test 3 — US-05: verifies that a non-success status from the Function throws
+    // OcrServiceUnavailableException instead of parsing an HTML error body as JSON
+    // (which would throw JsonException → 500 to client). The controller catches this
+    // typed exception → returns 503 with a generic FR message. Security: no HTML body
+    // leaked in logs (just the status code).
+    [Fact]
+    public async Task ProcessImageAsync_WhenFunctionReturns500_ThrowsOcrServiceUnavailableException()
+    {
+        // Arrange - simulate Azure gateway 500 with HTML error body (worst case scenario)
+        var handler = new FakeHttpMessageHandler(_ =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            {
+                Content = new StringContent("<html>Azure gateway error</html>", Encoding.UTF8, "text/html")
+            }));
+        var sut = CreateSut(handler);
+        var fakeImage = new MemoryStream(new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 });
+
+        // Act + Assert
+        var exception = await Assert.ThrowsAsync<OcrServiceUnavailableException>(
+            () => sut.ProcessImageAsync(fakeImage));
+        Assert.Equal(HttpStatusCode.InternalServerError, exception.StatusCode);
     }
 
     // ---------- Helpers ----------
@@ -78,6 +103,9 @@ public class OcrScanServiceTests
                 ["OcrScan:FunctionKey"] = "fake-function-key"
             })
             .Build();
-        return new OcrScanService(config, httpClient);
+        return new OcrScanService(config, httpClient, NullLogger<OcrScanService>.Instance);
     }
+
+
+
 }

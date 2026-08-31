@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using MemoRecipe.Application.Configuration;
 using System.Diagnostics;
 using MemoRecipe.Application.Services.Upload;
+using MemoRecipe.Application.Exceptions;
 
 namespace MemoRecipe.Api.Controllers;
 
@@ -190,6 +191,17 @@ public class RecipeController : ControllerBase
             result.AiUsage = null;
 
             return Ok(result);
+        }
+        catch (OcrServiceUnavailableException)
+        {
+            stopwatch.Stop();
+            await _auditLogger.LogScanErrorAsync(
+                userId,
+                provider: "unknown",
+                errorCode: "OcrServiceUnavailable",
+                stopwatch.ElapsedMilliseconds,
+                inputHash);
+            return StatusCode(503, new { error = "ocr_unavailable", message = "Service OCR temporairement indisponible" });
         }
         catch (Exception ex)
         {
