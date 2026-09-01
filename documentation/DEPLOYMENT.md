@@ -66,9 +66,9 @@ a publish phase on the dev machine, and a deploy phase on the VPS.
 
 The GitHub repo and GHCR are two separate services that both live under
 the same GitHub account, but store different things (source code vs
-built container images). The Backup image is built locally on the VPS;
-publishing it to GHCR is deferred to a future iteration (or when adding
-a CI/CD pipeline in BACK-008) to keep the initial scope focused.
+built container images). The Backup image is still built locally on the VPS
+(BACK-008 CI/CD done 03/08 pushes API + Frontend to GHCR on tag `v*` but
+did not migrate the backup image — tracked V1.1 as a follow-up).
 
 ### Versioning & rollback
 
@@ -117,6 +117,115 @@ This pattern also allows hosting multiple apps on the same VPS behind the same r
   configuration). All sensitive values (JWT signing key, database
   password, third-party API keys) are provisioned separately via
   Docker Compose secrets — see [Secret management (production)](#secret-management-production).
+
+---
+
+## Initial VPS setup (first-time provisioning)
+
+One-time procedure to prepare a fresh Debian/Ubuntu-based VPS for the MemoRecipe stack. Assumes SSH access as `root` initially; subsequent operations use a dedicated non-root `<deploy-user>`.
+
+### 1. System update + create non-root deploy user
+
+```bash
+# As root, first login via SSH
+apt update && apt upgrade -y
+
+# Create a dedicated non-root user for deployments
+adduser <deploy-user>
+usermod -aG sudo <deploy-user>
+
+# Copy SSH authorized_keys from root to the new user (if using key auth)
+mkdir -p /home/<deploy-user>/.ssh
+cp /root/.ssh/authorized_keys /home/<deploy-user>/.ssh/
+chown -R <deploy-user>:<deploy-user> /home/<deploy-user>/.ssh
+chmod 700 /home/<deploy-user>/.ssh
+chmod 600 /home/<deploy-user>/.ssh/authorized_keys
+
+# Log out and reconnect as <deploy-user>. Subsequent commands use sudo.
+```
+
+### 2. UFW firewall (least privilege — only expose 22 + 80 + 443)
+
+```bash
+sudo apt install -y ufw
+
+# Default deny all inbound, allow all outbound
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+# Allow SSH (22), HTTP (80 for Let's Encrypt HTTP-01 challenge), HTTPS (443)
+sudo ufw allow 22/tcp comment 'SSH'
+sudo ufw allow 80/tcp comment 'HTTP (Let'\''s Encrypt challenge + redirect to HTTPS)'
+sudo ufw allow 443/tcp comment 'HTTPS'
+
+# Enable UFW (SSH connection stays open during enable)
+sudo ufw --force enable
+sudo ufw status verbose
+```
+
+**Never expose port 8080 publicly** — the `web` container binds to `127.0.0.1:8080` (loopback only) and the reverse proxy on 443 forwards to it internally.
+
+### 3. Docker Engine + docker compose plugin
+
+```bash
+# Uninstall any old Docker packages first
+sudo apt remove -y docker docker-engine docker.io containerd runc
+
+# Install prerequisites
+sudo apt install -y ca-certificates curl gnupg lsb-release
+
+# Add Docker's official GPG key
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+# Add Docker repository
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Install Docker Engine + Compose plugin
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Add <deploy-user> to docker group (avoids sudo for docker commands)
+sudo usermod -aG docker <deploy-user>
+
+# Log out and reconnect to apply group membership
+```
+
+**Verify installation** :
+```bash
+docker --version           # >= 24.x
+docker compose version     # v2.x plugin
+docker run --rm hello-world
+```
+
+### 4. Prepare deployment directory + clone repo
+
+```bash
+sudo mkdir -p <vps-path>
+sudo chown <deploy-user>:<deploy-user> <vps-path>
+cd <vps-path>
+git clone https://github.com/<owner>/MemoRecipe.git .
+```
+
+**Note** : cloning the public repo does NOT require GitHub auth. Secrets are provisioned separately (next section). PATs are only needed for `docker login ghcr.io` (see [One-time setup](#one-time-setup)).
+
+### 5. Basic hardening (SSH + fail2ban optional)
+
+```bash
+# Disable SSH root login (edit /etc/ssh/sshd_config)
+sudo sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+sudo systemctl restart sshd
+
+# Optional : install fail2ban (bans IPs after N failed SSH attempts)
+sudo apt install -y fail2ban
+sudo systemctl enable fail2ban
+sudo systemctl start fail2ban
+```
+
+**After this section** : the VPS is ready for [Secret management](#secret-management-production) and [First deploy](#first-deploy).
 
 ---
 
@@ -175,61 +284,13 @@ sudo chmod 400 <secrets-path>/*
 Back up the plaintext values in a secure secrets vault immediately —
 these files are the only copies.
 
-### `docker-compose.prod.yml` (reference — already applied)
+### Compose secrets integration
 
-The compose file at the repo root uses the Docker Secrets pattern. The
-`file:` entries below reference `${SECRETS_PATH}` — a variable set in
-`.env` (see `.env.example`) that points to the host directory where the
-one-file-per-secret files live.
+The compose file at the repo root (`docker-compose.prod.yml`) uses the Docker Secrets pattern with `${SECRETS_PATH}` (set in `.env`) pointing to the host directory holding the one-file-per-secret files. Each service only lists the secrets it actually needs (least privilege).
 
-```yaml
-services:
-  api:
-    image: ghcr.io/<owner>/memorecipe-api:${API_IMAGE_TAG}
-    secrets:
-      - JwtSettings__Secret
-      - ConnectionStrings__DefaultConnection
-      - OcrScan__BaseUrl
-      - OcrScan__FunctionKey
-      - Telegram__BotToken
-      - Telegram__ChatId
+The `backup` service reads `postgres_password` from `/run/secrets/postgres_password` in `infra/backup/backup.sh` (loaded into `PGPASSWORD` at the start of the script, before any `pg_dump` call).
 
-  postgres:
-    image: postgres:16-alpine
-    secrets:
-      - postgres_password
-    environment:
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-
-  backup:
-    build:
-      context: .
-      dockerfile: infra/backup/Dockerfile
-    secrets:
-      - postgres_password
-    environment:
-      GPG_RECIPIENT: ${GPG_RECIPIENT}
-
-secrets:
-  JwtSettings__Secret:
-    file: ${SECRETS_PATH}/JwtSettings__Secret
-  ConnectionStrings__DefaultConnection:
-    file: ${SECRETS_PATH}/ConnectionStrings__DefaultConnection
-  OcrScan__BaseUrl:
-    file: ${SECRETS_PATH}/OcrScan__BaseUrl
-  OcrScan__FunctionKey:
-    file: ${SECRETS_PATH}/OcrScan__FunctionKey
-  Telegram__BotToken:
-    file: ${SECRETS_PATH}/Telegram__BotToken
-  Telegram__ChatId:
-    file: ${SECRETS_PATH}/Telegram__ChatId
-  postgres_password:
-    file: ${SECRETS_PATH}/postgres_password
-```
-
-Each service only lists the secrets it actually needs (least privilege).
-The `backup` service reads `postgres_password` from `/run/secrets/` in
-`infra/backup/backup.sh` (loaded into `PGPASSWORD` before `pg_dump`).
+**Single source of truth** : the actual compose file is `docker-compose.prod.yml` at the repo root. Refer to it directly rather than to any inline extract in this document (extracts get stale as the file evolves — the file itself is versioned in git).
 
 ### Verify (never print values)
 
@@ -349,19 +410,133 @@ Baseline `security_opt: no-new-privileges` set in **BACK-007p3** (30/07/2026). A
 
 ---
 
+## HTTPS + Let's Encrypt reverse proxy (US-08 anticipation)
+
+> **Status** : this section is written in anticipation of **US-08 (HTTPS forcé prod + Let's Encrypt sur VPS)**. Commands are indicative and will be validated / adapted during the actual US-08 execution. Reverse proxy choice (nginx vs Apache on the VPS host) will be finalized in US-08.
+
+### Prerequisites
+
+- Domain name pointing to the VPS public IP (e.g. `<your-domain>` → A record → `<vps-public-ip>`)
+- UFW allows 80 + 443 (done in [Initial VPS setup](#initial-vps-setup-first-time-provisioning))
+- Reverse proxy installed on the VPS host (nginx recommended for consistency with the Blazor `web` container)
+
+### 1. Install nginx (reverse proxy) + certbot
+
+```bash
+sudo apt install -y nginx certbot python3-certbot-nginx
+```
+
+### 2. Create nginx virtual host
+
+```bash
+sudo nano /etc/nginx/sites-available/<your-domain>
+```
+
+Minimal config (adapt `<your-domain>`) :
+```nginx
+server {
+    listen 80;
+    server_name <your-domain>;
+
+    # Let's Encrypt HTTP-01 challenge (before HTTPS is active)
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # Redirect everything else to HTTPS (added by certbot below)
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+```
+
+Enable the site :
+```bash
+sudo ln -s /etc/nginx/sites-available/<your-domain> /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 3. Obtain the Let's Encrypt certificate
+
+```bash
+sudo certbot --nginx -d <your-domain> --agree-tos --non-interactive --email <admin-email>
+```
+
+Certbot auto-configures nginx to :
+- Add the `listen 443 ssl` block
+- Add `ssl_certificate` + `ssl_certificate_key` paths
+- Add HSTS-friendly config (verify + strengthen with `Strict-Transport-Security` preload settings)
+
+### 4. Add reverse proxy to the Blazor `web` container (`127.0.0.1:8080`)
+
+Edit `/etc/nginx/sites-available/<your-domain>` (the `server { listen 443 ssl; ... }` block created by certbot) :
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name <your-domain>;
+
+    # SSL config (auto-added by certbot)
+    ssl_certificate /etc/letsencrypt/live/<your-domain>/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/<your-domain>/privkey.pem;
+
+    # HSTS preload (recommended for production)
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+
+    # Forward to the Blazor web container
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Reload nginx :
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### 5. Auto-renewal (certbot systemd timer already installed)
+
+Verify :
+```bash
+sudo systemctl status certbot.timer
+sudo certbot renew --dry-run
+```
+
+Let's Encrypt certs are valid 90 days. The systemd timer runs `certbot renew` twice a day; renewal happens automatically ~30 days before expiry.
+
+### 6. Verify HTTPS end-to-end
+
+```bash
+curl -I https://<your-domain>/
+# Expected : HTTP/2 200 + Strict-Transport-Security header
+```
+
+Test SSL config quality via [SSL Labs](https://www.ssllabs.com/ssltest/) (target : A+ rating post-hardening).
+
+---
+
 ## One-time setup
 
-### 1. Create the GitHub PAT (dev machine)
+> **Context** : the dev-side write-capable PAT (step 1 + 2 below) is a **fallback** for Workflow 1 + 2 manual builds. The normal build flow uses the CI/CD's native `GITHUB_TOKEN` (BACK-008 DONE), no PAT needed. The VPS read-only PAT (step 3) remains **required** — the VPS is not a GitHub Actions runner, it cannot use `GITHUB_TOKEN` to pull from GHCR.
+
+### 1. Create the GitHub PAT (dev machine, fallback only)
 
 1. GitHub -> Settings -> Developer settings -> Personal access tokens ->
    Tokens (classic) -> Generate new token.
-2. Note: a meaningful name (e.g. "GHCR push").
+2. Note: a meaningful name (e.g. "GHCR push fallback").
 3. Expiration: 90 days recommended (renew on calendar).
 4. Scopes: tick `write:packages` (it implies `read:packages` and `repo`).
 5. Generate -> copy once -> paste into your password manager with a note
    mentioning the scope and the expiration date.
 
-### 2. Login to GHCR (dev machine)
+### 2. Login to GHCR (dev machine, fallback only)
 
 ```bash
 docker login ghcr.io
@@ -370,7 +545,7 @@ docker login ghcr.io
 # -> Login Succeeded
 ```
 
-### 3. Create a separate read-only PAT for the VPS
+### 3. Create a separate read-only PAT for the VPS (required)
 
 Same procedure as step 1, but tick only `read:packages`. Store it
 separately. Run `docker login ghcr.io` on the VPS with this PAT.
@@ -380,6 +555,8 @@ is ever compromised.
 ---
 
 ## Workflow 1 — Build & push the API image (dev side)
+
+> **Normal workflow** : push a `v*` git tag → GitHub Actions CI/CD builds and pushes the API image to GHCR automatically (see [`.github/workflows/ci.yml`](../.github/workflows/ci.yml), BACK-008 DONE 03/08/2026). This manual workflow below is a **fallback** for edge cases : hotfix without a proper tag, testing new csproj container settings locally before committing, offline environment without CI access.
 
 The API uses the .NET Container Support SDK, which builds and pushes
 in a single `dotnet publish` command. No Dockerfile needed.
@@ -412,6 +589,8 @@ in a single `dotnet publish` command. No Dockerfile needed.
 
 ## Workflow 2 — Build & push the Frontend image (dev side)
 
+> **Normal workflow** : same as Workflow 1 — CI/CD (BACK-008 DONE) auto-builds and pushes the Frontend image on tag `v*`. This manual workflow below is a **fallback** for the same edge cases as the API workflow above.
+
 The Frontend uses a custom Dockerfile (nginx serving Blazor WASM static
 files, see DEC-027). Standard `docker build` + `docker push`.
 
@@ -438,9 +617,68 @@ files, see DEC-027). Standard `docker build` + `docker push`.
 
 ---
 
-## Workflow 3 — Deploy to production
+## First deploy (initial provisioning)
 
-On the VPS, inside `<vps-path>`:
+Distinct from the routine "Deploy update" (Workflow 3 below). This section describes the **one-time first-time deploy** on a fresh VPS, assuming [Initial VPS setup](#initial-vps-setup-first-time-provisioning) + [Secret management](#secret-management-production) + [HTTPS + Let's Encrypt](#https--lets-encrypt-reverse-proxy-us-08-anticipation) are done.
+
+### Prerequisites checklist
+
+- [ ] VPS provisioned + hardened (UFW, non-root user, Docker installed)
+- [ ] `<vps-path>` cloned with the repo
+- [ ] `.env` populated at repo root (image tags, `POSTGRES_USER`, `POSTGRES_DB`, `SECRETS_PATH`, `GPG_RECIPIENT`, `JWT_ISSUER`, `JWT_AUDIENCE`)
+- [ ] All 7 secret files created in `<secrets-path>` (`chmod 400`, owner-only)
+- [ ] `docker login ghcr.io` done on the VPS with the read-only PAT
+- [ ] nginx reverse proxy configured with Let's Encrypt cert on port 443 → forwards to `127.0.0.1:8080`
+- [ ] DNS A record for the domain → VPS public IP
+
+### Steps
+
+```bash
+cd <vps-path>
+
+# 1. Set the initial image tags in .env (first release = v1.0.0-alpha.3)
+nano .env
+# -> API_IMAGE_TAG=v1.0.0-alpha.3
+# -> WEB_IMAGE_TAG=v1.0.0-alpha.3
+
+# 2. Pull the initial API + Frontend images from GHCR
+docker compose -f docker-compose.prod.yml pull api web
+
+# 3. Build the backup image locally (first time)
+docker compose -f docker-compose.prod.yml build backup
+
+# 4. Start the full stack (postgres inits its DB on first run — takes ~30s)
+docker compose -f docker-compose.prod.yml up -d
+
+# 5. Wait for all services to become healthy (~60-90s total)
+watch -n 5 'docker compose -f docker-compose.prod.yml ps'
+# Wait until all 4 services show STATUS = healthy (except backup = Up, no healthcheck)
+
+# 6. Verify the API health endpoint (from the VPS localhost)
+curl -f http://localhost:8080/health
+# Expected : "Healthy" (200)
+
+# 7. Verify HTTPS end-to-end (from anywhere)
+curl -I https://<your-domain>/
+# Expected : HTTP/2 200 + security headers (HSTS, X-Frame, CSP, etc.)
+
+# 8. Trigger a manual first backup to verify the backup chain works
+docker exec memorecipe_backup /usr/local/bin/backup.sh
+docker exec memorecipe_backup ls -lh /backups
+# Expected : one memorecipe_YYYY-MM-DD_HH-MM-SS.dump.gpg file
+```
+
+### First user provisioning
+
+The initial user must be created via the API `POST /api/auth/register` since the registration endpoint is admin-only in Alpha.3 (`Features:RegistrationEnabled=false` for public, but registration works when called directly by the admin). See US-B1-15 for the invitation mail template.
+
+Alternatively, insert the user directly in the database with a bcrypt hash (advanced, not documented here — prefer the API route).
+
+---
+
+## Workflow 3 — Deploy update (routine deploy)
+
+On the VPS, inside `<vps-path>` — this is the routine flow used after the first deploy, when pushing a new version tag :
 
 ```bash
 # 1. Pull the latest compose + .env.example (in case of structure changes)
@@ -497,6 +735,115 @@ docker compose -f docker-compose.prod.yml up -d
 This works because all previous image versions remain available on GHCR
 (immutable tags). Never delete a version that is currently a valid
 rollback target.
+
+---
+
+## Consultation logs
+
+The production stack emits logs from 4 sources. Use the right tool for each source.
+
+### 1. Container stdout/stderr (Docker native)
+
+Any log written by the application to `stdout` or `stderr` is captured by Docker and accessible via `docker logs`. All 4 services (postgres, api, web, backup) use this by default.
+
+```bash
+# Recent logs (last 50 lines) for one service
+docker compose -f docker-compose.prod.yml logs --tail=50 api
+
+# Live tail (Ctrl+C to exit) for one service
+docker compose -f docker-compose.prod.yml logs -f api
+
+# All services combined, live tail
+docker compose -f docker-compose.prod.yml logs -f
+
+# Filter by timestamp (Docker supports RFC3339 or relative)
+docker compose -f docker-compose.prod.yml logs --since 1h api
+docker compose -f docker-compose.prod.yml logs --since 2026-09-01T14:00:00 api
+```
+
+### 2. Serilog structured logs (API)
+
+The API uses Serilog with the `Console` sink in production (writes to stdout, thus captured by `docker logs api`). Log level is configured via `appsettings.json` (default `Information`). Grep patterns for common queries :
+
+```bash
+# All login attempts (success + failure) in the last 24h
+docker compose -f docker-compose.prod.yml logs --since 24h api | grep -E "LoginSuccess|LoginFailed"
+
+# All admin password resets (audit trail — see Runbook incidents)
+docker compose -f docker-compose.prod.yml logs api | grep AdminPasswordReset
+
+# All 4xx/5xx HTTP responses
+docker compose -f docker-compose.prod.yml logs api | grep -E "responded (4|5)[0-9]{2}"
+
+# All warnings + errors (skip info/debug noise)
+docker compose -f docker-compose.prod.yml logs api | grep -E "\[(WRN|ERR|FTL)\]"
+```
+
+**PII redaction** : Serilog is configured with `EmailMasker` (RGPD Art. 5 minimization) — emails appear as `s***@example.com` in logs, never in the clear. See DEC-060 pattern.
+
+### 3. nginx access + error logs (web container)
+
+The nginx image logs `access.log` + `error.log` to symlinks pointing to `/dev/stdout` + `/dev/stderr` respectively (image officielle default). So they are captured by `docker logs web`.
+
+```bash
+# All requests routed through the nginx SPA server
+docker compose -f docker-compose.prod.yml logs --tail=100 web
+
+# Grep for 404s (missing static assets, wrong routes)
+docker compose -f docker-compose.prod.yml logs web | grep " 404 "
+
+# Grep for 5xx from the api upstream (proxy_pass failures)
+docker compose -f docker-compose.prod.yml logs web | grep -E " (502|503|504) "
+```
+
+### 4. PostgreSQL logs
+
+Postgres logs slow queries + connection issues + init to stdout (via the official `postgres:16-alpine` image config).
+
+```bash
+# Recent postgres activity
+docker compose -f docker-compose.prod.yml logs --tail=100 postgres
+
+# Grep for authentication failures (e.g. wrong password, missing user)
+docker compose -f docker-compose.prod.yml logs postgres | grep -i "authentication failed"
+
+# Grep for slow queries (if log_min_duration_statement is set)
+docker compose -f docker-compose.prod.yml logs postgres | grep -i "duration:"
+```
+
+### 5. Backup cron logs
+
+The backup container runs cron; each backup execution logs to stdout (captured by `docker logs backup`).
+
+```bash
+# Recent backup runs (should be 1 per day at off-peak hours)
+docker logs memorecipe_backup --tail=100
+
+# Grep for backup successes / failures
+docker logs memorecipe_backup | grep -E "backup completed|backup failed"
+```
+
+See [Backup & Restore → Monitoring / verification](#monitoring--verification) for backup-specific health checks.
+
+### Log rotation
+
+Docker's default log driver (`json-file`) grows indefinitely. In production, configure log rotation via `/etc/docker/daemon.json` on the VPS host :
+
+```json
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+```
+
+Restart Docker to apply : `sudo systemctl restart docker`. Each container keeps up to 30 MB of logs (3 × 10 MB rotated files) before oldest logs are discarded.
+
+### Correlation IDs (future)
+
+Structured correlation IDs across `web` → `api` → `postgres` are tracked as a follow-up (BACK-079 remaining scope). Currently, correlate manually via timestamps + user email masked patterns.
 
 ---
 
@@ -557,6 +904,120 @@ Emergency operational procedures — not routine deployment, not bug troubleshoo
 3. Run the bash wrapper (prompts for password interactively, never in shell history) :
    ```bash
    ./infra/admin/reset-password.sh memorecipe_api <user-email>
+   ```
+4. When prompted `New password for <user-email>:`, type the temporary password (input is hidden, no echo).
+5. When prompted `Have you verified identity? (yes/no):`, type `yes` only if you have verified the requester's identity through a known channel. Otherwise type anything else to abort — the script exits with `[ABORTED] Identity not verified`, no DB change.
+6. On success, the script prints `[OK] Password reset succeeded for <user-email>` and exits with code 0.
+7. **Communicate the temporary password to the user through a secure channel** (encrypted messenger, in-person, or password manager share). NEVER via cleartext email.
+8. Advise the user to change the password immediately after login (self-service password change endpoint TBD post-V1).
+
+**What the script does under the hood** :
+- Prompts password via `read -s` (invisible, never in bash history).
+- Writes to a host temp file with `chmod 600` (owner-only).
+- Copies the temp file into the container via `docker cp`.
+- Runs `dotnet MemoRecipe.Api.dll --reset-password --email <email> --password-file <path>` inside the container. The API's `AdminPasswordResetService` normalizes the email, finds the user, hashes the new password using the SAME `PasswordHasher<User>` as the production login flow (zero divergence guaranteed), persists via EF Core.
+- Cleans up the temp file on host (`shred -uz` via `trap EXIT`, guaranteed even on Ctrl+C or error) and in the container.
+- Emits a Serilog audit log `AdminPasswordResetPerformed` with the user ID and masked email — never the password.
+
+**Exit codes** :
+- `0` : reset succeeded, user can login with the new password.
+- `2` : user not found (verify email spelling with the requester).
+- `1` : configuration or file error (missing args, unreadable password file, DB unreachable). Check the container logs.
+
+**Failure modes** :
+- **User not found** → verify email address of record against your user management source (DB backup, initial invite mail archive).
+- **DB unreachable** → check `docker compose ps postgres` and `docker logs memorecipe_postgres`.
+- **Permission denied on script** → run `chmod +x infra/admin/reset-password.sh` (already tracked as `100755` in git index post-FIX-004, should not happen in normal flow).
+
+**Audit trail** : each reset emits a WARNING-level Serilog entry with masked email + user ID. Query via `docker logs memorecipe_api | grep AdminPasswordReset` for post-incident review.
+
+### Container down (crash loop)
+
+**Symptom** : one service (`api`, `web`, `postgres`, `backup`) is `Restarting` or `Exited` in `docker compose ps`. Client sees 502 / 503 / connection refused.
+
+**Diagnostic** :
+```bash
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs --tail=80 <service>
+```
+
+**Common causes + fixes** :
+- **API crashes on `Configuration '<key>' is invalid`** → secret file missing or contains `CHANGE_ME` placeholder. Verify with `docker compose exec api ls -la /run/secrets/`. Fix : re-create the missing secret file, `sudo chmod 400`, then `docker compose up -d --force-recreate api`.
+- **Postgres crashes on `password authentication failed`** → mismatch between `postgres_password` file and `Password=…` inside `ConnectionStrings__DefaultConnection`. See [Troubleshooting](#troubleshooting).
+- **Web crashes on `host not found in upstream "api"`** → api container is down. Bring api healthy first, then web restarts automatically.
+- **Backup crashes on GPG lock** → stale `keyboxd` socket. See [Backup Known issues / caveats](#known-issues--caveats). Fix : `docker compose restart backup`.
+
+**Escalation** : if crash loop persists after fixing the config, [rollback](#workflow-4--rollback) to the previous image tag.
+
+### Disk full
+
+**Symptom** : postgres refuses writes with `could not extend file`, backup fails with `No space left on device`, API returns 500 on write endpoints.
+
+**Diagnostic** :
+```bash
+df -h                                    # host disk usage
+docker system df                         # Docker's disk usage breakdown
+du -sh /var/lib/docker/volumes/*         # per-volume disk usage
+```
+
+**Common causes + fixes** :
+- **Backup volume grows unbounded** → verify `RETENTION_DAYS=30` env var is applied. Manual cleanup : `docker exec memorecipe_backup find /backups -mtime +30 -delete`.
+- **Docker logs grow unbounded** → apply log rotation config (see [Consultation logs → Log rotation](#log-rotation)) then `sudo systemctl restart docker`.
+- **Dangling images from old rollbacks** → `docker image prune -a` (careful : removes all unused images, including previous rollback targets. Verify current tag first).
+- **Postgres data volume unexpectedly large** → check for orphan tables / slow query log fill. Emergency : bump the VPS disk allocation via your hosting provider dashboard (requires reboot).
+
+**Prevention** : monitor host disk via `df -h` in a cron alert. Currently manual; automated alerts tracked in BACK-079 remaining scope.
+
+### Let's Encrypt cert expired
+
+**Symptom** : browsers refuse the site with `NET::ERR_CERT_DATE_INVALID` or `Your connection is not private`. `curl -I https://<your-domain>/` returns SSL handshake failure.
+
+**Diagnostic** :
+```bash
+# Check cert expiry date
+sudo certbot certificates
+
+# Check the auto-renewal systemd timer
+sudo systemctl status certbot.timer
+sudo journalctl -u certbot.timer --since 7d
+```
+
+**Common causes + fixes** :
+- **Certbot timer disabled/failed** → re-enable : `sudo systemctl enable --now certbot.timer` + test with `sudo certbot renew --dry-run`.
+- **Port 80 blocked** (UFW misconfig or reverse proxy config accident) → Let's Encrypt HTTP-01 challenge requires port 80 open. Verify : `sudo ufw status` shows 80/tcp ALLOW. Fix : `sudo ufw allow 80/tcp`.
+- **Rate limit hit** (Let's Encrypt : 5 certs / week per domain) → wait for the rolling window (7 days) or use staging environment for tests : `--staging` flag on certbot.
+
+**Emergency force-renew** :
+```bash
+sudo certbot renew --force-renewal
+sudo systemctl reload nginx
+```
+
+Verify SSL is back : `curl -I https://<your-domain>/` should return `HTTP/2 200` again.
+
+### EF Core migration failed at startup
+
+**Symptom** : API container crash loop with `System.InvalidOperationException` or Npgsql migration error at boot (Program.cs calls `db.Database.Migrate()` on startup).
+
+**Diagnostic** :
+```bash
+docker compose -f docker-compose.prod.yml logs --tail=100 api | grep -A 20 "Migration"
+
+# Check applied migrations directly in the DB
+docker exec memorecipe_postgres psql -U <db-user> -d <db-name> -c "SELECT * FROM \"__EFMigrationsHistory\" ORDER BY \"MigrationId\";"
+```
+
+**Common causes + fixes** :
+- **Migration script incompatible with existing data** (e.g. new NOT NULL column without default on a non-empty table) → restore the previous API image tag ([rollback](#workflow-4--rollback)) + fix the migration locally (add a default value, split in 2 migrations : add nullable → backfill → alter NOT NULL) → re-tag → re-deploy.
+- **Migration succeeded partially then crashed** → DB in inconsistent state. Check `__EFMigrationsHistory` : if the failed migration is listed, remove it manually via `DELETE FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260901xxxxxx_YourMigration';` then retry with a fixed migration.
+- **DB user lacks DDL permissions** → verify `<db-user>` has `CREATE, ALTER, DROP` grants on the schema. Fix : temporarily elevate permissions, apply migration, re-lock.
+
+**Prevention** :
+- Always test migrations locally against a **production-like DB dump** before deploying.
+- For destructive migrations (drop column, rename table), split in 2+ releases with a compatibility window.
+- Add `--dry-run` migration checks to CI (tracked follow-up).
+
+**Emergency rollback of a bad migration** : requires manual SQL to reverse the migration's changes (EF Core does not auto-generate down scripts in prod). Consult the migration source `.cs` file in `MemoRecipe.Infrastructure/Migrations/` to identify what to reverse.
 
 ---
 
@@ -695,7 +1156,7 @@ Check the age of the latest backup (should be < 25h):
 docker exec memorecipe_backup sh -c 'ls -lt /backups/memorecipe_*.dump.gpg | head -1'
 ```
 
-Alerts on backup failure / staleness will be implemented in **BACK-079** (monitoring + alerts).
+Alerts on backup failure / staleness are part of **BACK-079** (monitoring + alerts). The `/health` endpoint (BACK-011) is already live via C9; backup-specific alerts are still pending in the remaining BACK-079 scope.
 
 ### Known issues / caveats
 
