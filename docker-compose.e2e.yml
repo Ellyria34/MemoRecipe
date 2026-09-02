@@ -45,7 +45,7 @@ services:
     # API waits on first call with retry — accepted pattern)
 
   api:
-    image: memorecipe-api:e2e-local
+    image: ellyria34/memorecipe-api:e2e-local
     container_name: memorecipe_api_e2e
     env_file: .env.e2e
     networks:

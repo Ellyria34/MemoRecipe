@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Microsoft.Playwright;
 using Microsoft.Playwright.Xunit;
 
 namespace MemoRecipe.Web.E2E.Tests;
@@ -6,12 +7,12 @@ namespace MemoRecipe.Web.E2E.Tests;
 public class SmokeTest : PageTest
 {
     [Fact]
-    public async Task Playwright_CanOpenExamplePage_TitleContainsExample()
+    public async Task Home_LoadsSuccessfully_TitleContainsMemoRecipe()
     {
-        // Arrange & Act : navigate to a public, stable page
-        await Page.GotoAsync("https://example.com");
+        // Arrange & Act: navigate to the local E2E stack homepage
+        await Page.GotoAsync("http://localhost:8080");
 
-        // Assert : title contains "Example Domain"
-        await Expect(Page).ToHaveTitleAsync(new Regex("Example"));
+        // Assert: the page title contains "MemoRecipe" (regardless of the tagline suffix)
+        await Expect(Page).ToHaveTitleAsync(new Regex("MemoRecipe"));
     }
 }

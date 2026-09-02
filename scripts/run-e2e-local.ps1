@@ -1,5 +1,5 @@
 # ============================================================================
-# run-e2e-local.ps1 — Orchestrates the E2E test cycle locally (Windows/PS 5.1+)
+# run-e2e-local.ps1 - Orchestrates the E2E test cycle locally (Windows/PS 5.1+)
 #
 # Steps:
 #   1) Builds the API container image via .NET Container Support
@@ -37,7 +37,7 @@ try {
 
     # ----- Step 2: Start the E2E stack -----
     Write-Host "==> [2/5] Starting E2E stack (postgres + ia + api + web)..." -ForegroundColor Cyan
-    docker compose -f $composeFile up --build -d
+    docker compose -f $composeFile -p memorecipe_e2e up --build -d
     if ($LASTEXITCODE -ne 0) { throw "docker compose up failed (exit code $LASTEXITCODE)" }
 
     # ----- Step 3: Wait for the web service to become healthy -----
@@ -52,12 +52,12 @@ try {
                 break
             }
         } catch {
-            # Web not ready yet — keep polling
+            # Web not ready yet - keep polling
         }
         Start-Sleep -Seconds 3
         Write-Host "    Still waiting... ($([int]$stopwatch.Elapsed.TotalSeconds)s elapsed)"
     }
-    if (-not $healthy) { throw "Stack did not become healthy within ${maxWaitSeconds}s — check 'docker compose logs'" }
+    if (-not $healthy) { throw "Stack did not become healthy within ${maxWaitSeconds}s - check 'docker compose logs'" }
     Write-Host "    Stack healthy in $([int]$stopwatch.Elapsed.TotalSeconds)s" -ForegroundColor Green
 
     # ----- Step 4: Run Playwright E2E tests -----
@@ -68,7 +68,7 @@ try {
 finally {
     # ----- Step 5: Teardown (guaranteed even on failure) -----
     Write-Host "==> [5/5] Tearing down E2E stack..." -ForegroundColor Cyan
-    docker compose -f $composeFile down -v
+    docker compose -f $composeFile -p memorecipe_e2e down -v
 }
 
 if ($testExitCode -ne 0) {
