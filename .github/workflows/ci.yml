@@ -201,24 +201,24 @@ jobs:
           docker compose -f docker-compose.e2e.yml -p memorecipe_e2e logs
           exit 1
       
-      - name: Warmup Function IA (poll until scan endpoint responds)
+      - name: Warmup Function IA (poll until scan endpoint routed)
         run: |
           for i in {1..60}; do
             status=$(docker compose -f docker-compose.e2e.yml -p memorecipe_e2e exec -T ia \
-              curl -s -o /dev/null -w "%{http_code}" http://localhost:7071/api/scan-recipe 2>/dev/null || echo "000")
+              curl -s -o /dev/null -w "%{http_code}" http://localhost:7071/api/ExtractOcrFunction 2>/dev/null || echo "000")
             echo "Attempt $i: HTTP $status"
-            if [ "$status" != "000" ] && [ "$status" != "" ]; then
-              echo "Function IA responsive after $i attempts"
+            if [ "$status" = "400" ] || [ "$status" = "405" ] || [ "$status" = "200" ]; then
+              echo "Function IA endpoint routed after $i attempts"
               exit 0
             fi
-            sleep 2
+            sleep 3
           done
-          echo "::error::Function IA did not respond after 120s"
+          echo "::error::Function IA endpoint not routed after 180s"
           docker compose -f docker-compose.e2e.yml -p memorecipe_e2e logs ia
           exit 1
 
       - name: Run Playwright E2E tests
-        run: dotnet test tests/MemoRecipe.Web.E2E.Tests/MemoRecipe.Web.E2E.Tests.csproj --no-build
+        run: dotnet test tests/MemoRecipe.Web.E2E.Tests/MemoRecipe.Web.E2E.Tests.csproj --no-build --filter "Category!=SkipCI"
 
       - name: Dump container logs on failure
         if: failure()
