@@ -42,8 +42,8 @@ services:
     networks:
       - backend_e2e
     healthcheck:
-      test: [ "CMD-SHELL", "curl -s http://localhost:7071/ > /dev/null || exit 1" ]
-      interval: 3s
+      test: [ "CMD-SHELL", "code=$$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:7071/api/ExtractOcrFunction); [ \"$$code\" != \"000\" ] && [ \"$$code\" != \"404\" ]" ]
+      interval: 5s
       timeout: 5s
       retries: 30
       start_period: 120s
