@@ -44,4 +44,30 @@ public class AuthTests : PageTest
         // ----- Step 6: Assert dashboard rendered again (re-login succeeded) -----
         await Expect(homePage.WelcomeHeading).ToBeVisibleAsync();
     }
+
+    [Fact]
+    public async Task Auth_LoginWithWrongPassword_ShowsErrorAlert()
+    {
+        // Arrange: register a valid account first, then attempt to login with a different password
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var email = $"e2e-wrong-{timestamp}@example.com";
+        var userName = $"e2e-wrong-{timestamp}";
+        var validPassword = "E2eValidPassword!2026";
+        var wrongPassword = "E2eWrongPassword!9999";
+
+        var registerPage = new RegisterPage(Page);
+        var loginPage = new LoginPage(Page);
+
+        // Register with valid credentials (setup)
+        await registerPage.GotoAsync();
+        await registerPage.FillAndSubmitAsync(email, userName, validPassword);
+        await Expect(Page).ToHaveURLAsync(new System.Text.RegularExpressions.Regex("/login"));
+
+        // Act: try to login with WRONG password
+        await loginPage.FillAndSubmitAsync(email, wrongPassword);
+
+        // Assert: error alert is visible + we stay on /login (no redirect to dashboard)
+        await Expect(loginPage.ErrorAlert).ToBeVisibleAsync();
+        await Expect(Page).ToHaveURLAsync(new System.Text.RegularExpressions.Regex("/login"));
+    }
 }
