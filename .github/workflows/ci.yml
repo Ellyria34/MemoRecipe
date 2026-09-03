@@ -156,6 +156,60 @@ jobs:
         if: always()
         run: docker stop memorecipe-web-lighthouse || true
  
+  e2e-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build E2E test project (generates playwright.ps1 install script)
+        run: dotnet build tests/MemoRecipe.Web.E2E.Tests/MemoRecipe.Web.E2E.Tests.csproj
+
+      - name: Install Playwright browsers (chromium + system deps)
+        shell: pwsh
+        run: tests/MemoRecipe.Web.E2E.Tests/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Build API container image
+        run: |
+          dotnet publish memoRecipeAppProject/memorecipe-api/src/MemoRecipe.Api/MemoRecipe.Api.csproj \
+            -c Release \
+            -t:PublishContainer \
+            /p:ContainerImageTag=e2e-local \
+            /p:ContainerRegistry=ellyria34
+
+      - name: Start E2E stack (postgres + ia + api + web)
+        run: docker compose -f docker-compose.e2e.yml -p memorecipe_e2e up -d
+
+      - name: Wait for stack ready (safety net beyond compose healthchecks)
+        run: |
+          for i in {1..40}; do
+            if curl -sf http://localhost:8080/ > /dev/null; then
+              echo "Stack ready"
+              exit 0
+            fi
+            echo "Waiting for stack... ($i/40)"
+            sleep 3
+          done
+          echo "::error::Stack not ready after 120s"
+          docker compose -f docker-compose.e2e.yml -p memorecipe_e2e logs
+          exit 1
+
+      - name: Run Playwright E2E tests
+        run: dotnet test tests/MemoRecipe.Web.E2E.Tests/MemoRecipe.Web.E2E.Tests.csproj --no-build
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.e2e.yml -p memorecipe_e2e logs
+
+      - name: Tear down E2E stack
+        if: always()
+        run: docker compose -f docker-compose.e2e.yml -p memorecipe_e2e down -v
+
   build-and-push:
     permissions:
       contents: read
