@@ -53,7 +53,7 @@ public sealed class GroqChatCompletionClient : IChatCompletionClient
             .RootElement
             .GetProperty("choices")[0]
             .GetProperty("message")
-            .GetProperty("content")            
+            .GetProperty("content")
             .GetString()
             ?? throw new InvalidOperationException("Empty LLM response");
 

@@ -6,17 +6,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// var host = new HostBuilder()
-//     .ConfigureFunctionsWorkerDefaults()
-//     .ConfigureServices(services =>
-//     {
-//         services.AddSingleton<IOcrService, TesseractOcrService>();
-//         services.AddSingleton<IChatCompletionClient, FakeChatCompletionClient>();
-//         services.AddSingleton<IRecipeAiService, RecipeAiService>();
-//         services.AddSingleton<IRecipePipeline, RecipePipeline>();
-//     })
-//     .Build();
-
 var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
     .ConfigureLogging((context, logging) =>
@@ -44,7 +33,8 @@ var host = new HostBuilder()
         switch (aiProvider)
         {
             case "Fake":
-                services.AddSingleton<IChatCompletionClient, FakeChatCompletionClient>();
+                // No IChatCompletionClient needed — FakeRecipePipeline skips OCR + LLM entirely
+                // and returns a hardcoded recipe. See FakeRecipePipeline registration below.
                 break;
             case "Gemini":
                 services.AddSingleton<IChatCompletionClient>(sp =>
