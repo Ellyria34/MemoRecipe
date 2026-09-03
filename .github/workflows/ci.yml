@@ -200,6 +200,12 @@ jobs:
           echo "::error::Stack not ready after 120s"
           docker compose -f docker-compose.e2e.yml -p memorecipe_e2e logs
           exit 1
+      
+      - name: Warmup Function IA (trigger JIT + DI init)
+        run: |
+          docker compose -f docker-compose.e2e.yml -p memorecipe_e2e exec -T ia \
+            curl -s -o /dev/null -w "warmup HTTP %{http_code} in %{time_total}s\n" \
+            http://localhost:7071/api/scan-recipe || true
 
       - name: Run Playwright E2E tests
         run: dotnet test tests/MemoRecipe.Web.E2E.Tests/MemoRecipe.Web.E2E.Tests.csproj --no-build
