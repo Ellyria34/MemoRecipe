@@ -205,10 +205,10 @@ jobs:
         run: |
           for i in {1..60}; do
             status=$(docker compose -f docker-compose.e2e.yml -p memorecipe_e2e exec -T ia \
-              curl -s -o /dev/null -w "%{http_code}" http://localhost:7071/api/ExtractOcrFunction 2>/dev/null || echo "000")
+              curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:7071/api/ExtractOcrFunction 2>/dev/null || echo "000")
             echo "Attempt $i: HTTP $status"
-            if [ "$status" = "400" ] || [ "$status" = "405" ] || [ "$status" = "200" ]; then
-              echo "Function IA endpoint routed after $i attempts"
+            if [ "$status" != "000" ] && [ "$status" != "404" ]; then
+              echo "Function IA endpoint routed after $i attempts (HTTP $status)"
               exit 0
             fi
             sleep 3

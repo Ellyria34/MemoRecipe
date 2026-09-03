@@ -47,4 +47,4 @@ RUN dotnet build memorecipe-ia.csproj -c Release
 
 EXPOSE 7071
 
-CMD ["func", "start"]
+CMD ["func", "start", "--host", "0.0.0.0"]
