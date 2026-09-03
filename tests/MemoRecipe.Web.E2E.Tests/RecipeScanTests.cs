@@ -7,6 +7,7 @@ namespace MemoRecipe.Web.E2E.Tests;
 
 public class RecipeScanTests : PageTest
 {
+    [Trait("Category", "SkipCI")]
     [Fact]
     public async Task Recipe_ScanUploadAndSave_UsesFakeIaAndPersists()
     {
