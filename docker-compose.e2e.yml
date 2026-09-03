@@ -32,13 +32,11 @@ services:
   ia:
     build:
       context: .
-      dockerfile: infra/ia-dev/Dockerfile
+      dockerfile: infra/ia-e2e/Dockerfile
     container_name: memorecipe_ia_e2e
     env_file: .env.e2e
     environment:
       FUNCTIONS_WORKER_RUNTIME: dotnet-isolated
-    volumes:
-      - ./memoRecipe-ia:/workspace
     networks:
       - backend_e2e
     healthcheck:
