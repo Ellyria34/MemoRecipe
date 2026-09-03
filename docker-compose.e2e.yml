@@ -52,6 +52,8 @@ services:
     image: ellyria34/memorecipe-api:e2e-local
     container_name: memorecipe_api_e2e
     env_file: .env.e2e
+    environment:
+      ASPNETCORE_ENVIRONMENT: Testing-NoRateLimit
     networks:
       - backend_e2e
     depends_on:
