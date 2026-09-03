@@ -23,7 +23,7 @@ services:
     networks:
       - backend_e2e
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -41,8 +41,12 @@ services:
       - ./memoRecipe-ia:/workspace
     networks:
       - backend_e2e
-    # NO healthcheck (Azure Functions Runtime is slow to start;
-    # API waits on first call with retry — accepted pattern)
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s http://localhost:7071/ > /dev/null || exit 1" ]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
   api:
     image: ellyria34/memorecipe-api:e2e-local
@@ -53,8 +57,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ia:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/health || exit 1"]
+      test: [ "CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/health || exit 1" ]
       interval: 10s
       timeout: 3s
       retries: 10
@@ -76,7 +82,7 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/ || exit 1"]
+      test: [ "CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/ || exit 1" ]
       interval: 5s
       timeout: 3s
       retries: 5
