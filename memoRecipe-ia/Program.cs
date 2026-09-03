@@ -119,7 +119,11 @@ var host = new HostBuilder()
         services.AddSingleton<IRecipeAiService, RecipeAiService>();
 
         // Pipeline
-        if (aiProvider == "GeminiVision" || aiProvider == "MistralVision")
+        // Fake pipeline skips OCR + LLM entirely (returns a hardcoded RecipeDto) — used for E2E
+        // tests to avoid the native libleptonica-1.82.0.so dependency in the container image.
+        if (aiProvider == "Fake")
+            services.AddSingleton<IRecipePipeline, FakeRecipePipeline>();
+        else if (aiProvider == "GeminiVision" || aiProvider == "MistralVision")
             services.AddSingleton<IRecipePipeline, VisionRecipePipeline>();
         else
             services.AddSingleton<IRecipePipeline, RecipePipeline>();
