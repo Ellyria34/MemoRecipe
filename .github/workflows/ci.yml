@@ -203,7 +203,7 @@ jobs:
       
       - name: Warmup Function IA (poll until scan endpoint responds)
         run: |
-          for i in {1..30}; do
+          for i in {1..60}; do
             status=$(docker compose -f docker-compose.e2e.yml -p memorecipe_e2e exec -T ia \
               curl -s -o /dev/null -w "%{http_code}" http://localhost:7071/api/scan-recipe 2>/dev/null || echo "000")
             echo "Attempt $i: HTTP $status"
@@ -213,7 +213,7 @@ jobs:
             fi
             sleep 2
           done
-          echo "::error::Function IA did not respond after 60s"
+          echo "::error::Function IA did not respond after 120s"
           docker compose -f docker-compose.e2e.yml -p memorecipe_e2e logs ia
           exit 1
 

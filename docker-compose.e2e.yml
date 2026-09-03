@@ -45,8 +45,8 @@ services:
       test: [ "CMD-SHELL", "curl -s http://localhost:7071/ > /dev/null || exit 1" ]
       interval: 3s
       timeout: 5s
-      retries: 20
-      start_period: 30s
+      retries: 30
+      start_period: 90s
 
   api:
     image: ellyria34/memorecipe-api:e2e-local
