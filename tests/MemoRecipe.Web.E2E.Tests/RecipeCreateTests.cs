@@ -43,7 +43,11 @@ public class RecipeCreateTests : PageTest
 
         // CreateRecipe.razor.cs auto-redirects to /recipes on save success.
         // Wait for the redirect explicitly — DO NOT navigate manually (would race the API POST).
-        await Expect(Page).ToHaveURLAsync(new System.Text.RegularExpressions.Regex(@"/recipes$"));
+        // Extended timeout: the API save can take up to ~10s when the IA container is competing
+        // for CPU during startup (both stacks share resources in the compose network).
+        await Expect(Page).ToHaveURLAsync(
+            new System.Text.RegularExpressions.Regex(@"/recipes$"),
+            new() { Timeout = 15000 });
 
         // ----- Step 3: Assert the new recipe is visible in the list -----
         await Expect(listPage.PageHeading).ToBeVisibleAsync();
