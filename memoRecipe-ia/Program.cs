@@ -6,17 +6,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-// var host = new HostBuilder()
-//     .ConfigureFunctionsWorkerDefaults()
-//     .ConfigureServices(services =>
-//     {
-//         services.AddSingleton<IOcrService, TesseractOcrService>();
-//         services.AddSingleton<IChatCompletionClient, FakeChatCompletionClient>();
-//         services.AddSingleton<IRecipeAiService, RecipeAiService>();
-//         services.AddSingleton<IRecipePipeline, RecipePipeline>();
-//     })
-//     .Build();
-
 var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
     .ConfigureLogging((context, logging) =>
@@ -44,7 +33,8 @@ var host = new HostBuilder()
         switch (aiProvider)
         {
             case "Fake":
-                services.AddSingleton<IChatCompletionClient, FakeChatCompletionClient>();
+                // No IChatCompletionClient needed — FakeRecipePipeline skips OCR + LLM entirely
+                // and returns a hardcoded recipe. See FakeRecipePipeline registration below.
                 break;
             case "Gemini":
                 services.AddSingleton<IChatCompletionClient>(sp =>
@@ -119,7 +109,11 @@ var host = new HostBuilder()
         services.AddSingleton<IRecipeAiService, RecipeAiService>();
 
         // Pipeline
-        if (aiProvider == "GeminiVision" || aiProvider == "MistralVision")
+        // Fake pipeline skips OCR + LLM entirely (returns a hardcoded RecipeDto) — used for E2E
+        // tests to avoid the native libleptonica-1.82.0.so dependency in the container image.
+        if (aiProvider == "Fake")
+            services.AddSingleton<IRecipePipeline, FakeRecipePipeline>();
+        else if (aiProvider == "GeminiVision" || aiProvider == "MistralVision")
             services.AddSingleton<IRecipePipeline, VisionRecipePipeline>();
         else
             services.AddSingleton<IRecipePipeline, RecipePipeline>();

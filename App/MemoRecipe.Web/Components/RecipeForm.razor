@@ -11,6 +11,7 @@
         <MudStack Spacing="3">
             <MudTextField @bind-Value="Recipe.Title"
                           @bind-Value:after="NotifyChange"
+                          Immediate="true"
                           Label="Titre"
                           Required="true"
                           minlength="3" MaxLength="200"
@@ -68,6 +69,7 @@
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                         <MudTextField @bind-Value="Recipe.Ingredients[index].Name"
                                   @bind-Value:after="NotifyChange"
+                                    Immediate="true"
                                     Label="Nom"
                                     MaxLength="200"
                                     Style="flex: 1;"
@@ -131,6 +133,7 @@
                     </MudStack>
                     <MudTextField @bind-Value="Recipe.Steps[index].Instruction"
                                   @bind-Value:after="NotifyChange"
+                                  Immediate="true"
                                   Label="Instruction"
                                   Lines="3" Sizing="InputSizing.Auto" MaxLines="10"
                                   aria-label="@($"Instruction de l'étape {stepNumber}")" />

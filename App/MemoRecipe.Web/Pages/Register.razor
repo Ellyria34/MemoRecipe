@@ -18,11 +18,11 @@
 
         <MudForm @bind-IsValid="_isValid">
             <MudTextField T="string" Label="Email" Variant="Variant.Outlined" InputType="InputType.Email"
-                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" Class="mb-4"
+                          Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" Class="mb-4"
                           @bind-Value="_email" Required="true" Validation="@((string v) => ValidateEmail(v))" />
 
             <MudTextField T="string" Label="Nom d'utilisateur" Variant="Variant.Outlined" InputType="InputType.Text"
-                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person" Class="mb-4"
+                          Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person" Class="mb-4"
                           @bind-Value="_userName" Required="true" Validation="@((string v) => ValidateUserName(v))" />
 
             <MudTextField T="string" ShrinkLabel="true" Label="Mot de passe" Variant="Variant.Outlined"
@@ -37,7 +37,7 @@
                           AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
                           AdornmentAriaLabel="@(_showPassword ? "Masquer la confirmation du mot de passe" : "Afficher la confirmation du mot de passe")"
                           OnAdornmentClick="() => _showPassword = !_showPassword" Class="mb-6" @bind-Value="_passwordConfirmation"
-                          Required="true" Validation="@((string v) => ValidatePasswordConfirmation(v))" />
+                          Immediate="true" Required="true" Validation="@((string v) => ValidatePasswordConfirmation(v))" />
         </MudForm>
 
         @if (!string.IsNullOrEmpty(_errorMessage))
@@ -53,7 +53,7 @@
         </MudText>
 
         <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large" Class="mt-2 mb-4"
-                   OnClick="HandleRegister">
+                   Disabled="@(!_isValid)" OnClick="HandleRegister">
             S'inscrire
         </MudButton>
 

@@ -37,7 +37,7 @@
             }
 
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large" Class="mb-4"
-                    OnClick = "HandleLogin" >
+                    Disabled="@(!_isValid)" OnClick="HandleLogin">
                 Se connecter
 </MudButton>
 
