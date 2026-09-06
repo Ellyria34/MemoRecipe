@@ -46,8 +46,9 @@ Index optionnel : [Backlog_V1-<Sprint>.md](../documentation/Backlog_V1-<Sprint>.
 ## Règles
 
 - 1 section par date calendaire, jamais par session
+  - Exception unique : session traversant minuit -> rattachée au jour précédent
 - Case cochée = US mergée sur `main` (pas "en cours")
-- Concis : 5-15 lignes par date, 25 max
+- Concis : ~25-30 lignes par date
 - Commit → mentionner branche + hash 7 chars + PR # dès le merge
 - Décision structurante → 1 ligne ici + détails dans ADR/DECISIONS
 - Bloqueur trivial résolu en séance → ne pas mentionner
