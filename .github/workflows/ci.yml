@@ -216,6 +216,26 @@ jobs:
           echo "::error::Function IA endpoint not routed after 180s"
           docker compose -f docker-compose.e2e.yml -p memorecipe_e2e logs ia
           exit 1
+      - name: Diagnose ia reachability
+        run: |
+          echo "=== 1. from ia, to localhost:7071 (is the Function running?) ==="
+          status=$(docker compose -f docker-compose.e2e.yml -p memorecipe_e2e exec -T ia \
+            curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:7071/api/ExtractOcrFunction 2>/dev/null || echo "000")
+          echo "HTTP $status"
+
+          echo "=== 2. from ia, to ia:7071 (does it listen beyond loopback?) ==="
+          status=$(docker compose -f docker-compose.e2e.yml -p memorecipe_e2e exec -T ia \
+            curl -s -o /dev/null -w "%{http_code}" -X POST http://ia:7071/api/ExtractOcrFunction 2>/dev/null || echo "000")
+          echo "HTTP $status"
+
+          echo "=== 3. from api, to ia:7071 (the path that actually fails) ==="
+          docker compose -f docker-compose.e2e.yml -p memorecipe_e2e exec -T api \
+            wget --spider --timeout=10 http://ia:7071/api/ExtractOcrFunction 2>&1 || true
+
+          echo "=== 4. listening sockets inside ia (port 7071 = 1B9F in hex) ==="
+          docker compose -f docker-compose.e2e.yml -p memorecipe_e2e exec -T ia cat /proc/net/tcp 2>&1 || true
+          docker compose -f docker-compose.e2e.yml -p memorecipe_e2e exec -T ia cat /proc/net/tcp6 2>&1 || true
+
 
       - name: Run Playwright E2E tests
         run: dotnet test tests/MemoRecipe.Web.E2E.Tests/MemoRecipe.Web.E2E.Tests.csproj --no-build --filter "Category!=SkipCI"
