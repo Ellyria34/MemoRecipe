@@ -45,3 +45,7 @@ backup-test.*
 
 # Test results (dotnet test --logger trx)
 [Tt]est[Rr]esult*/
+
+# Claude Code personal overrides (never commit)
+CLAUDE.local.md
+CLAUDE.*.local.md

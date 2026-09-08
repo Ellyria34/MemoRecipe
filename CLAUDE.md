@@ -10,6 +10,7 @@
 ## Commandes
 - Build API : `dotnet build memoRecipeAppProject/memorecipe-api/memorecipe-api.sln`
 - Build App : `dotnet build App/MemoRecipe.Web/MemoRecipe.Web.csproj`
+- Build IA : `dotnet build memoRecipe-ia/memorecipe-ia.sln`
 - Tests API : `dotnet test memoRecipeAppProject/memorecipe-api/memorecipe-api.sln`
 - Tests IA (sans Tesseract) : `dotnet test tests/MemoRecipe.IA.Tests/MemoRecipe.IA.Tests.csproj --filter "Category!=Integration"`
 - Lancer les tests concernes avant de proposer un commit.
@@ -21,7 +22,7 @@
 - Dockerfile : `COPY <fichier> <dossier>/` avec slash final obligatoire pour cibler un dossier.
 
 ## Git
-- Commit = une seule ligne, style `type(scope): description`. Pas de body, pas de trailer (`Co-Authored-By` ou autre). Le detail va dans la PR.
+- Commit = une seule ligne, style `type(scope): description`. Pas de body, pas de trailer ni attribution (`Co-Authored-By`, footer genere, ou autre), ni dans les commits ni dans les PR bodies. Le detail va dans la PR.
 - Ordre : branche -> push -> lier la branche a l'issue (GitHub, section Development) -> ouvrir la PR. Aucun push direct sur `main`.
 
 ## Fichiers sensibles

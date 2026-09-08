@@ -102,6 +102,7 @@ Le formulaire GitHub (`.github/ISSUE_TEMPLATE/user-story.yml`) applique automati
 - Estimation qui dérape > 30% → ajouter ligne `**Estimation réelle** : Xh (+Yh vs prévu) — [cause 1 phrase]`
 - Update à chaque fin de session : cases + statut + estimation réelle si dérape
 - Zéro chronologie ni ref commit dans le backlog (ces infos vivent dans le journal-sprint)
+- Critères validation = uniquement ceux validables à la fin de CETTE US. Validations env-specific (VPS deploy, prod monitoring, dépendance externe) -> cross-référencer l'US concernée dans les Dépendances, pas de dangling criteria ici
 
 ## Critères de déclenchement des tests
 
@@ -133,3 +134,4 @@ Le formulaire GitHub (`.github/ISSUE_TEMPLATE/user-story.yml`) applique automati
 - Statut 🟢 DONE avec cases décochées (désync)
 - Chronologie / ref commit dans le backlog (violation séparation avec journal-sprint)
 - Duplication entre plusieurs US (extraire dans US commune ou ADR)
+- Critères mélangeant fix-time (validables au merge) et deploy-time (validables uniquement en env cible) dans une même US -> "big fat issue", validation ambiguë au merge, dangling criteria
