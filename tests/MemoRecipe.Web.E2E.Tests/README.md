@@ -74,27 +74,28 @@ failures.
 ## CI
 
 Tests run on GitHub Actions via the `e2e-tests` job in `.github/workflows/ci.yml`
-on every push to `main` and every pull request. The scan test is skipped in CI
-via `[Trait("Category", "SkipCI")]` and the `--filter "Category!=SkipCI"`
-argument on `dotnet test`.
+on every push to `main` and every pull request.
 
-## Why is the scan test skipped in CI?
+## IA image: official Functions runtime
 
-The scan test (`Recipe_ScanUploadAndSave_UsesFakeIaAndPersists`) passes reliably
-in local Docker Desktop but fails deterministically on `ubuntu-latest` runners
-with the API receiving `Connection refused (ia:7071)` when calling the Function.
-Seven mitigation attempts (extended healthchecks, warmup loops, `dotnet run` vs
-`func start`, dummy `AzureWebJobsStorage`, prebuilt Docker image, IPv4 binding
-force) did not resolve the difference between Docker Desktop and Docker native
-on Linux.
+The E2E stack builds the IA Function from `infra/ia-e2e/Dockerfile`, which uses
+the official `mcr.microsoft.com/azure-functions/dotnet-isolated` runtime image
+rather than the Azure Functions Core Tools (`func start`) used by
+`infra/ia-dev/Dockerfile`.
 
-Root cause is not identified. The test is skipped in CI to unblock the rest of
-the suite; **the local run remains authoritative** (`.\scripts\run-e2e-local.ps1`
-runs all 6/6). Since the production IA Function runs on Azure Container Apps
-(not `func start` in a Docker container), this CI failure does not indicate a
-production issue.
+Core Tools binds the Functions host to `127.0.0.1` only, which is unreachable
+from the `api` container on the Docker network. This is invisible on Docker
+Desktop but deterministic on Linux runners.
 
-Follow-up work is tracked internally.
+Beyond fixing that, the official runtime is what actually runs the Function in
+production, while `func start` is a development tool that is never deployed. The
+E2E stack therefore exercises the same runtime as production.
+
+Function keys are provided through the file-based secret store
+(`AzureWebJobsSecretStorageType=files`), seeded from `infra/ia-e2e/` with
+throwaway values. Unlike Core Tools, the official runtime enforces
+`AuthorizationLevel.Function`, so the E2E run now covers the authentication path
+as well.
 
 ## Adding a new scenario
 

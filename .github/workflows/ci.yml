@@ -238,7 +238,7 @@ jobs:
 
 
       - name: Run Playwright E2E tests
-        run: dotnet test tests/MemoRecipe.Web.E2E.Tests/MemoRecipe.Web.E2E.Tests.csproj --no-build --filter "Category!=SkipCI"
+        run: dotnet test tests/MemoRecipe.Web.E2E.Tests/MemoRecipe.Web.E2E.Tests.csproj --no-build
 
       - name: Dump container logs on failure
         if: failure()
