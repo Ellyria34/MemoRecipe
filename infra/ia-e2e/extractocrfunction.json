@@ -2,7 +2,7 @@
   "keys": [
     {
       "name": "default",
-      "value": "e2e-fake-function-key-unused-in-fake-mode",
+      "value": "wrong-key",
       "encrypted": false
     }
   ],
