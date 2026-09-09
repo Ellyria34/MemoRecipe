@@ -22,6 +22,5 @@ ENV ASPNETCORE_URLS=http://+:7071
 ENV AzureWebJobsSecretStorageType=files
 COPY --from=build /app/publish /home/site/wwwroot/
 COPY /infra/ia-e2e/host-secrets.json /azure-functions-host/Secrets/host.json
-COPY /infra/ia-e2e/extractocrfunction.json /azure-functions-host/Secrets/extractocrfunction.json
 
 EXPOSE 7071
