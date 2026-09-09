@@ -88,7 +88,7 @@ jobs:
             echo "::error::High or Critical vulnerability detected in API solution"
             exit 1
           fi
-        
+
       - name: Scan IA Solution
         run: |
           output=$(dotnet list memoRecipe-ia/memorecipe-ia.sln package --vulnerable --include-transitive)
@@ -155,7 +155,7 @@ jobs:
       - name: Stop Web container
         if: always()
         run: docker stop memorecipe-web-lighthouse || true
- 
+
   e2e-tests:
     runs-on: ubuntu-latest
     steps:
@@ -200,7 +200,7 @@ jobs:
           echo "::error::Stack not ready after 120s"
           docker compose -f docker-compose.e2e.yml -p memorecipe_e2e logs
           exit 1
-      
+
       - name: Warmup Function IA (poll until scan endpoint routed)
         run: |
           for i in {1..60}; do
@@ -218,11 +218,40 @@ jobs:
           exit 1
 
       - name: Run Playwright E2E tests
-        run: dotnet test tests/MemoRecipe.Web.E2E.Tests/MemoRecipe.Web.E2E.Tests.csproj --no-build --filter "Category!=SkipCI"
+        run: dotnet test tests/MemoRecipe.Web.E2E.Tests/MemoRecipe.Web.E2E.Tests.csproj --no-build
+
+      - name: Diagnose ia reachability
+        if: failure()
+        run: |
+          echo "=== 1. from ia, to localhost:7071 (is the Function running?) ==="
+          status=$(docker compose -f docker-compose.e2e.yml -p memorecipe_e2e exec -T ia \
+            curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:7071/api/ExtractOcrFunction 2>/dev/null || echo "000")
+          echo "HTTP $status"
+
+          echo "=== 2. from ia, to ia:7071 (does it listen beyond loopback?) ==="
+          status=$(docker compose -f docker-compose.e2e.yml -p memorecipe_e2e exec -T ia \
+            curl -s -o /dev/null -w "%{http_code}" -X POST http://ia:7071/api/ExtractOcrFunction 2>/dev/null || echo "000")
+          echo "HTTP $status"
+
+          echo "=== 3. from api, to ia:7071 (the path that actually fails) ==="
+          docker compose -f docker-compose.e2e.yml -p memorecipe_e2e exec -T api \
+            wget --spider --timeout=10 http://ia:7071/api/ExtractOcrFunction 2>&1 || true
+
+          echo "=== 4. listening sockets inside ia (port 7071 = 1B9F in hex) ==="
+          docker compose -f docker-compose.e2e.yml -p memorecipe_e2e exec -T ia cat /proc/net/tcp 2>&1 || true
+          docker compose -f docker-compose.e2e.yml -p memorecipe_e2e exec -T ia cat /proc/net/tcp6 2>&1 || true
 
       - name: Dump container logs on failure
         if: failure()
-        run: docker compose -f docker-compose.e2e.yml -p memorecipe_e2e logs
+        run: docker compose -f docker-compose.e2e.yml -p memorecipe_e2e logs --no-color | tee e2e-logs.txt
+
+      - name: Upload compose logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-compose-logs
+          path: e2e-logs.txt
+          retention-days: 7
 
       - name: Tear down E2E stack
         if: always()
@@ -238,7 +267,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
@@ -257,7 +286,7 @@ jobs:
             -c Release \
             -t:PublishContainer \
             /p:ContainerImageTag=${{ github.ref_name }}
-      
+
       - name: Compute lowercase owner
         run: echo "OWNER_LC=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
