@@ -1,0 +1,29 @@
+# Build artifacts (global safety net)
+**/bin
+**/obj
+
+
+# ===== Security =====
+.env*
+
+**/appsettings.Development.json
+**/local.settings.json
+
+journal/
+documentation/
+
+
+# IDE
+ **/.vscode/
+ **/.idea/
+ **/.vs/
+ **/*.user
+ **/*.suo
+ **/*.csproj.lscache
+.git
+
+# not use for build
+App/
+memoRecipeAppProject/
+tests/
+scripts/
