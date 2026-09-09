@@ -1,0 +1,13 @@
+{  
+  "keys": [
+    {
+      "name": "default",
+      "value": "e2e-fake-function-key-unused-in-fake-mode",
+      "encrypted": false
+    }
+  ],
+  "hostName": null,
+  "instanceId": "e2e-fake-intanceID",
+  "source": "runtime",
+  "decryptionKeyId": ""
+}
