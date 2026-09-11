@@ -33,17 +33,18 @@
         @if (!string.IsNullOrEmpty(_errorMessage))
         {
             <MudAlert Severity="Severity.Error" Class="mb-4" role="alert">@_errorMessage</MudAlert>
-  
-            }
+        }
 
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large" Class="mb-4"
-                    Disabled="@(!_isValid)" OnClick="HandleLogin">
-                Se connecter
-</MudButton>
-
-                <MudText Align="Align.Center">
-                    Pas encore de compte ?
-                    <MudLink Href="/register" Underline="Underline.Always">S'inscrire</MudLink>
-                </MudText>
-            </MudPaper>
-        </MudContainer>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large" Class="mb-4"
+            Disabled="@(!_isValid)" OnClick="HandleLogin">
+            Se connecter
+        </MudButton>
+        @if (_registrationEnabled)
+        {
+            <MudText Align="Align.Center">
+                Pas encore de compte ?
+                <MudLink Href="/register" Underline="Underline.Always">S'inscrire</MudLink>
+            </MudText>
+        }
+    </MudPaper>
+</MudContainer>
