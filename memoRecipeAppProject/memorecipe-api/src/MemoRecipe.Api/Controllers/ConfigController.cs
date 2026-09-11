@@ -21,7 +21,8 @@ public class ConfigController : ControllerBase
     {
         return Ok(new FeatureFlagsDto
         {
-            ScanRecipeEnabled = _flags.ScanRecipeEnabled
+            ScanRecipeEnabled = _flags.ScanRecipeEnabled,
+            RegistrationEnabled = _flags.RegistrationEnabled
         });
     }
 }

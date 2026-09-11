@@ -14,7 +14,7 @@ public class ConfigEndpointTests : IClassFixture<CustomWebApplicationFactory<Pro
     [Fact]
     public async Task GetFeatures_WhenScanDisabled_ReturnsFalse()
     {
-        // Arrange — override the flag to false via in-memory config
+        // Arrange - override the flag to false via in-memory config
         var factoryWithFlagOff = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureAppConfiguration((context, config) =>
@@ -40,7 +40,7 @@ public class ConfigEndpointTests : IClassFixture<CustomWebApplicationFactory<Pro
     [Fact]
     public async Task GetFeatures_WhenScanEnabled_ReturnsTrue()
     {
-        // Arrange — override the flag to true via in-memory config
+        // Arrange - override the flag to true via in-memory config
         var factoryWithFlagOn = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureAppConfiguration((context, config) =>
@@ -61,5 +61,57 @@ public class ConfigEndpointTests : IClassFixture<CustomWebApplicationFactory<Pro
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
         Assert.Contains("\"scanRecipeEnabled\":true", body);
+    }
+
+    [Fact]
+    public async Task GetFeatures_WhenRegistrationDisabled_ReturnsFalse()
+    {
+        // Arrange - override the flag to false via in-memory config
+        var factoryWithFlagOff = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((context, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Features:RegistrationEnabled"] = "false"
+                });
+            });
+        });
+        var client = factoryWithFlagOff.CreateClient();
+        // No AuthenticateAsync: the endpoint must be public.
+        
+        // Act
+        var response = await client.GetAsync("api/config/features");
+
+        // Assert
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"registrationEnabled\":false", body);
+    }
+
+    [Fact]
+    public async Task GetFeatures_WhenRegistrationEnabled_ReturnsTrue()
+    {
+        // Arrange override the flag to true via in-memory config
+        var factoryWithFlagOn = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((context, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Features:RegistrationEnabled"] = "true"
+                });
+            });
+        });
+        var client = factoryWithFlagOn.CreateClient();
+        // No AuthenticateAsync: the endpoint must be public.
+
+        // Act
+        var response = await client.GetAsync("api/config/features");
+
+        // Assert
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"registrationEnabled\":true", body);
     }
 }
