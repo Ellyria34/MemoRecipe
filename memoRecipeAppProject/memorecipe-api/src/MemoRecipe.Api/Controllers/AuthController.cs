@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MemoRecipe.Application.Services.Auth;
+using Microsoft.Extensions.Options;
+using MemoRecipe.Application.Configuration;
 using MemoRecipe.Application.DTOs.Auth;
 using FluentValidation;
 using Microsoft.AspNetCore.RateLimiting;
@@ -17,17 +19,22 @@ public class AuthController : ControllerBase
     private readonly IValidator<RegisterDto> _registerDtoValidator;
     private readonly IValidator<LoginDto> _loginDtoValidator;
     private readonly IValidator<DeleteAccountDto> _deleteAccountValidator;
+    private readonly FeatureFlagsOptions _flags;
     private readonly IWebHostEnvironment _env;
+    private readonly ILogger<AuthController> _logger;
 
 
     public AuthController(IAuthService authService, IValidator<RegisterDto> registerDtoValidator,
-                IValidator<LoginDto> loginDtoValidator, IValidator<DeleteAccountDto> deleteAccountValidator, IWebHostEnvironment env)
+        IValidator<LoginDto> loginDtoValidator, IOptions<FeatureFlagsOptions> flags, 
+        IValidator<DeleteAccountDto> deleteAccountValidator, IWebHostEnvironment env, ILogger<AuthController> logger)
     {
         _authService = authService;
         _registerDtoValidator = registerDtoValidator;
         _loginDtoValidator = loginDtoValidator;
+        _flags = flags.Value;
         _deleteAccountValidator = deleteAccountValidator;
         _env = env;
+        _logger = logger;
     }
 
     [HttpPost("register")]
@@ -35,6 +42,12 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Register(RegisterDto dto)
     {
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        if (_flags.RegistrationEnabled == false)
+        {
+            _logger.LogWarning("{EventType} - user {IpAdress} attempted to call scan while feature is disabled",
+                "RegistrationDisabledAttempt", ipAddress);
+            return StatusCode(403, new { error = "registration_disabled" });
+        }
         var validation = await _registerDtoValidator.ValidateAsync(dto);
         if (!validation.IsValid)
         {
