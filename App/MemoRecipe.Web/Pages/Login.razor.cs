@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Components;
-using MemoRecipe.Web.Models;
 using MemoRecipe.Web.Services;
-using System.Dynamic;
 using Microsoft.AspNetCore.Components.Authorization;
 
 
@@ -17,12 +15,19 @@ public partial class Login
 
     [Inject]
     private NavigationManager Navigation  {get; set;} = default!;
+    
+    [Inject]
+    private IFeatureFlagsService FeatureFlags { get; set; } = default!;
+
+    [Inject]
+    private ILogger<Login> Logger { get; set; } = default!;
 
     string _email = string.Empty;
     string _password = string.Empty; 
     bool _showPassword = false;
     string _errorMessage = string.Empty;
     bool _isValid = false;
+    private bool _registrationEnabled = false; // fail-safe: default hidden if the API call fails
 
     private string? ValidateEmail(string value)
     {
@@ -53,5 +58,20 @@ public partial class Login
         }
         ((CookieAuthStateProvider)AuthStateProvider).NotifyAuthChanged();
         Navigation.NavigateTo("/");
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var flags = await FeatureFlags.GetAsync();
+            _registrationEnabled = flags.RegistrationEnabled;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning("Failed to load feature flags: {ExceptionType} - {Message}",
+                ex.GetType().Name, ex.Message);
+            // Fallback to _registrationEnabled = false (safe default).
+        }
     }
 }

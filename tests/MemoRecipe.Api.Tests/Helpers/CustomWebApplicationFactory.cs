@@ -52,7 +52,8 @@ static CustomWebApplicationFactory()
             // (like Cors:AllowedOrigins at Program.cs L48), set env vars in the static ctor.
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Features:ScanRecipeEnabled"] = "true",
+                ["Features:ScanRecipeEnabled"] = "true", 
+                ["Features:RegistrationEnabled"] = "true"
             });
         });
 

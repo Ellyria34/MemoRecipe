@@ -322,6 +322,60 @@ docker compose -f docker-compose.prod.yml up -d --force-recreate api
 
 ---
 
+## Feature flags
+
+Two runtime feature flags gate optional behaviour. Both are read from configuration **once, at application startup**.
+
+| Flag | Value in `appsettings.json` | Effect when `false` |
+|---|---|---|
+| `Features:ScanRecipeEnabled` | `true` | `POST /api/recipe/scan` returns 503; the scan entry is hidden from the sidebar and bottom navigation |
+| `Features:RegistrationEnabled` | `false` | `POST /api/auth/register` returns 403 `{ "error": "registration_disabled" }`; the "S'inscrire" link is hidden on the login page, and the `/register` form is replaced by a restricted-access message |
+
+Both flags are exposed read-only on the public endpoint `GET /api/config/features`, which the Blazor front-end consumes to adapt the UI. That endpoint returns **only** UI-facing flags: it is a DTO whitelist, never the raw options object.
+
+### Where the value comes from
+
+Configuration sources, in increasing order of precedence :
+
+1. `appsettings.json`, baked into the API image — the production default.
+2. An environment variable on the `api` service, which overrides the file. Use the `__` separator in place of `:` — for example `Features__RegistrationEnabled`.
+
+**Fail-safe** : if the key is missing from every source, the flag falls back to `false` (blocking). A configuration mistake can never silently open a feature.
+
+### Toggling a flag in production
+
+```bash
+cd <vps-path>
+
+# 1. Add or edit the variable under services.api.environment
+nano docker-compose.prod.yml
+#   Features__RegistrationEnabled: "true"
+
+# 2. Recreate the API container (config is only read at startup)
+docker compose -f docker-compose.prod.yml up -d api
+
+# 3. Verify the effective value
+curl -s http://localhost:8080/api/config/features
+# Expected: {"scanRecipeEnabled":true,"registrationEnabled":true}
+```
+
+Three things to keep in mind :
+
+- Editing the value **without recreating the container** has no effect: configuration is bound at startup.
+- The front-end caches the `/api/config/features` response for the browser session. Force-reload (Ctrl+F5) to observe the change.
+- The API guard is authoritative. Even with a stale UI still showing an entry point, the endpoint keeps refusing the request — the UI only hides, it never protects.
+
+### Expected values per environment (Alpha.3)
+
+| Environment | ScanRecipeEnabled | RegistrationEnabled |
+|---|---|---|
+| Production (VPS) | `true` | **`false`** — private access; the single owner account is created manually, see the admin password procedure |
+| Development | `true` | `true` |
+| Integration tests | `true` | `true` (set by the test host) |
+| E2E stack | `true` | `true` (`.env.e2e`) |
+
+---
+
 ## Container hardening (OWASP baseline)
 
 `docker-compose.prod.yml` applies 3 OWASP baseline directives on all 4 services (postgres, api, web, backup) for defense in depth (US-06):
