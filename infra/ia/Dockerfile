@@ -1,9 +1,8 @@
 # ============================================================================
-# infra/ia-e2e/Dockerfile - Prebuilt image for E2E tests (CI-stable)
+# infra/ia/Dockerfile - Prebuilt image for Production and E2E tests (CI-stable)
 #
 # This image uses the official Azure Functions runtime that runs the function 
 # in production, rather than `func start`, a development tool. 
-# The end-to-end (e2e) stack therefore tests the same runtime as production.
 # ============================================================================
 
 # 1- .NET 8 SDK on Debian bookworm (same base as ia-dev)
@@ -21,6 +20,5 @@ ENV AzureFunctionsJobHost__Logging__Console__IsEnabled=true
 ENV ASPNETCORE_URLS=http://+:7071
 ENV AzureWebJobsSecretStorageType=files
 COPY --from=build /app/publish /home/site/wwwroot/
-COPY /infra/ia-e2e/host-secrets.json /azure-functions-host/Secrets/host.json
 
 EXPOSE 7071

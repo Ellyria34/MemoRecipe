@@ -32,7 +32,7 @@ services:
   ia:
     build:
       context: .
-      dockerfile: infra/ia-e2e/Dockerfile
+      dockerfile: infra/ia/Dockerfile
     container_name: memorecipe_ia_e2e
     env_file: .env.e2e
     environment:
@@ -45,6 +45,8 @@ services:
       timeout: 5s
       retries: 30
       start_period: 120s
+    volumes:
+      - ./infra/ia-e2e/host-secrets.json:/azure-functions-host/Secrets/host.json:ro
 
   api:
     image: ellyria34/memorecipe-api:e2e-local
