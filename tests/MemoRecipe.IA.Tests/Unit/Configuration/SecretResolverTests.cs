@@ -70,4 +70,25 @@ public class SecretResolverTests
         // Assert
         Assert.Null(result);
     }
+
+    [Fact]
+    public void Resolve_WhenFileIsEmpty_ReturnsNull()
+    {
+        // Arrange - an empty secret file must fail fast at startup, not produce
+        // an empty key that the provider later rejects with a misleading 401.
+        var filePath = Path.GetTempFileName();
+
+        try
+        {
+            // Act
+            var result = SecretResolver.Resolve(null, filePath);
+
+            // Assert
+            Assert.Null(result);
+        }
+        finally
+        {
+            File.Delete(filePath);
+        }
+    }
 }

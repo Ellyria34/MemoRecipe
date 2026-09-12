@@ -15,10 +15,14 @@ public static class SecretResolver
         {
             return value;
         }
+
         if (!string.IsNullOrWhiteSpace(filePath) && File.Exists(filePath))
         {
-            return File.ReadAllText(filePath).Trim();
+            var fromFile = File.ReadAllText(filePath).Trim();
+            return string.IsNullOrWhiteSpace(fromFile) ? null : fromFile;
         }
-        else return null;
+
+        return null;
     }
 }
+
