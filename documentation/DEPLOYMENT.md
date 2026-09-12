@@ -735,9 +735,35 @@ docker exec memorecipe_backup ls -lh /backups
 
 ### First user provisioning
 
-The initial user must be created via the API `POST /api/auth/register` since the registration endpoint is admin-only in Alpha.3 (`Features:RegistrationEnabled=false` for public, but registration works when called directly by the admin). See US-B1-15 for the invitation mail template.
+Registration is closed in Alpha.3 (`Features:RegistrationEnabled=false`), and the guard in `AuthController.Register` returns 403 to **every** caller, including an administrator : it runs before any authentication or validation. The admin CLI only resets the password of an existing account (`--reset-password`), it cannot create one.
 
-Alternatively, insert the user directly in the database with a bcrypt hash (advanced, not documented here — prefer the API route).
+To create the very first account, re-enable registration **temporarily**, through a compose override file kept **outside the repository** so it can never be committed :
+
+```yaml
+# bootstrap-registration.yml  (kept next to the secrets, outside the repo)
+services:
+  api:
+    environment:
+      Features__RegistrationEnabled: "true"
+```
+
+```bash
+# 1. Start the API with registration open
+docker compose -f docker-compose.prod.yml -f <secrets-path>/bootstrap-registration.yml up -d api
+
+# 2. Create the account through the UI (/register)
+
+# 3. Close registration again - note the missing second -f
+docker compose -f docker-compose.prod.yml up -d api
+
+# 4. Verify
+curl -s http://localhost:8080/api/config/features
+# Expected: {"scanRecipeEnabled":true,"registrationEnabled":false}
+```
+
+Registration stays open only for the few minutes needed to create the account. The account itself survives the restart : only the environment variable disappears.
+
+A permanent `--create-user` command in the admin CLI is tracked as a follow-up ; it would remove the need to open registration at all.
 
 ---
 
