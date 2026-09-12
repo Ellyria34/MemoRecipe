@@ -295,3 +295,9 @@ jobs:
 
       - name: Push Web image
         run: docker push ghcr.io/$OWNER_LC/memorecipe-web:${{ github.ref_name }}
+
+      - name: Build IA image
+        run: docker build -f infra/ia/Dockerfile -t ghcr.io/$OWNER_LC/memorecipe-ia:${{ github.ref_name }} .
+
+      - name: Push IA image
+        run: docker push ghcr.io/$OWNER_LC/memorecipe-ia:${{ github.ref_name }}

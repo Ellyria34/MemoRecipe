@@ -5,6 +5,7 @@ using MemoRecipeIA.Infrastructure.AI;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MemoRecipeIA.Infrastructure.Configuration;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
@@ -42,8 +43,10 @@ var host = new HostBuilder()
                     var factory = sp.GetRequiredService<IHttpClientFactory>();
                     var httpClient = factory.CreateClient();
 
-                    var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY")
-                                ?? throw new InvalidOperationException("Missing GEMINI_API_KEY");
+                    var apiKey = SecretResolver.Resolve(
+                        Environment.GetEnvironmentVariable("GEMINI_API_KEY"),
+                        Environment.GetEnvironmentVariable("GEMINI_API_KEY_FILE"))
+                    ?? throw new InvalidOperationException("Missing GEMINI_API_KEY or GEMINI_API_KEY_FILE");
 
                     return new GeminiChatCompletionClient(httpClient, apiKey);
                 });
@@ -54,8 +57,10 @@ var host = new HostBuilder()
                     var factory = sp.GetRequiredService<IHttpClientFactory>();
                     var httpClient = factory.CreateClient();
 
-                    var apiKey = Environment.GetEnvironmentVariable("MISTRAL_API_KEY")
-                                ?? throw new InvalidOperationException("Missing MISTRAL_API_KEY");
+                    var apiKey = SecretResolver.Resolve(
+                        Environment.GetEnvironmentVariable("MISTRAL_API_KEY"),
+                        Environment.GetEnvironmentVariable("MISTRAL_API_KEY_FILE"))
+                    ?? throw new InvalidOperationException("Missing MISTRAL_API_KEY or MISTRAL_API_KEY_FILE");
 
                     return new MistralChatCompletionClient(httpClient, apiKey);
                 });
@@ -66,8 +71,10 @@ var host = new HostBuilder()
                     var factory = sp.GetRequiredService<IHttpClientFactory>();
                     var httpClient = factory.CreateClient();
 
-                    var apiKey = Environment.GetEnvironmentVariable("GROQ_API_KEY")
-                                ?? throw new InvalidOperationException("Missing GROQ_API_KEY");
+                    var apiKey = SecretResolver.Resolve(
+                        Environment.GetEnvironmentVariable("GROQ_API_KEY"),
+                        Environment.GetEnvironmentVariable("GROQ_API_KEY_FILE"))
+                    ?? throw new InvalidOperationException("Missing GROQ_API_KEY or GROQ_API_KEY_FILE");
 
                     return new GroqChatCompletionClient(httpClient, apiKey);
                 });
@@ -78,8 +85,10 @@ var host = new HostBuilder()
                     var factory = sp.GetRequiredService<IHttpClientFactory>();
                     var httpClient = factory.CreateClient();
 
-                    var apiKey = Environment.GetEnvironmentVariable("MISTRAL_API_KEY")
-                                ?? throw new InvalidOperationException("Missing MISTRAL_API_KEY");
+                    var apiKey = SecretResolver.Resolve(
+                        Environment.GetEnvironmentVariable("MISTRAL_API_KEY"),
+                        Environment.GetEnvironmentVariable("MISTRAL_API_KEY_FILE"))
+                    ?? throw new InvalidOperationException("Missing MISTRAL_API_KEY or MISTRAL_API_KEY_FILE");
 
                     return new MistralVisionCompletionClient(httpClient, apiKey);
                 });
@@ -91,8 +100,10 @@ var host = new HostBuilder()
                     var factory = sp.GetRequiredService<IHttpClientFactory>();
                     var httpClient = factory.CreateClient();
 
-                    var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY")
-                                ?? throw new InvalidOperationException("Missing GEMINI_API_KEY");
+                    var apiKey = SecretResolver.Resolve(
+                        Environment.GetEnvironmentVariable("GEMINI_API_KEY"),
+                        Environment.GetEnvironmentVariable("GEMINI_API_KEY_FILE"))
+                    ?? throw new InvalidOperationException("Missing GEMINI_API_KEY or GEMINI_API_KEY_FILE");
 
                     return new GeminiVisionCompletionClient(httpClient, apiKey);
                 });
