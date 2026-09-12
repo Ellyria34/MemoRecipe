@@ -937,7 +937,7 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 
 ### DEC-042 : Hébergement production — VPS Lite dédié (Docker manuel) + IA sur plateforme serverless externe
 
-- **Statut** : ✅ ACTIVE (à appliquer au prochain runbook de déploiement, BACK-009)
+- **Statut** : 🟡 PARTIELLEMENT SUPERSEDED par [DEC-064](#dec-064) sur le point 3 (hébergement de l'IA). Les points 1, 2 et 4 restent ACTIVE.
 - **Date** : 04 août 2026
 
 - **Choix** :
@@ -1902,6 +1902,42 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 - **État** : ✅ ACTIVE. Appliqué en P0-5 (27/08/2026) simultanément côté nginx (`App/MemoRecipe.Web/nginx.conf`) et côté API middleware (`SecurityHeadersMiddleware.cs`) via commits atomiques séparés sur la branche `fix/US-22-P0-5-nginx-security-headers`.
 
 ---
+
+### DEC-064 : Amendement DEC-042 — Function IA conteneurisée sur le VPS plutôt que sur une plateforme serverless externe
+
+- **Statut** : ✅ ACTIVE (amende [DEC-042](#dec-042))
+- **Date** : 12 septembre 2026 (décidé en préparant le déploiement Alpha.3)
+
+- **Choix** :
+  La Function IA est déployée comme **cinquième service** du `docker-compose.prod.yml`, sur le réseau `backend` interne, sans port publié. L'API l'appelle par le nom du service (`http://ia:7071`). Le **point 3 de DEC-042** (IA sur plateforme serverless externe) est amendé ; ses points 1, 2 et 4 restent inchangés.
+
+- **Pourquoi ces choix** :
+  - **La prémisse technique de DEC-042 ne s'applique plus au chemin principal** : depuis [DEC-043](#dec-043) puis [DEC-045](#dec-045), le pipeline par défaut est Vision (`VisionRecipePipeline`), qui transmet l'image directement au modèle multimodal **sans appeler Tesseract**. La Function passe son temps à attendre le réseau, pas à calculer. L'argument « workload CPU-intensif ponctuel » ne concerne plus que le chemin de repli OCR, qui n'est pas le chemin par défaut.
+  - **Surface d'administration** : héberger ce composant ailleurs impose un second fournisseur, un second compte, une seconde facturation et un second runbook, pour un service appelé quelques fois par jour en Alpha. Le VPS est déjà provisionné, sauvegardé et supervisé.
+  - **Le mécanisme est déjà éprouvé** : la stack E2E fait tourner cette Function en conteneur à chaque exécution de CI, sur l'image runtime officielle Azure Functions (FIX-008). Le déploiement en production réutilise un montage testé en continu, il n'invente rien.
+  - **Latence** : un appel interne au réseau Docker évite l'aller-retour Internet et le démarrage à froid d'une plateforme *scale-to-zero*, qui ajoute plusieurs secondes au premier scan après inactivité.
+  - **Souveraineté des données** : la photo reste traitée sur le serveur suisse déjà déclaré dans la politique de confidentialité, sans introduire un sous-traitant supplémentaire à documenter au titre de l'article 28 du RGPD.
+
+- **Alternatives écartées** :
+  - **Plateforme serverless de conteneurs** (cible initiale de DEC-042) : écartée pour Alpha.3. Coût probable nul grâce aux forfaits mensuels offerts, mais elle impose un abonnement, un moyen de paiement, le choix explicite d'une région européenne et un runbook dédié — pour un composant à très faible trafic. Reste la cible naturelle si le volume augmente.
+  - **Désactiver le scan en production pour Alpha.3** : écartée — c'est la fonctionnalité centrale du produit, et sa désactivation aurait aussi impliqué de retoucher le feature flag et la politique de confidentialité.
+
+- **Conséquences** :
+  - **US-83** : service `ia` dans le compose de production, image publiée sur GHCR par la CI sur les tags `v*`, deux nouveaux secrets (`MISTRAL_API_KEY` et `ia_host_secrets.json`).
+  - La clé du fournisseur IA est désormais résolue via `SecretResolver` (motif `*_FILE`), pour rester cohérent avec le pattern Docker Secrets de BACK-004 : la Function ne lisait jusqu'ici que des variables d'environnement.
+  - Empreinte mémoire du VPS augmentée d'environ 512 Mo (`mem_limit`).
+  - `DEPLOYMENT.md` décrit désormais cinq services au lieu de quatre.
+
+- **Conditions qui invalideraient ce choix** :
+  - Volume de scans faisant de la Function un consommateur CPU significatif, ou retour du pipeline OCR comme chemin par défaut.
+  - Saturation mémoire du VPS.
+  - Besoin de mettre à l'échelle la Function indépendamment du reste de la stack.
+  Dans ces cas, le déplacement vers une plateforme serverless ne demande **aucun changement de code** : seule l'URL `OcrScan__BaseUrl` change.
+
+- **État** : DÉCIDÉ le 12/09/2026, appliqué dans US-83.
+
+---
+
 
 ## Investigations en cours
 
