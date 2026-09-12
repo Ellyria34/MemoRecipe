@@ -77,7 +77,7 @@ For production deployment (build, push, rollback procedures) see [`documentation
 
 ## Current Status
 
-> **Latest release** : `v1.0.0-alpha.2` (August 21, 2026) — first tagged release, container images published to GHCR, pre-beta feature-complete.
+> **Latest release** : `v1.0.0-alpha.3` (September 12, 2026) — private access release: public registration is disabled behind a feature flag, the API rejects `POST /api/auth/register` with 403 and the UI hides every entry point. Previous : `v1.0.0-alpha.2` (August 21, 2026), first tagged release with container images published to GHCR.
 
 | Area | Status |
 |---|---|
