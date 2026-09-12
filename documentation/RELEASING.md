@@ -9,6 +9,7 @@ The project follows semantic versioning `MAJOR.MINOR.PATCH` with pre-release qua
 | Tag pattern | Meaning | When to use | Audience |
 |---|---|---|---|
 | `v1.0.0-alpha.N` | Development in progress, features being added, breaking changes possible | Internal iteration, CI validation | Maintainer only |
+| `v1.0.0-alpha.N.M` | Corrective re-tag inside the same alpha : the release content is unchanged in intent, but an image or a fix must be republished | When an alpha is already tagged and a new artefact is needed before the next sprint | Maintainer only |
 | `v1.0.0-beta.N` | Features complete, seeking bug reports | Beta testing phase | Close testers (5-10 people) |
 | `v1.0.0-rc.N` | Release candidate, considered stable, final validation | Optional pre-launch check | Broader testers (rarely used for solo projects) |
 | `v1.0.0` | First stable public release (General Availability) | Public announcement (LinkedIn, Discord, etc.) | Public |
