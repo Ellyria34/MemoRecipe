@@ -29,6 +29,7 @@ a publish phase on the dev machine, and a deploy phase on the VPS.
  | (2) Build image                                                     |
  |       - API      : dotnet publish /t:PublishContainer               |
  |       - Frontend : docker build                                     |
+ |       - IA       : docker build -f infra/ia/Dockerfile              |
  | (3) Push image    ----------------------->  [ GHCR ]                |
  |                                             (Docker images stored)  |
  | (4) Push code     ----------------------->  [ GitHub repo ]         |
@@ -47,6 +48,7 @@ a publish phase on the dev machine, and a deploy phase on the VPS.
  | (5b) Edit .env to set the new image tags                            |
  |       -> API_IMAGE_TAG=v1.0.1                                       |
  |       -> WEB_IMAGE_TAG=v1.0.1                                       |
+ |       -> IA_IMAGE_TAG=v1.0.1                                        |
  |                                                                     |
  | (6) docker compose pull           <-----   [ GHCR ]                 |
  |       (downloads the new image versions specified in .env)          |
@@ -61,7 +63,7 @@ a publish phase on the dev machine, and a deploy phase on the VPS.
 | Artefact                          | Source        | Pulled/built on VPS via                        |
 |-----------------------------------|---------------|------------------------------------------------|
 | Code + compose + .env.example     | GitHub repo   | `git pull origin main`                         |
-| Docker images (API + Frontend)    | GHCR          | `docker compose pull`                          |
+| Docker images (API + Frontend + IA) | GHCR        | `docker compose pull`                          |
 | Backup image                      | Local build   | `docker compose build backup` (uses `infra/backup/` from the repo) |
 
 The GitHub repo and GHCR are two separate services that both live under
@@ -74,7 +76,7 @@ did not migrate the backup image — tracked V1.1 as a follow-up).
 
 Every image is tagged with semver (`v1.0.0`, `v1.0.1`, ...). The compose
 file does NOT reference a version directly — it references env variables
-`${API_IMAGE_TAG}` and `${WEB_IMAGE_TAG}` defined in `.env`.
+`${API_IMAGE_TAG}`, `${WEB_IMAGE_TAG}` and `${IA_IMAGE_TAG}` defined in `.env`.
 
 Consequence: to deploy a new version OR to rollback to a previous one,
 the only thing to change is `.env`. The compose file itself stays
@@ -90,6 +92,8 @@ The production stack uses a "reverse proxy + localhost bind" pattern for defense
 - The `web` service (nginx serving Blazor WASM) binds its port to `127.0.0.1:8080` inside the VPS. This makes the container reachable ONLY from the VPS itself (loopback interface), never directly from the public Internet.
 - An HTTP reverse proxy (Apache or nginx installed on the VPS host, out of scope of this compose stack) listens on port 443 with a Let's Encrypt TLS certificate (see US-08). It terminates HTTPS and forwards each request to `http://127.0.0.1:8080` internally.
 - Result : the only public entry point is HTTPS on port 443. Any attempt to reach `http://<vps-public-ip>:8080` directly returns "connection refused" — HTTP clear text exposure is impossible.
+
+- The `ia` service (Azure Functions runtime hosting the AI extraction function, see [DEC-064](ADR.md#dec-064)) publishes **no port at all**. It is reachable only from the `backend` Docker network, by service name (`http://ia:7071`), and only the `api` service calls it. It is therefore unreachable from the VPS host itself, and a fortiori from the Internet.
 
 This pattern also allows hosting multiple apps on the same VPS behind the same reverse proxy (each with its own subdomain / path routing), and centralizes TLS certificate management (renewal, cipher config, HSTS headers).
 
@@ -252,6 +256,13 @@ One file per secret, no extension. The filename becomes the config key
 | `Telegram__BotToken`                     | `Telegram:BotToken`                   |
 | `Telegram__ChatId`                       | `Telegram:ChatId`                     |
 | `postgres_password`                      | (used by Postgres container)          |
+| `MISTRAL_API_KEY`                        | (read by the `ia` container via `MISTRAL_API_KEY_FILE`) |
+| `ia_host_secrets.json`                   | (Azure Functions key store, mounted read-only at `/azure-functions-host/Secrets/host.json`) |
+
+Two entries do not follow the `Section__Key` convention, on purpose :
+
+- `MISTRAL_API_KEY` is a **Docker secret** consumed by the `ia` container, not by the API. The container receives the path through `MISTRAL_API_KEY_FILE` and reads the file at startup (see `SecretResolver`).
+- `ia_host_secrets.json` is **not a Docker secret** but a **bind-mounted file**, because the Azure Functions runtime expects its key store at a fixed absolute path. It keeps its `.json` extension for the same reason. Its content is the `masterKey` / `functionKeys` structure ; the `default` function key must match the `OcrScan__FunctionKey` secret read by the API.
 
 ### One-time setup on the VPS
 
@@ -369,7 +380,7 @@ Three things to keep in mind :
 
 | Environment | ScanRecipeEnabled | RegistrationEnabled |
 |---|---|---|
-| Production (VPS) | `true` | **`false`** — private access; the single owner account is created manually, see the admin password procedure |
+| Production (VPS) | `true` (requires the `ia` service running, see [DEC-064](ADR.md#dec-064)) | **`false`** — private access; the single owner account is created manually, see the admin password procedure |
 | Development | `true` | `true` |
 | Integration tests | `true` | `true` (set by the test host) |
 | E2E stack | `true` | `true` (`.env.e2e`) |
