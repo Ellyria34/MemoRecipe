@@ -36,6 +36,34 @@ services:
       - SETGID
       - SETUID
 
+  ia:
+    image: ghcr.io/ellyria34/memorecipe-ia:${IA_IMAGE_TAG:-latest}
+    container_name: memorecipe_ia
+    restart: unless-stopped
+    environment:
+      FUNCTIONS_WORKER_RUNTIME: dotnet-isolated
+      AZURE_FUNCTIONS_ENVIRONMENT: Production
+      AI_PROVIDER: MistralVision
+      MISTRAL_API_KEY_FILE: /run/secrets/MISTRAL_API_KEY
+    secrets:
+      - MISTRAL_API_KEY
+    volumes:
+      - ${SECRETS_PATH}/ia_host_secrets.json:/azure-functions-host/Secrets/host.json:ro
+    networks:
+      - backend
+    healthcheck:
+      test: [ "CMD-SHELL", "code=$$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:7071/api/ExtractOcrFunction); [ \"$$code\" != \"000\" ] && [ \"$$code\" != \"404\" ]" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+    mem_limit: 512m
+    cpus: '0.5'
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
   api:
     image: ghcr.io/ellyria34/memorecipe-api:${API_IMAGE_TAG:-latest}
     container_name: memorecipe_api
@@ -60,6 +88,8 @@ services:
       - backend
     depends_on:
       postgres:
+        condition: service_healthy
+      ia:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/health || exit 1"]
@@ -180,3 +210,6 @@ secrets:
     file: ${SECRETS_PATH}/Telegram__BotToken
   Telegram__ChatId:
     file: ${SECRETS_PATH}/Telegram__ChatId
+  MISTRAL_API_KEY:
+    file: ${SECRETS_PATH}/MISTRAL_API_KEY
+
