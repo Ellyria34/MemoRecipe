@@ -41,6 +41,7 @@ services:
     container_name: memorecipe_ia
     restart: unless-stopped
     environment:
+      AzureWebJobsStorage: "UseDevelopmentStorage=true"
       FUNCTIONS_WORKER_RUNTIME: dotnet-isolated
       AZURE_FUNCTIONS_ENVIRONMENT: Production
       AI_PROVIDER: MistralVision
