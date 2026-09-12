@@ -737,6 +737,8 @@ docker exec memorecipe_backup ls -lh /backups
 
 Registration is closed in Alpha.3 (`Features:RegistrationEnabled=false`), and the guard in `AuthController.Register` returns 403 to **every** caller, including an administrator : it runs before any authentication or validation. The admin CLI only resets the password of an existing account (`--reset-password`), it cannot create one.
 
+Create this account **before exposing the site publicly** — before the reverse proxy vhost and the DNS record point to it. Registration is then only reachable from the VPS itself, and the temporary window carries no risk.
+
 To create the very first account, re-enable registration **temporarily**, through a compose override file kept **outside the repository** so it can never be committed :
 
 ```yaml
