@@ -543,15 +543,16 @@ Baseline `security_opt: no-new-privileges` set in **BACK-007p3** (30/07/2026). A
 
 ---
 
-## HTTPS + Let's Encrypt reverse proxy (US-08 anticipation)
+## HTTPS + Let's Encrypt reverse proxy
 
-> **Status** : this section is written in anticipation of **US-08 (HTTPS forcé prod + Let's Encrypt sur VPS)**. Commands are indicative and will be validated / adapted during the actual US-08 execution. Reverse proxy choice (nginx vs Apache on the VPS host) will be finalized in US-08.
+> **Status** : executed and validated on the production VPS during US-08. The commands below are the ones that actually ran. nginx was retained as the host reverse proxy, for consistency with the nginx already inside the `web` container.
 
 ### Prerequisites
 
-- Domain name pointing to the VPS public IP (e.g. `<your-domain>` → A record → `<vps-public-ip>`)
-- UFW allows 80 + 443 (done in [Initial VPS setup](#initial-vps-setup-first-time-provisioning))
-- Reverse proxy installed on the VPS host (nginx recommended for consistency with the Blazor `web` container)
+- Domain name pointing to the VPS public IP (`<your-domain>` → A record → `<vps-public-ip>`), **propagated** before running certbot : Let's Encrypt validates ownership by calling the domain from the outside. Add a record for every name the certificate must cover.
+- **Two firewalls must allow 80 and 443, not one.** UFW on the machine (done in [Initial VPS setup](#initial-vps-setup-first-time-provisioning)), **and** the network firewall of the hosting platform, configured from its management console. Cloud instances commonly ship with only SSH open, and the platform one filters upstream of the machine.
+  Symptom when the platform firewall is the blocker : the connection **times out**. nginx answers fine locally (`curl -I http://127.0.0.1`), `ss -tlnp` shows it listening on `0.0.0.0:80`, `ufw status` allows the port — and the site is still unreachable. A `connection refused` would mean the opposite : packets do reach the machine and nothing listens.
+  Quick check from outside : SSH works but HTTP does not, on the same name, is enough to conclude.
 
 ### 1. Install nginx (reverse proxy) + certbot
 
@@ -565,23 +566,27 @@ sudo apt install -y nginx certbot python3-certbot-nginx
 sudo nano /etc/nginx/sites-available/<your-domain>
 ```
 
-Minimal config (adapt `<your-domain>`) :
+Start with a plain HTTP block. Two things it must NOT contain yet :
+
+- **No redirect to HTTPS.** Nothing listens on 443 at this point, so redirecting would make the site unreachable before the certificate even exists. Certbot adds the redirect itself in step 3, once the 443 block is live.
+- **No `/.well-known/acme-challenge/` block.** That pattern belongs to the `--webroot` method. With `certbot --nginx`, certbot handles the challenge by editing the configuration itself, and a hand-written block only creates ambiguity about which directory is served.
+
 ```nginx
 server {
     listen 80;
-    server_name <your-domain>;
+    listen [::]:80;
+    server_name <your-domain> www.<your-domain>;
 
-    # Let's Encrypt HTTP-01 challenge (before HTTPS is active)
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
+    root /var/www/<app>;
+    index index.html;
 
-    # Redirect everything else to HTTPS (added by certbot below)
     location / {
-        return 301 https://$host$request_uri;
+        try_files $uri $uri/ =404;
     }
 }
 ```
+
+`root` points at a directory you create for this site, not at `/var/www/html` : the Debian default page there is named `index.nginx-debian.html`, so an `index index.html;` directive finds nothing and nginx answers **403** rather than serving it.
 
 Enable the site :
 ```bash
@@ -592,16 +597,44 @@ sudo systemctl reload nginx
 
 ### 3. Obtain the Let's Encrypt certificate
 
+Repeat `-d` once per name. **One certificate covers all of them**, and the first
+`-d` becomes the certificate's primary name, the others its alternative names.
+
 ```bash
-sudo certbot --nginx -d <your-domain> --agree-tos --non-interactive --email <admin-email>
+sudo certbot --nginx \
+    -d <your-domain> -d www.<your-domain> -d <other-name>.<your-domain> \
+    --agree-tos --non-interactive --email <admin-email>
 ```
 
+Every name listed must already resolve to this VPS, otherwise its challenge
+fails and the whole request fails with it.
+
+Run interactively the first time (drop `--non-interactive`) : certbot then asks
+whether to redirect HTTP to HTTPS. Answer **yes** - that is what installs the
+`301`, at the point where 443 actually works. The e-mail receives the expiry
+warnings if automatic renewal ever breaks, so use an address that is actually read.
+
 Certbot auto-configures nginx to :
-- Add the `listen 443 ssl` block
+- Add the `listen 443 ssl` block, for IPv4 and IPv6
 - Add `ssl_certificate` + `ssl_certificate_key` paths
 - Add the TLS protocol and cipher configuration (Mozilla intermediate profile)
+- Turn the port 80 block into a redirect to HTTPS
 
 Certbot does NOT add security headers, and none must be added here - see the next step.
+
+**Certbot does not enable HTTP/2 either.** Since nginx 1.25.1 it is a directive of
+its own, `http2 on;`, and no longer a `listen` parameter. Check with
+`sudo nginx -v`, then add the line to the 443 block, **away from the
+`# managed by Certbot` lines** which are rewritten at every renewal :
+
+```nginx
+    http2 on;
+```
+
+Verify with `curl -I --http2 https://<your-domain>` : the first line must read
+`HTTP/2 200`. Force the protocol with `--http2`, since curl may otherwise stay on
+HTTP/1.1 by default and hide a working configuration. Header names come back
+lowercase over HTTP/2, which is a second, visible confirmation.
 
 ### 4. Add reverse proxy to the Blazor `web` container (`127.0.0.1:8080`)
 
@@ -609,8 +642,9 @@ Edit `/etc/nginx/sites-available/<your-domain>` (the `server { listen 443 ssl; .
 
 ```nginx
 server {
-    listen 443 ssl http2;
-    server_name <your-domain>;
+    listen 443 ssl;
+    http2 on;
+    server_name <your-domain> www.<your-domain>;
 
     # SSL config (auto-added by certbot)
     ssl_certificate /etc/letsencrypt/live/<your-domain>/fullchain.pem;
@@ -784,7 +818,7 @@ files, see DEC-027). Standard `docker build` + `docker push`.
 
 ## First deploy (initial provisioning)
 
-Distinct from the routine "Deploy update" (Workflow 3 below). This section describes the **one-time first-time deploy** on a fresh VPS, assuming [Initial VPS setup](#initial-vps-setup-first-time-provisioning) + [Secret management](#secret-management-production) + [HTTPS + Let's Encrypt](#https--lets-encrypt-reverse-proxy-us-08-anticipation) are done.
+Distinct from the routine "Deploy update" (Workflow 3 below). This section describes the **one-time first-time deploy** on a fresh VPS, assuming [Initial VPS setup](#initial-vps-setup-first-time-provisioning) + [Secret management](#secret-management-production) + [HTTPS + Let's Encrypt](#https--lets-encrypt-reverse-proxy) are done.
 
 ### Prerequisites checklist
 
