@@ -1938,6 +1938,40 @@ Ce fichier trace les decisions architecturales, les choix techniques et la dette
 
 ---
 
+### DEC-065 : Paquets GHCR maintenus privés, accès du VPS par jeton en lecture seule
+
+- **Statut** : ✅ ACTIVE
+- **Date** : 14 septembre 2026 (tranché en préparant le premier déploiement)
+
+- **Choix** :
+  Les trois images (`memorecipe-api`, `memorecipe-web`, `memorecipe-ia`) restent **privées** sur GHCR, alors que le dépôt de code, lui, est public. Le VPS s'authentifie auprès du registre avec un **jeton personnel restreint à `read:packages`**, posé une seule fois par `docker login ghcr.io`. Ni `write:packages`, ni `delete:packages`, ni `repo`.
+
+- **Pourquoi ces choix** :
+  - **Le code source et l'image compilée n'exposent pas la même chose.** Le dépôt donne à lire une intention ; l'image livre les binaires produits, l'empilement exact des couches et la version résolue de chaque dépendance transitive. C'est précisément l'inventaire que consulte quelqu'un qui cherche une vulnérabilité publiée applicable à la stack. Le job `vuln-audit` ([DEC-053](#dec-053)) échoue sur les sévérités High et Critical, mais il ne dit rien des vulnérabilités publiées **après** la dernière construction de l'image.
+  - **Le coût est borné et connu** : un secret de plus sur le serveur et une rotation à prévoir. Aucune friction au quotidien, le `docker login` étant fait une fois pour toutes.
+  - **Cette confidentialité ne protège aucun secret** : les valeurs sensibles sont injectées au démarrage par le mécanisme Docker Secrets ([DEC-052](#dec-052)) et ne sont jamais dans les images. La visibilité privée réduit la reconnaissance disponible, elle ne remplace aucune protection — c'est une couche, pas une défense.
+  - **Le jeton en lecture seule borne le rayon d'explosion** : même dérobé, il ne permet pas de publier. Un jeton capable d'écrire permettrait de substituer une image piégée que le VPS exécuterait au déploiement suivant. C'est le scénario grave, et il est fermé par construction.
+
+- **Alternatives écartées** :
+  - **Paquets publics** : zéro secret à gérer, zéro rotation, aucun risque de panne de déploiement par jeton expiré. Écartée : elle publie les binaires sans contrepartie opérationnelle décisive pour un projet mono-serveur.
+  - **Jeton *fine-grained* limité au seul dépôt** : préférable sur le principe, la portée étant par dépôt plutôt que par compte. Non retenue pour l'instant, la prise en charge de ces jetons par le registre de conteneurs ayant longtemps été partielle. À réévaluer à la première rotation.
+  - **Construire les images sur le VPS** : supprime le besoin d'authentification, mais ce qui tourne en production ne serait plus l'artefact construit et testé par la CI, et le retour arrière par changement de tag ([DEC-031](#dec-031)) n'aurait plus de source à pointer.
+
+- **Conséquences** :
+  - Une expiration explicite est obligatoire sur le jeton ; sa valeur et sa date de renouvellement sont consignées dans le gestionnaire de mots de passe, **jamais dans le dépôt**.
+  - Le déploiement casse le jour de l'expiration si la rotation est oubliée, avec un message `denied` sans rapport apparent avec la cause. `DEPLOYMENT.md` documente la procédure de rotation pour cette raison.
+  - Le jeton est stocké encodé en base64, non chiffré, dans le `config.json` de Docker de l'utilisateur de déploiement — comportement standard de Docker, pas une particularité de ce déploiement. Sa protection ne vient donc pas du fichier mais de deux choses : la portée minimale du jeton, et le contrôle de qui peut ouvrir une session sur la machine.
+  - Le compteur de téléchargements du registre reste un signal simple pour vérifier qu'un `pull` a réellement eu lieu et que le serveur n'a pas servi une image en cache.
+
+- **Conditions qui invalideraient ce choix** :
+  - Distribution ouverte du projet, les images devenant destinées à être réutilisées par des tiers.
+  - Multiplication des machines à provisionner, rendant la gestion du jeton plus coûteuse que le bénéfice.
+  - Signature des images (cosign) assortie d'une vérification à l'exécution : la substitution d'image devient détectable, et une partie de l'argument tombe.
+
+- **État** : DÉCIDÉ le 14/09/2026, appliqué le jour même — jeton créé, `docker login` effectué sur le VPS, `docker pull` réel vérifié.
+
+---
+
 
 ## Investigations en cours
 
