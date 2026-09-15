@@ -1,9 +1,9 @@
 # MemoRecipe Deployment Guide
 
 This document describes how to build, publish, deploy, and rollback the
-MemoRecipe stack (API + Frontend + Backup) using GitHub Container Registry
-(GHCR) for the API and Frontend images, and a locally-built image for the
-Backup service (see BACK-078 / DEC-038 for the rationale).
+MemoRecipe stack (API + Frontend + AI Function + Backup) using GitHub
+Container Registry (GHCR) for the API, Frontend and AI Function images, and a
+locally-built image for the Backup service (see BACK-078 / DEC-038 for the rationale).
 
 It follows DEC-031 (Registry GHCR over on-VPS build) and DEC-027
 (Frontend served via nginx custom Dockerfile), and DEC-038 (backup with
@@ -90,12 +90,12 @@ untouched. Rollback = put the previous tag in `.env`, then re-run
 The production stack uses a "reverse proxy + localhost bind" pattern for defense in depth :
 
 - The `web` service (nginx serving Blazor WASM) binds its port to `127.0.0.1:8080` inside the VPS. This makes the container reachable ONLY from the VPS itself (loopback interface), never directly from the public Internet.
-- An HTTP reverse proxy (Apache or nginx installed on the VPS host, out of scope of this compose stack) listens on port 443 with a Let's Encrypt TLS certificate (see US-08). It terminates HTTPS and forwards each request to `http://127.0.0.1:8080` internally.
-- Result : the only public entry point is HTTPS on port 443. Any attempt to reach `http://<vps-public-ip>:8080` directly returns "connection refused" — HTTP clear text exposure is impossible.
+- An HTTP reverse proxy (nginx installed on the VPS host, out of scope of this compose stack) listens on port 443 with a Let's Encrypt TLS certificate (see US-08). It terminates HTTPS and forwards each request to `http://127.0.0.1:8080` internally.
+- Result : the only public entry point is HTTPS on port 443. Any attempt to reach `http://<vps-public-ip>:8080` directly times out : UFW drops the packets rather than rejecting them, so the connection hangs until the client gives up. A `connection refused` would mean something answered on that port — that is the symptom to worry about, not the timeout.
 
 - The `ia` service (Azure Functions runtime hosting the AI extraction function, see [DEC-064](ADR.md#dec-064)) publishes **no port at all**. It is reachable only from the `backend` Docker network, by service name (`http://ia:7071`), and only the `api` service calls it. It is therefore unreachable from the VPS host itself, and a fortiori from the Internet.
 
-This pattern also allows hosting multiple apps on the same VPS behind the same reverse proxy (each with its own subdomain / path routing), and centralizes TLS certificate management (renewal, cipher config, HSTS headers).
+This pattern also allows hosting multiple apps on the same VPS behind the same reverse proxy (each with its own subdomain / path routing), and centralizes TLS certificate management (renewal, cipher configuration). It does NOT set security headers : those come from further down the chain, see the HTTPS section.
 
 ---
 
@@ -126,7 +126,9 @@ This pattern also allows hosting multiple apps on the same VPS behind the same r
 
 ## Initial VPS setup (first-time provisioning)
 
-One-time procedure to prepare a fresh Debian/Ubuntu-based VPS for the MemoRecipe stack. Assumes SSH access as `root` initially; subsequent operations use a dedicated non-root `<deploy-user>`.
+One-time procedure to prepare a fresh Debian/Ubuntu-based VPS for the MemoRecipe stack. All operations run as a non-root `<deploy-user>` with `sudo`.
+
+**Check what the provider image already gives you before running step 1.** Some images ship with a non-root sudo user and the SSH key already installed, in which case step 1 reduces to the system update. Others drop you in as `root` and expect you to create that user yourself.
 
 ### 1. System update + create non-root deploy user
 
@@ -207,6 +209,9 @@ docker run --rm hello-world
 ### 4. Prepare deployment directory + clone repo
 
 ```bash
+# git may be absent from the provider image - install it explicitly
+sudo apt install -y git
+
 sudo mkdir -p <vps-path>
 sudo chown <deploy-user>:<deploy-user> <vps-path>
 cd <vps-path>
@@ -280,16 +285,61 @@ sudo chmod 700 <secrets-path>
 openssl rand -base64 64 | tr -d '\n' > <secrets-path>/JwtSettings__Secret
 printf 'Host=postgres;Port=5432;Database=<db>;Username=<user>;Password=<pass>' \
     > <secrets-path>/ConnectionStrings__DefaultConnection
-printf 'https://<function-name>.azurewebsites.net' \
-    > <secrets-path>/OcrScan__BaseUrl
-# Function key: Azure Portal > Function App > Function Keys > default (host key preferred)
-printf '<azure-function-key>'   > <secrets-path>/OcrScan__FunctionKey
+# Function base URL: internal address of the `ia` service on the `backend`
+# network. Since DEC-064 the Function runs as a container in this stack, it is
+# NOT hosted on an external serverless platform any more.
+printf 'http://ia:7071' > <secrets-path>/OcrScan__BaseUrl
+
+# Function key: chosen here, not issued by a provider. The exact same value
+# MUST appear as the `default` function key in ia_host_secrets.json below,
+# otherwise the Functions host rejects every API call with a misleading 401.
+openssl rand -base64 32 | tr -d '\n' > <secrets-path>/OcrScan__FunctionKey
+
 printf '<telegram-bot-token>' > <secrets-path>/Telegram__BotToken
 printf '<telegram-chat-id>'   > <secrets-path>/Telegram__ChatId
 printf '<postgres-password>'  > <secrets-path>/postgres_password
+printf '<mistral-api-key>'    > <secrets-path>/MISTRAL_API_KEY
+
+# Azure Functions key store. Bind-mounted read-only, NOT a Docker secret,
+# because the Functions host expects it at a fixed absolute path.
+cat > <secrets-path>/ia_host_secrets.json <<JSON
+{
+  "masterKey": {
+    "name": "master",
+    "value": "$(openssl rand -base64 32 | tr -d '\n')",
+    "encrypted": false
+  },
+  "functionKeys": [
+    {
+      "name": "default",
+      "value": "$(cat <secrets-path>/OcrScan__FunctionKey)",
+      "encrypted": false
+    }
+  ],
+  "systemKeys": []
+}
+JSON
 
 # Lock down every file: read-only, owner only
 sudo chmod 400 <secrets-path>/*
+```
+
+`chmod 400` also applies to `ia_host_secrets.json`. The `ia` container can still
+read it because the official Azure Functions runtime image runs as root (see
+[Non-root users](#non-root-users-image-defaults-preserved)) — do not assume the
+same would hold for a service running under an unprivileged user.
+
+Check that the two copies of the function key match before deploying. A mismatch
+produces a 401 on every scan, with nothing pointing at a key pair as the cause.
+Compare them without printing either value, per
+[Verify (never print values)](#verify-never-print-values) :
+
+```bash
+a=$(cat <secrets-path>/OcrScan__FunctionKey)
+b=$(grep -A2 '"name": "default"' <secrets-path>/ia_host_secrets.json \
+    | grep '"value"' | cut -d'"' -f4)
+[ "$a" = "$b" ] && echo MATCH || echo MISMATCH
+unset a b
 ```
 
 Back up the plaintext values in a secure secrets vault immediately —
@@ -355,19 +405,32 @@ Configuration sources, in increasing order of precedence :
 
 ### Toggling a flag in production
 
+Never edit `docker-compose.prod.yml` on the VPS to do this. That file is tracked
+by git, and the routine deploy starts with `git pull origin main`, which then
+refuses to run because local changes would be overwritten. Use an override file
+kept **outside the repository**, next to the secrets — the same pattern as
+[First user provisioning](#first-user-provisioning) :
+
+```yaml
+# <secrets-path>/flags.yml  (outside the repo, never committed)
+services:
+  api:
+    environment:
+      Features__RegistrationEnabled: "true"
+```
+
 ```bash
 cd <vps-path>
 
-# 1. Add or edit the variable under services.api.environment
-nano docker-compose.prod.yml
-#   Features__RegistrationEnabled: "true"
+# 1. Recreate the API container with the override (config is read at startup)
+docker compose -f docker-compose.prod.yml -f <secrets-path>/flags.yml up -d api
 
-# 2. Recreate the API container (config is only read at startup)
-docker compose -f docker-compose.prod.yml up -d api
-
-# 3. Verify the effective value
+# 2. Verify the effective value
 curl -s http://localhost:8080/api/config/features
 # Expected: {"scanRecipeEnabled":true,"registrationEnabled":true}
+
+# 3. To revert, recreate without the override - note the missing second -f
+docker compose -f docker-compose.prod.yml up -d api
 ```
 
 Three things to keep in mind :
@@ -389,7 +452,7 @@ Three things to keep in mind :
 
 ## Container hardening (OWASP baseline)
 
-`docker-compose.prod.yml` applies 3 OWASP baseline directives on all 4 services (postgres, api, web, backup) for defense in depth (US-06):
+`docker-compose.prod.yml` applies 3 OWASP baseline directives on all 5 services (postgres, api, web, ia, backup) for defense in depth (US-06):
 
 - **`read_only: true`**: immutable rootfs. A compromised container cannot persist via rootfs writes (no persistent webshell / backdoor possible).
 - **`cap_drop: [ALL]`**: strips all default Docker Linux capabilities. `cap_add:` explicitly re-grants only strictly required caps per service.
@@ -432,13 +495,16 @@ volumes:
 
 ### Non-root users (image defaults preserved)
 
-No explicit `user:` in the compose file. Images already use non-root users by default:
+No explicit `user:` in the compose file: each image keeps the user it ships with.
+Three services out of five run unprivileged ; the two that do not are documented
+below with the reason and the compensating controls.
 
 | Service | Image default user | Source |
 |---|---|---|
 | `postgres` | `postgres` UID 999 | Official `postgres:16-alpine` image |
 | `api` | `app` UID 1654 | `<ContainerUser>app</ContainerUser>` csproj (.NET Container Support) |
 | `web` (nginx) | `nginx` UID 101 | Official `nginx:alpine` image switches master root → worker after boot |
+| `ia` | `root` | Official Azure Functions runtime image, no unprivileged variant published. Mitigated by `cap_drop: ALL`, `no-new-privileges`, `read_only` and no published port |
 | `backup` | `root` (for cron) | Cron busybox `/etc/crontabs/root` must run as root to execute crontab tasks |
 
 Do NOT force `user: "1000:1000"`: would break permissions on files copied into images at build time (UID chown mismatch).
@@ -456,18 +522,20 @@ Internal healthchecks use `http://127.0.0.1:8080/...` instead of `http://localho
 
 ### Post-deploy verification
 
-Confirm that the 3 directives are applied on all 4 services:
+Confirm that the 3 directives are applied on all 5 services:
 
 ```bash
-docker inspect memorecipe_postgres memorecipe_api memorecipe_web memorecipe_backup \
+docker inspect memorecipe_postgres memorecipe_api memorecipe_web memorecipe_ia memorecipe_backup \
     --format "{{.Name}} | ReadOnly={{.HostConfig.ReadonlyRootfs}} | CapDrop={{.HostConfig.CapDrop}} | CapAdd={{.HostConfig.CapAdd}} | User={{.Config.User}}"
 ```
 
 **Expected output**:
-- `ReadOnly=true` on all 4 services
-- `CapDrop=[ALL]` on all 4 services
+- `ReadOnly=true` on all 5 services
+- `CapDrop=[ALL]` on all 5 services
 - `CapAdd` per the capabilities table above
-- `User` = image default (non-root)
+- `User` = image default. Empty for `ia` and `backup`, which run as root : see
+  [Non-root users](#non-root-users-image-defaults-preserved) for why, and for the
+  controls that compensate.
 
 ### Historical context
 
@@ -531,7 +599,9 @@ sudo certbot --nginx -d <your-domain> --agree-tos --non-interactive --email <adm
 Certbot auto-configures nginx to :
 - Add the `listen 443 ssl` block
 - Add `ssl_certificate` + `ssl_certificate_key` paths
-- Add HSTS-friendly config (verify + strengthen with `Strict-Transport-Security` preload settings)
+- Add the TLS protocol and cipher configuration (Mozilla intermediate profile)
+
+Certbot does NOT add security headers, and none must be added here - see the next step.
 
 ### 4. Add reverse proxy to the Blazor `web` container (`127.0.0.1:8080`)
 
@@ -546,8 +616,23 @@ server {
     ssl_certificate /etc/letsencrypt/live/<your-domain>/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/<your-domain>/privkey.pem;
 
-    # HSTS preload (recommended for production)
-    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    # NO security headers here on purpose. The six of them (HSTS, CSP,
+    # X-Frame-Options, X-Content-Type-Options, Referrer-Policy,
+    # Permissions-Policy) are already emitted downstream and travel with the
+    # images, so local, e2e and production stay identical :
+    #   - App/MemoRecipe.Web/nginx.conf   -> every response served by `web`
+    #   - SecurityHeadersMiddleware (API) -> every API response (DEC-021)
+    # Adding them again here would append a further copy to every response.
+    # RFC 6797 has the user agent honour only the FIRST
+    # Strict-Transport-Security received, so a stale host value would quietly
+    # win over the versioned one. Duplicates are also reported by header
+    # analysers (securityheaders.com, and the header listing in an SSL Labs
+    # report - the grade itself only scores the TLS configuration).
+    #
+    # Note : responses under /api/ already carry each header twice today,
+    # because the API middleware and the container nginx both set them. That
+    # is a known defect of the two layers below, tracked separately - do not
+    # try to compensate for it here.
 
     # Forward to the Blazor web container
     location / {
@@ -596,8 +681,10 @@ Test SSL config quality via [SSL Labs](https://www.ssllabs.com/ssltest/) (target
 1. GitHub -> Settings -> Developer settings -> Personal access tokens ->
    Tokens (classic) -> Generate new token.
 2. Note: a meaningful name (e.g. "GHCR push fallback").
-3. Expiration: 90 days recommended (renew on calendar).
-4. Scopes: tick `write:packages` (it implies `read:packages` and `repo`).
+3. Expiration: always set one. A token without an expiry that leaks stays valid
+   forever.
+4. Scopes: tick `write:packages` only. It auto-selects `read:packages`; it does
+   NOT grant `repo`, and `repo` must not be added - the registry never needs it.
 5. Generate -> copy once -> paste into your password manager with a note
    mentioning the scope and the expiration date.
 
@@ -612,10 +699,23 @@ docker login ghcr.io
 
 ### 3. Create a separate read-only PAT for the VPS (required)
 
-Same procedure as step 1, but tick only `read:packages`. Store it
-separately. Run `docker login ghcr.io` on the VPS with this PAT.
+Same procedure as step 1, but tick only `read:packages` - never `write:packages`
+(a stolen token able to publish could substitute a booby-trapped image that the
+VPS would then run) and never `delete:packages`. Store it separately. Run
+`docker login ghcr.io` on the VPS with this PAT, pasting it at the masked prompt
+rather than passing it with `-p`, so it never reaches the shell history or the
+process list.
+
 Keeping write-capable PATs off the VPS limits blast radius if the VPS
 is ever compromised.
+
+**Rotation.** Docker stores the token base64-encoded, not encrypted, in
+`~/.docker/config.json` of the `<deploy-user>`. Record its expiry date in the
+password manager - **not in this document**, which is public. Once expired,
+`docker compose pull` fails with `denied` while nothing on the project side has
+changed, which makes the cause hard to guess. To rotate : create the replacement
+token, run `docker login ghcr.io` again on the VPS (it overwrites the stored
+credential), then revoke the old one on GitHub.
 
 ---
 
@@ -691,7 +791,7 @@ Distinct from the routine "Deploy update" (Workflow 3 below). This section descr
 - [ ] VPS provisioned + hardened (UFW, non-root user, Docker installed)
 - [ ] `<vps-path>` cloned with the repo
 - [ ] `.env` populated at repo root (image tags, `POSTGRES_USER`, `POSTGRES_DB`, `SECRETS_PATH`, `GPG_RECIPIENT`, `JWT_ISSUER`, `JWT_AUDIENCE`)
-- [ ] All 7 secret files created in `<secrets-path>` (`chmod 400`, owner-only)
+- [ ] All 9 secret files created in `<secrets-path>` (`chmod 400`, owner-only)
 - [ ] `docker login ghcr.io` done on the VPS with the read-only PAT
 - [ ] nginx reverse proxy configured with Let's Encrypt cert on port 443 → forwards to `127.0.0.1:8080`
 - [ ] DNS A record for the domain → VPS public IP
@@ -701,13 +801,16 @@ Distinct from the routine "Deploy update" (Workflow 3 below). This section descr
 ```bash
 cd <vps-path>
 
-# 1. Set the initial image tags in .env (first release = v1.0.0-alpha.3)
+# 1. Set the initial image tags in .env
+#    Use v1.0.0-alpha.3.1, not v1.0.0-alpha.3 : the ia image does not exist
+#    under the earlier tag, it was first published by the corrective re-tag.
 nano .env
-# -> API_IMAGE_TAG=v1.0.0-alpha.3
-# -> WEB_IMAGE_TAG=v1.0.0-alpha.3
+# -> API_IMAGE_TAG=v1.0.0-alpha.3.1
+# -> WEB_IMAGE_TAG=v1.0.0-alpha.3.1
+# -> IA_IMAGE_TAG=v1.0.0-alpha.3.1
 
-# 2. Pull the initial API + Frontend images from GHCR
-docker compose -f docker-compose.prod.yml pull api web
+# 2. Pull the initial API + Frontend + AI Function images from GHCR
+docker compose -f docker-compose.prod.yml pull api web ia
 
 # 3. Build the backup image locally (first time)
 docker compose -f docker-compose.prod.yml build backup
@@ -717,11 +820,16 @@ docker compose -f docker-compose.prod.yml up -d
 
 # 5. Wait for all services to become healthy (~60-90s total)
 watch -n 5 'docker compose -f docker-compose.prod.yml ps'
-# Wait until all 4 services show STATUS = healthy (except backup = Up, no healthcheck)
+# Wait until the 4 services with a healthcheck (postgres, ia, api, web) show
+# STATUS = healthy. The 5th, backup, only shows Up : it has no healthcheck.
 
-# 6. Verify the API health endpoint (from the VPS localhost)
-curl -f http://localhost:8080/health
-# Expected : "Healthy" (200)
+# 6. Verify the API health endpoint.
+#    It MUST be queried inside the api container. Port 8080 on the host is the
+#    web container, whose nginx only proxies /api/ ; /health falls through to
+#    the SPA and returns 200 with index.html - a check that passes even when
+#    the API is dead.
+docker compose -f docker-compose.prod.yml exec api wget -qO- http://127.0.0.1:8080/health
+# Expected : Healthy
 
 # 7. Verify HTTPS end-to-end (from anywhere)
 curl -I https://<your-domain>/
@@ -781,9 +889,10 @@ git pull origin main
 nano .env
 # -> API_IMAGE_TAG=v1.0.1
 # -> WEB_IMAGE_TAG=v1.0.1
+# -> IA_IMAGE_TAG=v1.0.1
 
-# 3. Pull the new API + Frontend images from GHCR
-docker compose -f docker-compose.prod.yml pull api web
+# 3. Pull the new API + Frontend + AI Function images from GHCR
+docker compose -f docker-compose.prod.yml pull api web ia
 
 # 4. Build the backup image locally (uses infra/backup/ from the repo).
 #    Only needed on first deploy or after changes to backup scripts / Dockerfile.
@@ -795,9 +904,10 @@ docker compose -f docker-compose.prod.yml up -d
 # 6. Check health
 docker compose -f docker-compose.prod.yml ps
 docker compose -f docker-compose.prod.yml logs -f --tail=50
-# Functional health check via HTTP endpoint (BACK-011)
-curl -f http://localhost:8080/health
-# Expected response: "Healthy" (200) or "Unhealthy" (503)
+# Functional health check via HTTP endpoint (BACK-011), from inside the
+# api container - see the note in First deploy step 6.
+docker compose -f docker-compose.prod.yml exec api wget -qO- http://127.0.0.1:8080/health
+# Expected response: Healthy
 
 ```
 
@@ -837,7 +947,7 @@ The production stack emits logs from 4 sources. Use the right tool for each sour
 
 ### 1. Container stdout/stderr (Docker native)
 
-Any log written by the application to `stdout` or `stderr` is captured by Docker and accessible via `docker logs`. All 4 services (postgres, api, web, backup) use this by default.
+Any log written by the application to `stdout` or `stderr` is captured by Docker and accessible via `docker logs`. All 5 services (postgres, api, web, ia, backup) use this by default.
 
 ```bash
 # Recent logs (last 50 lines) for one service
@@ -872,7 +982,9 @@ docker compose -f docker-compose.prod.yml logs api | grep -E "responded (4|5)[0-
 docker compose -f docker-compose.prod.yml logs api | grep -E "\[(WRN|ERR|FTL)\]"
 ```
 
-**PII redaction** : Serilog is configured with `EmailMasker` (RGPD Art. 5 minimization) — emails appear as `s***@example.com` in logs, never in the clear. See DEC-060 pattern.
+**PII redaction** : Serilog is configured with `EmailMasker` (RGPD Art. 5 minimization) — emails appear as `s***@example.com` in logs, never in the clear. See [DEC-051](ADR.md#dec-051).
+
+**The `File` sink is inert in production.** `appsettings.json` declares a second sink writing to `logs/memorecipe-.log` with a 30-file retention, but the `api` container runs with `read_only: true` and only `/tmp` writable. The sink fails silently : no log file is ever written, and that retention does not exist. `docker logs` is the only source. Tracked as a follow-up.
 
 ### 3. nginx access + error logs (web container)
 
@@ -1026,7 +1138,7 @@ Emergency operational procedures — not routine deployment, not bug troubleshoo
 
 ### Container down (crash loop)
 
-**Symptom** : one service (`api`, `web`, `postgres`, `backup`) is `Restarting` or `Exited` in `docker compose ps`. Client sees 502 / 503 / connection refused.
+**Symptom** : one service (`api`, `web`, `ia`, `postgres`, `backup`) is `Restarting` or `Exited` in `docker compose ps`. Client sees 502 / 503 / connection refused.
 
 **Diagnostic** :
 ```bash
@@ -1204,14 +1316,14 @@ docker cp backup-to-restore.dump memorecipe_postgres:/tmp/backup-to-restore.dump
 Step 4 — Restore the database (`--clean --if-exists` = drop objects before recreating):
 ```bash
 docker exec memorecipe_postgres pg_restore \
-    -U memorecipe -d memorecipe \
+    -U <db-user> -d <db-name> \
     --clean --if-exists \
     /tmp/backup-to-restore.dump
 ```
 
 Step 5 — Verify the data is restored (adapt the query to your actual tables):
 ```bash
-docker exec memorecipe_postgres psql -U memorecipe -d memorecipe -c "SELECT COUNT(*) FROM \"Users\";"
+docker exec memorecipe_postgres psql -U <db-user> -d <db-name> -c "SELECT COUNT(*) FROM \"Users\";"
 ```
 
 Step 6 — Clean up the plaintext file (**contains all user data in the clear — do NOT leave it around**):
@@ -1265,5 +1377,11 @@ Alerts on backup failure / staleness are part of **BACK-079** (monitoring + aler
 - **Automated rollback** on failed healthcheck (compose watch or
   external supervisor).
 - **Image signing** (cosign) for supply chain integrity.
-- **Public images** (free unlimited pulls on GHCR for public repos)
-  if/when the project goes public-source.
+- **Signature verification on pull** (cosign policy enforced on the VPS), once
+  images are signed.
+
+The repository is public, but the **packages are deliberately kept private** :
+publishing the images would hand out the compiled binaries and the exact layer
+and dependency versions, which is free reconnaissance for anyone looking for a
+known vulnerability in the stack. The cost of that choice is the read-only PAT
+above, and its rotation.
